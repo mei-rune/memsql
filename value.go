@@ -188,6 +188,12 @@ type Record struct {
 	Values  []Value
 }
 
+
+
+func (r *Record) IsEmpty() bool {
+	return len(r.Values) == 0
+}
+
 func (r *Record) EqualTo(to Record) bool {
 	if len(r.Columns) != len(to.Columns) {
 		return false

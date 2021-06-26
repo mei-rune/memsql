@@ -1,3 +1,3 @@
-module github.com/ahmetb/go-linq/v3
+module github.com/runner-mei/memsql
 
 go 1.11

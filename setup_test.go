@@ -20,6 +20,32 @@ func makeRecords(value ...int64) []Record {
 	return results
 }
 
+func fromInts(input ...int64) Query {
+	return FromRecords(makeRecords(input...))
+}
+
+func makeRecordWithStr(value string) Record {
+	return Record{
+		Columns: []Column{{Name: "c1"}},
+		Values:  []Value{{Type: ValueString, String: value}},
+	}
+}
+
+func makeRecordsWithStrings(value ...string) []Record {
+	results := []Record{}
+	for _, v := range value {
+		results = append(results, Record{
+			Columns: []Column{{Name: "c1"}},
+			Values:  []Value{{Type: ValueString, String: v}},
+			})
+	}
+	return results
+}
+
+func fromStrings(input ...string) Query {
+	return FromRecords(makeRecordsWithStrings(input...))
+}
+
 type foo struct {
 	f1 int
 	f2 bool
