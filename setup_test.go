@@ -1,15 +1,23 @@
 package memsql
 
-import "testing"
-
-import "fmt"
-
+import (
+	"fmt"
+	"testing"
+)
 
 func makeRecord(value int64) Record {
 	return Record{
-		Columns: []Column{ {Name: "c1"} },
-		Values: []Value{ {Type: ValueInt64, Int64: value} },
+		Columns: []Column{{Name: "c1"}},
+		Values:  []Value{{Type: ValueInt64, Int64: value}},
 	}
+}
+
+func makeRecords(value ...int64) []Record {
+	results := []Record{}
+	for _, v := range value {
+		results = append(results, makeRecord(v))
+	}
+	return results
 }
 
 type foo struct {
@@ -25,20 +33,20 @@ func (f foo) Iterate() Iterator {
 		switch i {
 		case 0:
 			item = Record{
-				Columns: []Column{ {Name: "c1"} },
-				Values: []Value{ {Type: ValueInt64, Int64: int64(f.f1)} },
+				Columns: []Column{{Name: "c1"}},
+				Values:  []Value{{Type: ValueInt64, Int64: int64(f.f1)}},
 			}
 			ok = true
 		case 1:
 			item = Record{
-				Columns: []Column{ {Name: "c1"} },
-				Values: []Value{ {Type: ValueBool, Bool: f.f2} },
+				Columns: []Column{{Name: "c1"}},
+				Values:  []Value{{Type: ValueBool, Bool: f.f2}},
 			}
 			ok = true
 		case 2:
 			item = Record{
-				Columns: []Column{ {Name: "c1"} },
-				Values: []Value{ {Type: ValueString, String: f.f3} },
+				Columns: []Column{{Name: "c1"}},
+				Values:  []Value{{Type: ValueString, String: f.f3}},
 			}
 			ok = true
 		default:

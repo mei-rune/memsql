@@ -1,16 +1,16 @@
 package memsql
 
 import (
-	"errors"
 	"encoding"
 	"encoding/json"
+	"errors"
 	"strconv"
 )
 
 type ValueType int
 
 const (
-	ValueNil  ValueType = iota
+	ValueNil ValueType = iota
 	ValueBool
 	ValueString
 	ValueInt64
@@ -21,11 +21,11 @@ const (
 var ErrUnknownValueType = errors.New("unknown value type")
 
 type Value struct {
-	Type ValueType
-	Bool bool
-	String string
-	Int64 int64
-	Uint64 uint64
+	Type    ValueType
+	Bool    bool
+	String  string
+	Int64   int64
+	Uint64  uint64
 	Float64 float64
 }
 
@@ -135,18 +135,18 @@ func (r *Value) EqualToUint64(to uint64) bool {
 }
 
 func (r *Value) EqualToFloat64(to float64) bool {
-		return false
+	return false
 }
 
-func (v *Value) marshalText() ( []byte, error) {
+func (v *Value) marshalText() ([]byte, error) {
 	switch v.Type {
- 	case ValueNil:
- 		return []byte("null"), nil
-  	case ValueBool:
-	  	if v.Bool {
-	  		return []byte("true"), nil
-	  	}
-	  	return []byte("false"), nil
+	case ValueNil:
+		return []byte("null"), nil
+	case ValueBool:
+		if v.Bool {
+			return []byte("true"), nil
+		}
+		return []byte("false"), nil
 	case ValueString:
 		return json.Marshal(v.String)
 	case ValueInt64:
@@ -160,11 +160,12 @@ func (v *Value) marshalText() ( []byte, error) {
 	}
 }
 
-func (v Value) MarshalText() ( []byte, error) {
+func (v Value) MarshalText() ([]byte, error) {
 	return v.marshalText()
 }
 
 var _ encoding.TextMarshaler = &Value{}
+
 // func (v *Value) MarshalText() ( []byte,  error) {
 // 	return v.marshalText()
 // }
@@ -180,7 +181,7 @@ func columnSearch(columns []Column, column Column) int {
 		}
 	}
 	return -1
-} 
+}
 
 type Record struct {
 	Columns []Column
@@ -188,27 +189,27 @@ type Record struct {
 }
 
 func (r *Record) EqualTo(to Record) bool {
-  if len(r.Columns) != len(to.Columns) {
-  	return false
-  }
-  for idx := range r.Columns {
-  	var toIdx = idx
-  	if r.Columns[idx].Name != to.Columns[idx].Name {
-  		toIdx = columnSearch(to.Columns, r.Columns[idx])
-  		if toIdx < 0 {
-  			return false
-  		} 
-  	}
+	if len(r.Columns) != len(to.Columns) {
+		return false
+	}
+	for idx := range r.Columns {
+		var toIdx = idx
+		if r.Columns[idx].Name != to.Columns[idx].Name {
+			toIdx = columnSearch(to.Columns, r.Columns[idx])
+			if toIdx < 0 {
+				return false
+			}
+		}
 
-  	if !r.Values[idx].EqualTo(to.Values[toIdx]) {
-  		return false
-  	} 
-  }
+		if !r.Values[idx].EqualTo(to.Values[toIdx]) {
+			return false
+		}
+	}
 
-  return true
+	return true
 }
 
-func (r *Record) marshalText() ( []byte,  error) {
+func (r *Record) marshalText() ([]byte, error) {
 	var buf = make([]byte, 0, 256)
 	buf = append(buf, '{')
 	isFirst := true
@@ -238,29 +239,26 @@ func (r *Record) marshalText() ( []byte,  error) {
 	return buf, nil
 }
 
-
-func (r Record) MarshalText() ( []byte, error) {
+func (r Record) MarshalText() ([]byte, error) {
 	return r.marshalText()
 }
 
-
 var _ encoding.TextMarshaler = &Record{}
+
 // func (r *Record) MarshalText() ( []byte,  error) {
 // 	return r.marshalText()
 // }
 
-
-
 type RecordSet []Record
 
-func (set *RecordSet) Add(r Record)  {
+func (set *RecordSet) Add(r Record) {
 	if set.Has(r) {
 		return
 	}
 	*set = append(*set, r)
 }
 
-func (set *RecordSet) Delete(idx int)  {
+func (set *RecordSet) Delete(idx int) {
 	tmp := []Record(*set)
 	copy(tmp[idx:], tmp[idx+1:])
 	*set = tmp[:len(tmp)-1]
@@ -286,7 +284,7 @@ func (set *RecordSet) Has(r Record) bool {
 
 type Table struct {
 	Columns []Column
-	Records  [][]Value
+	Records [][]Value
 }
 
 func (table *Table) Length() int {
@@ -296,6 +294,6 @@ func (table *Table) Length() int {
 func (table *Table) At(idx int) Record {
 	return Record{
 		Columns: table.Columns,
-		Values: table.Records[idx],
+		Values:  table.Records[idx],
 	}
 }

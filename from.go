@@ -1,6 +1,5 @@
 package memsql
 
-
 // Iterator is an alias for function to iterate over data.
 type Iterator func() (item Record, ok bool)
 
@@ -37,7 +36,6 @@ func From(source Table) Query {
 	}
 }
 
-
 // FromChannel initializes a linq query with passed channel, linq iterates over
 // channel until it is closed.
 func FromChannel(source <-chan Record) Query {
@@ -71,7 +69,6 @@ func FromRecords(source []Record) Query {
 		},
 	}
 }
-
 
 // FromIterable initializes a linq query with custom collection passed. This
 // collection has to implement Iterable interface, linq iterates over items,

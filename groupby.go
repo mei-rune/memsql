@@ -2,7 +2,7 @@ package memsql
 
 // // Group is a type that is used to store the result of GroupBy method.
 // type Group struct {
-// 	Column Column 
+// 	Column Column
 // 	Key   Value
 // 	Group []interface{}
 // }

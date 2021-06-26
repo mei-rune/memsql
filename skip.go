@@ -22,7 +22,6 @@ func (q Query) Skip(count int) Query {
 	}
 }
 
-
 // SkipWhile bypasses elements in a collection as long as a specified
 // condition is true and then returns the remaining elements. The element's
 // index is used in the logic of the predicate function.

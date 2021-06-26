@@ -1,6 +1,5 @@
 package memsql
 
-
 // SelectMany projects each element of a collection to a Query, iterates
 // and flattens the resulting collection into one collection.
 //

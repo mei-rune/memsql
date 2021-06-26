@@ -1,6 +1,5 @@
 package memsql
 
-
 // Where filters a collection of values based on a predicate. Each
 // element's index is used in the logic of the predicate function.
 //

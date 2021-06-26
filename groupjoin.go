@@ -1,6 +1,5 @@
 package memsql
 
-
 // GroupJoin correlates the elements of two collections based on key equality,
 // and groups the results.
 //
