@@ -22,7 +22,7 @@ func TestFrom(t *testing.T) {
 		},
 		Record{
 			Columns: []Column{{Name: "c1"}},
-			Values:  []Value{{Type: ValueString, String: "string"}},
+			Values:  []Value{{Type: ValueString, Str: "string"}},
 		},
 	}
 	fooinput := foo{f1: 1, f2: true, f3: "string"}

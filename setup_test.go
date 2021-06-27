@@ -27,7 +27,7 @@ func fromInts(input ...int64) Query {
 func makeRecordWithStr(value string) Record {
 	return Record{
 		Columns: []Column{{Name: "c1"}},
-		Values:  []Value{{Type: ValueString, String: value}},
+		Values:  []Value{{Type: ValueString, Str: value}},
 	}
 }
 
@@ -36,7 +36,7 @@ func makeRecordsWithStrings(value ...string) []Record {
 	for _, v := range value {
 		results = append(results, Record{
 			Columns: []Column{{Name: "c1"}},
-			Values:  []Value{{Type: ValueString, String: v}},
+			Values:  []Value{{Type: ValueString, Str: v}},
 			})
 	}
 	return results
@@ -72,7 +72,7 @@ func (f foo) Iterate() Iterator {
 		case 2:
 			item = Record{
 				Columns: []Column{{Name: "c1"}},
-				Values:  []Value{{Type: ValueString, String: f.f3}},
+				Values:  []Value{{Type: ValueString, Str: f.f3}},
 			}
 			ok = true
 		default:
@@ -112,7 +112,7 @@ func validateQuery(q Query, output []Record) bool {
 	for _, oitem := range output {
 		qitem, _ := next()
 
-		if !oitem.EqualTo(qitem) {
+		if !oitem.EqualTo(qitem, emptyCompareOption) {
 			return false
 		}
 	}

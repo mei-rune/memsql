@@ -16,7 +16,7 @@ func TestAggregate(t *testing.T) {
 
 	for _, test := range tests {
 		r, ok := fromStrings(test.input...).Aggregate(func(r Record, i Record) Record {
-			if len(r.Values[0].String) > len(i.Values[0].String) {
+			if len(r.Values[0].Str) > len(i.Values[0].Str) {
 				return r
 			}
 			return i
@@ -26,8 +26,8 @@ func TestAggregate(t *testing.T) {
 			continue
 		}
 
-		if r.Values[0].String != test.want {
-			t.Errorf("From(%v).Aggregate()=%v expected %v", r.Values[0].String, r, test.want)
+		if r.Values[0].Str != test.want {
+			t.Errorf("From(%v).Aggregate()=%v expected %v", r.Values[0].Str, r, test.want)
 		}
 	}
 }
@@ -39,13 +39,13 @@ func TestAggregateWithSeed(t *testing.T) {
 
 	r := fromStrings(input...).AggregateWithSeed(makeRecordWithStr(want),
 		func(r Record, i Record) Record {
-			if len(r.Values[0].String) > len(i.Values[0].String) {
+			if len(r.Values[0].Str) > len(i.Values[0].Str) {
 				return r
 			}
 			return i
 		})
 
-	if r.Values[0].String != want {
+	if r.Values[0].Str != want {
 		t.Errorf("From(%v).AggregateWithSeed()=%v expected %v", input, r, want)
 	}
 }
@@ -56,18 +56,18 @@ func TestAggregateWithSeedBy(t *testing.T) {
 
 	r := fromStrings(input...).AggregateWithSeedBy(makeRecordWithStr("banana"),
 		func(r Record, i Record) Record {
-			if len(r.Values[0].String) > len(i.Values[0].String) {
+			if len(r.Values[0].Str) > len(i.Values[0].Str) {
 				return r
 			}
 			return i
 		},
 		func(r Record) Record {
-			r.Values[0].String = strings.ToUpper(r.Values[0].String)
+			r.Values[0].Str = strings.ToUpper(r.Values[0].Str)
 			return r
 		},
 	)
 
-	if r.Values[0].String != want {
+	if r.Values[0].Str != want {
 		t.Errorf("From(%v).AggregateWithSeed()=%v expected %v", input, r, want)
 	}
 }

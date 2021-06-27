@@ -37,7 +37,7 @@ func (oq OrderedQuery) Distinct() OrderedQuery {
 
 				return func() (item Record, ok bool) {
 					for item, ok = next(); ok; item, ok = next() {
-						if item.EqualTo(prev) {
+						if item.EqualTo(prev, emptyCompareOption) {
 							prev = item
 							return
 						}
