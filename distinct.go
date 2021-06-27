@@ -34,10 +34,21 @@ func (oq OrderedQuery) Distinct() OrderedQuery {
 			Iterate: func() Iterator {
 				next := oq.Iterate()
 				var prev Record
+				var hasPrev bool
 
 				return func() (item Record, ok bool) {
+					if !hasPrev {
+						item, ok = next()
+						if !ok {
+							return
+						}
+						prev = item
+						hasPrev = true
+						return
+					}
+
 					for item, ok = next(); ok; item, ok = next() {
-						if item.EqualTo(prev, emptyCompareOption) {
+						if !item.EqualTo(prev, emptyCompareOption) {
 							prev = item
 							return
 						}

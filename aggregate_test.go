@@ -1,8 +1,8 @@
 package memsql
 
 import (
-	"testing"
 	"strings"
+	"testing"
 )
 
 func TestAggregate(t *testing.T) {
@@ -22,7 +22,7 @@ func TestAggregate(t *testing.T) {
 			return i
 		})
 
-		if !ok &&  test.want == "<nil>" {
+		if !ok && test.want == "<nil>" {
 			continue
 		}
 
@@ -31,7 +31,6 @@ func TestAggregate(t *testing.T) {
 		}
 	}
 }
-
 
 func TestAggregateWithSeed(t *testing.T) {
 	input := []string{"apple", "mango", "orange", "banana", "grape"}

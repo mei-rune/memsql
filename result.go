@@ -139,7 +139,7 @@ func (q Query) SequenceEqual(q2 Query) bool {
 
 	for item, ok := next(); ok; item, ok = next() {
 		item2, ok2 := next2()
-		if !ok2 || item.EqualTo(item2, emptyCompareOption) {
+		if !ok2 || !item.EqualTo(item2, emptyCompareOption) {
 			return false
 		}
 	}

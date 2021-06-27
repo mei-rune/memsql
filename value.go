@@ -4,10 +4,10 @@ import (
 	"encoding"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
-	"fmt"
 )
 
 type ValueType int
@@ -22,9 +22,8 @@ const (
 	ValueDatetime
 )
 
-
 func (v ValueType) String() string {
-	switch v{
+	switch v {
 	case ValueNil:
 		return "null"
 	case ValueBool:
@@ -39,38 +38,37 @@ func (v ValueType) String() string {
 		return "float"
 	case ValueDatetime:
 		return "datetime"
-	default: 
-		return "unknown_" + strconv.FormatInt(int64(v), 10) 
+	default:
+		return "unknown_" + strconv.FormatInt(int64(v), 10)
 	}
 }
 
 var ErrUnknownValueType = errors.New("unknown value type")
 
 type TypeError struct {
-	Actual string
+	Actual   string
 	Excepted string
 }
 
 func (e *TypeError) Error() string {
-	return "type erorr: want "+e.Excepted+" got " + e.Actual
+	return "type erorr: want " + e.Excepted + " got " + e.Actual
 }
 
 func NewTypeError(r interface{}, actual, excepted string) error {
 	return &TypeError{
-		Actual: actual,
+		Actual:   actual,
 		Excepted: excepted,
 	}
 }
 
-
 var TimeFormats = []string{
-		time.RFC3339,
-		time.RFC3339Nano,
-		"2006-01-02T15:04:05.000Z07:00",
-		"2006-01-02 15:04:05Z07:00",
-		"2006-01-02 15:04:05",
-		"2006-01-02",
-	}
+	time.RFC3339,
+	time.RFC3339Nano,
+	"2006-01-02T15:04:05.000Z07:00",
+	"2006-01-02 15:04:05Z07:00",
+	"2006-01-02 15:04:05",
+	"2006-01-02",
+}
 
 var TimeLocal = time.Local
 
@@ -81,21 +79,21 @@ func ToDatetime(s string) (time.Time, error) {
 			return m, nil
 		}
 	}
-	return time.Time{}, errors.New("invalid time: "+s)
+	return time.Time{}, errors.New("invalid time: " + s)
 }
 
 func datetimeToInt(t time.Time) int64 {
 	return t.Unix()
 }
 
-func intToDatetime(t  int64) time.Time {
+func intToDatetime(t int64) time.Time {
 	return time.Unix(t, 0)
 }
 
 type Value struct {
 	Type    ValueType
 	Bool    bool
-	Str  string
+	Str     string
 	Int64   int64
 	Uint64  uint64
 	Float64 float64
@@ -121,7 +119,7 @@ func (v *Value) String() string {
 	case ValueDatetime:
 		return intToDatetime(v.Int64).Format(time.RFC3339)
 	default:
-		return "unknown_value_" + strconv.FormatInt(int64(v.Type), 10) 
+		return "unknown_value_" + strconv.FormatInt(int64(v.Type), 10)
 	}
 }
 
@@ -130,7 +128,7 @@ func (v *Value) IsNil() bool {
 }
 
 type CompareOption struct {
-	Weak bool
+	Weak       bool
 	IgnoreCase bool
 }
 
@@ -175,7 +173,7 @@ func (r *Value) EqualToBool(to bool, opt CompareOption) bool {
 	case ValueInt64:
 		if opt.Weak {
 			return (r.Int64 != 0) == to
-		} 
+		}
 	case ValueUint64:
 		if opt.Weak {
 			return (r.Uint64 != 0) == to
@@ -209,7 +207,7 @@ func (r *Value) EqualToString(to string, opt CompareOption) bool {
 			i64, err := strconv.ParseInt(to, 10, 64)
 			if err == nil {
 				return r.Int64 == i64
-			} 
+			}
 		}
 		return false
 	case ValueUint64:
@@ -233,7 +231,7 @@ func (r *Value) EqualToInt64(to int64, opt CompareOption) bool {
 		return false
 	case ValueBool:
 		if opt.Weak {
-			return  (to != 0) == r.Bool
+			return (to != 0) == r.Bool
 		}
 		return false
 	case ValueString:
@@ -241,7 +239,7 @@ func (r *Value) EqualToInt64(to int64, opt CompareOption) bool {
 			i64, err := strconv.ParseInt(r.Str, 10, 64)
 			if err == nil {
 				return i64 == to
-			} 
+			}
 		}
 		return false
 	case ValueInt64:
@@ -264,7 +262,7 @@ func (r *Value) EqualToUint64(to uint64, opt CompareOption) bool {
 		return false
 	case ValueBool:
 		if opt.Weak {
-			return  (to != 0) == r.Bool
+			return (to != 0) == r.Bool
 		}
 		return false
 	case ValueString:
@@ -272,7 +270,7 @@ func (r *Value) EqualToUint64(to uint64, opt CompareOption) bool {
 			u64, err := strconv.ParseUint(r.Str, 10, 64)
 			if err == nil {
 				return u64 == to
-			} 
+			}
 		}
 		return false
 	case ValueInt64:
@@ -324,10 +322,9 @@ func (r *Value) CompareTo(to Value, opt CompareOption) (int, error) {
 	}
 }
 
-
 func (r *Value) CompareToBool(to bool, opt CompareOption) (int, error) {
 	if r.Type == ValueBool {
-		if  r.Bool == to {
+		if r.Bool == to {
 			return 0, nil
 		}
 		if r.Bool {
@@ -341,7 +338,7 @@ func (r *Value) CompareToBool(to bool, opt CompareOption) (int, error) {
 		case ValueString:
 			switch r.Str {
 			case "1", "t", "T", "true", "TRUE", "True":
-				if  to {
+				if to {
 					return 0, nil
 				}
 				return -1, nil
@@ -357,7 +354,7 @@ func (r *Value) CompareToBool(to bool, opt CompareOption) (int, error) {
 					return -1, nil
 				}
 				return 0, nil
-			}			
+			}
 			if to {
 				return 0, nil
 			}
@@ -368,7 +365,7 @@ func (r *Value) CompareToBool(to bool, opt CompareOption) (int, error) {
 					return -1, nil
 				}
 				return 0, nil
-			}			
+			}
 			if to {
 				return 0, nil
 			}
@@ -392,7 +389,7 @@ func (r *Value) CompareToString(to string, opt CompareOption) (int, error) {
 			}
 			return -1, nil
 		}
-		if  r.Str == to {
+		if r.Str == to {
 			return 0, nil
 		}
 		if r.Str > to {
@@ -409,10 +406,10 @@ func (r *Value) CompareToString(to string, opt CompareOption) (int, error) {
 				return 0, NewTypeError(r, "string", "int")
 			}
 			if r.Int64 > toI {
-				return 1, nil 
+				return 1, nil
 			}
 			if r.Int64 < toI {
-				return -1, nil 
+				return -1, nil
 			}
 			return 0, nil
 		case ValueUint64:
@@ -428,10 +425,10 @@ func (r *Value) CompareToString(to string, opt CompareOption) (int, error) {
 				toU = uint64(toI)
 			}
 			if r.Uint64 > toU {
-				return 1, nil 
+				return 1, nil
 			}
 			if r.Uint64 < toU {
-				return -1, nil 
+				return -1, nil
 			}
 			return 0, nil
 		case ValueFloat64:
@@ -440,9 +437,9 @@ func (r *Value) CompareToString(to string, opt CompareOption) (int, error) {
 				return 0, NewTypeError(r, "string", "uint")
 			}
 			if r.Float64 > toF {
-				return 1, nil 
+				return 1, nil
 			}
-			return -1, nil 
+			return -1, nil
 		}
 	}
 	return 0, NewTypeError(r, r.Type.String(), "string")
@@ -454,39 +451,39 @@ func compareToFloat64(a string, b float64, opt CompareOption, deferr error) (int
 		return 0, deferr
 	}
 	if aF > b {
-		return 1, nil 
+		return 1, nil
 	}
-	return -1, nil 
+	return -1, nil
 }
 
 func (r *Value) CompareToInt64(to int64, opt CompareOption) (int, error) {
 	switch r.Type {
 	case ValueString:
 		if opt.Weak {
-		    s := r.Str
-		    if strings.HasSuffix(s, ".0") {
-		    	s = strings.TrimSuffix(s, ".0")
-		    } else if strings.HasSuffix(s, ".00") {
-		    	s = strings.TrimSuffix(s, ".00")
-		    }
+			s := r.Str
+			if strings.HasSuffix(s, ".0") {
+				s = strings.TrimSuffix(s, ".0")
+			} else if strings.HasSuffix(s, ".00") {
+				s = strings.TrimSuffix(s, ".00")
+			}
 			aI, err := strconv.ParseInt(s, 10, 64)
 			if err != nil {
 				return compareToFloat64(s, float64(to), opt, NewTypeError(r, "string", "int"))
 			}
 			if aI > to {
-				return 1, nil 
+				return 1, nil
 			}
 			if aI < to {
-				return -1, nil 
+				return -1, nil
 			}
 			return 0, nil
 		}
 	case ValueInt64:
 		if r.Int64 > to {
-			return 1, nil 
+			return 1, nil
 		}
 		if r.Int64 < to {
-			return -1, nil 
+			return -1, nil
 		}
 		return 0, nil
 	case ValueUint64:
@@ -496,19 +493,19 @@ func (r *Value) CompareToInt64(to int64, opt CompareOption) (int, error) {
 		u := uint64(to)
 
 		if r.Uint64 > u {
-			return 1, nil 
+			return 1, nil
 		}
 		if r.Uint64 < u {
-			return -1, nil 
+			return -1, nil
 		}
 		return 0, nil
 	case ValueFloat64:
 		u := float64(to)
 
 		if r.Float64 > u {
-			return 1, nil 
+			return 1, nil
 		}
-		return -1, nil 
+		return -1, nil
 	}
 	return 0, NewTypeError(r, r.Type.String(), "int")
 }
@@ -517,12 +514,12 @@ func (r *Value) CompareToUint64(to uint64, opt CompareOption) (int, error) {
 	switch r.Type {
 	case ValueString:
 		if opt.Weak {
-		    s := r.Str
-		    if strings.HasSuffix(s, ".0") {
-		    	s = strings.TrimSuffix(s, ".0")
-		    } else if strings.HasSuffix(s, ".00") {
-		    	s = strings.TrimSuffix(s, ".00")
-		    }
+			s := r.Str
+			if strings.HasSuffix(s, ".0") {
+				s = strings.TrimSuffix(s, ".0")
+			} else if strings.HasSuffix(s, ".00") {
+				s = strings.TrimSuffix(s, ".00")
+			}
 			aU, err := strconv.ParseUint(s, 10, 64)
 			if err != nil {
 				a, err := strconv.ParseInt(s, 10, 64)
@@ -535,10 +532,10 @@ func (r *Value) CompareToUint64(to uint64, opt CompareOption) (int, error) {
 				aU = uint64(a)
 			}
 			if aU > to {
-				return 1, nil 
+				return 1, nil
 			}
 			if aU < to {
-				return -1, nil 
+				return -1, nil
 			}
 			return 0, nil
 		}
@@ -548,25 +545,25 @@ func (r *Value) CompareToUint64(to uint64, opt CompareOption) (int, error) {
 		}
 		u := uint64(r.Int64)
 		if u > to {
-			return 1, nil 
+			return 1, nil
 		}
 		if u < to {
-			return -1, nil 
+			return -1, nil
 		}
 		return 0, nil
 	case ValueUint64:
 		if r.Uint64 > to {
-			return 1, nil 
+			return 1, nil
 		}
 		if r.Uint64 < to {
-			return -1, nil 
+			return -1, nil
 		}
 		return 0, nil
 	case ValueFloat64:
 		u := float64(to)
 
 		if r.Float64 > u {
-			return 1, nil 
+			return 1, nil
 		}
 		return -1, nil
 	}
@@ -582,18 +579,18 @@ func (r *Value) CompareToFloat64(to float64, opt CompareOption) (int, error) {
 	case ValueInt64:
 		u := float64(r.Int64)
 		if u > to {
-			return 1, nil 
+			return 1, nil
 		}
-		return -1, nil 
+		return -1, nil
 	case ValueUint64:
 		u := float64(r.Uint64)
 		if u > to {
-			return 1, nil 
+			return 1, nil
 		}
-		return -1, nil 
+		return -1, nil
 	case ValueFloat64:
 		if r.Float64 > to {
-			return 1, nil 
+			return 1, nil
 		}
 		return -1, nil
 	}
@@ -634,10 +631,10 @@ func (r *Value) CompareToDatetime(to int64, opt CompareOption) (int, error) {
 	}
 
 	if value > to {
-		return 1, nil 
+		return 1, nil
 	}
 	if value < to {
-		return -1, nil 
+		return -1, nil
 	}
 	return 0, nil
 }
@@ -660,7 +657,7 @@ func (v *Value) marshalText() ([]byte, error) {
 	case ValueFloat64:
 		return []byte(strconv.FormatFloat(v.Float64, 'g', -1, 64)), nil
 	case ValueDatetime:
-		return []byte("\""+ intToDatetime(v.Int64).Format(time.RFC3339) + "\""), nil
+		return []byte("\"" + intToDatetime(v.Int64).Format(time.RFC3339) + "\""), nil
 	default:
 		return nil, ErrUnknownValueType
 	}
@@ -676,7 +673,6 @@ var _ encoding.TextMarshaler = &Value{}
 // 	return v.marshalText()
 // }
 
-
 func ToValue(value interface{}) (Value, error) {
 	if value == nil {
 		return Value{}, nil
@@ -686,21 +682,21 @@ func ToValue(value interface{}) (Value, error) {
 		i64, err := v.Int64()
 		if err == nil {
 			return Value{
-				Type: ValueInt64,
+				Type:  ValueInt64,
 				Int64: i64,
 			}, nil
 		}
 		u64, err := strconv.ParseUint(string(v), 10, 64)
 		if err == nil {
 			return Value{
-				Type: ValueUint64,
+				Type:   ValueUint64,
 				Uint64: u64,
 			}, nil
 		}
 		f64, err := v.Float64()
 		if err == nil {
 			return Value{
-				Type: ValueFloat64,
+				Type:    ValueFloat64,
 				Float64: f64,
 			}, nil
 		}
@@ -708,7 +704,7 @@ func ToValue(value interface{}) (Value, error) {
 	case string:
 		return Value{
 			Type: ValueString,
-			Str: v,
+			Str:  v,
 		}, nil
 	case bool:
 		return Value{
@@ -717,74 +713,74 @@ func ToValue(value interface{}) (Value, error) {
 		}, nil
 	case int8:
 		return Value{
-			Type: ValueInt64,
+			Type:  ValueInt64,
 			Int64: int64(v),
 		}, nil
 	case int16:
 		return Value{
-			Type: ValueInt64,
+			Type:  ValueInt64,
 			Int64: int64(v),
 		}, nil
 	case int32:
 		return Value{
-			Type: ValueInt64,
+			Type:  ValueInt64,
 			Int64: int64(v),
 		}, nil
 	case int64:
 		return Value{
-			Type: ValueInt64,
+			Type:  ValueInt64,
 			Int64: v,
 		}, nil
 	case int:
 		return Value{
-			Type: ValueInt64,
+			Type:  ValueInt64,
 			Int64: int64(v),
 		}, nil
 	case uint8:
 		return Value{
-			Type: ValueUint64,
+			Type:   ValueUint64,
 			Uint64: uint64(v),
 		}, nil
 	case uint16:
 		return Value{
-			Type: ValueUint64,
+			Type:   ValueUint64,
 			Uint64: uint64(v),
 		}, nil
 	case uint32:
 		return Value{
-			Type: ValueUint64,
+			Type:   ValueUint64,
 			Uint64: uint64(v),
 		}, nil
 	case uint64:
 		return Value{
-			Type: ValueUint64,
+			Type:   ValueUint64,
 			Uint64: v,
 		}, nil
 	case uint:
 		return Value{
-			Type: ValueUint64,
+			Type:   ValueUint64,
 			Uint64: uint64(v),
 		}, nil
 	case float32:
 		return Value{
-			Type: ValueFloat64,
+			Type:    ValueFloat64,
 			Float64: float64(v),
 		}, nil
 	case float64:
 		return Value{
-			Type: ValueFloat64,
+			Type:    ValueFloat64,
 			Float64: float64(v),
 		}, nil
 	case time.Time:
 		return Value{
-			Type: ValueDatetime,
+			Type:  ValueDatetime,
 			Int64: datetimeToInt(v),
 		}, nil
 	}
 	return Value{}, fmt.Errorf("Unknown type %T: %v", value, value)
 }
 
-func MustToValue(value interface{}) (Value) {
+func MustToValue(value interface{}) Value {
 	v, err := ToValue(value)
 	if err != nil {
 		panic(err)
@@ -793,22 +789,22 @@ func MustToValue(value interface{}) (Value) {
 }
 
 func IntToValue(value int64) Value {
-		return Value{
-			Type: ValueInt64,
-			Int64: value,
-		}
+	return Value{
+		Type:  ValueInt64,
+		Int64: value,
+	}
 }
 
 func UintToValue(value uint64) Value {
 	return Value{
-		Type: ValueUint64,
+		Type:   ValueUint64,
 		Uint64: value,
 	}
 }
 
 func FloatToValue(value float64) Value {
 	return Value{
-		Type: ValueFloat64,
+		Type:    ValueFloat64,
 		Float64: value,
 	}
 }
@@ -823,13 +819,13 @@ func BoolToValue(value bool) Value {
 func StringToValue(value string) Value {
 	return Value{
 		Type: ValueString,
-		Str: value,
+		Str:  value,
 	}
 }
 
 func DatetimeToValue(value time.Time) Value {
 	return Value{
-		Type: ValueDatetime,
+		Type:  ValueDatetime,
 		Int64: datetimeToInt(value),
 	}
 }
@@ -839,8 +835,12 @@ type Column struct {
 }
 
 func columnSearch(columns []Column, column Column) int {
+	return columnSearchByName(columns, column.Name)
+}
+
+func columnSearchByName(columns []Column, column string) int {
 	for idx := range columns {
-		if columns[idx].Name == column.Name {
+		if columns[idx].Name == column {
 			return idx
 		}
 	}
@@ -850,6 +850,22 @@ func columnSearch(columns []Column, column Column) int {
 type Record struct {
 	Columns []Column
 	Values  []Value
+}
+
+func (r *Record) Search(name string) int {
+	return columnSearchByName(r.Columns, name)
+}
+
+func (r *Record) At(idx int) Value {
+	return r.Values[idx]
+}
+
+func (r *Record) Get(name string) (Value, bool) {
+	idx := columnSearchByName(r.Columns, name)
+	if idx < 0 {
+		return Value{}, false
+	}
+	return r.Values[idx], true
 }
 
 func (r *Record) IsEmpty() bool {

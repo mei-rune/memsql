@@ -37,7 +37,7 @@ func makeRecordsWithStrings(value ...string) []Record {
 		results = append(results, Record{
 			Columns: []Column{{Name: "c1"}},
 			Values:  []Value{{Type: ValueString, Str: v}},
-			})
+		})
 	}
 	return results
 }
@@ -84,17 +84,17 @@ func (f foo) Iterate() Iterator {
 	}
 }
 
-func (f foo) CompareTo(c Comparable) int {
-	a, b := f.f1, c.(foo).f1
+// func (f foo) CompareTo(c Comparable) int {
+// 	a, b := f.f1, c.(foo).f1
 
-	if a < b {
-		return -1
-	} else if a > b {
-		return 1
-	}
+// 	if a < b {
+// 		return -1
+// 	} else if a > b {
+// 		return 1
+// 	}
 
-	return 0
-}
+// 	return 0
+// }
 
 func toSlice(q Query) (result []Record) {
 	next := q.Iterate()

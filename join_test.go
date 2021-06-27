@@ -1,60 +1,36 @@
 package memsql
 
-// import "testing"
+import "testing"
 
-// func TestJoin(t *testing.T) {
-// 	outer := []int{0, 1, 2, 3, 4, 5, 8}
-// 	inner := []int{1, 2, 1, 4, 7, 6, 7, 2}
-// 	want := []interface{}{
-// 		KeyValue{1, 1},
-// 		KeyValue{1, 1},
-// 		KeyValue{2, 2},
-// 		KeyValue{2, 2},
-// 		KeyValue{4, 4},
-// 	}
+func TestJoin(t *testing.T) {
+	outer := []int64{0, 1, 2, 3, 4, 5, 8}
+	inner := []int64{1, 2, 1, 4, 7, 6, 7, 2}
 
-// 	q := From(outer).Join(
-// 		From(inner),
-// 		func(i interface{}) interface{} { return i },
-// 		func(i interface{}) interface{} { return i },
-// 		func(outer interface{}, inner interface{}) interface{} {
-// 			return KeyValue{outer, inner}
-// 		})
+	columns := []Column{
+		{Name: "c1"},
+		{Name: "c1"},
+	}
 
-// 	if !validateQuery(q, want) {
-// 		t.Errorf("From().Join()=%v expected %v", toSlice(q), want)
-// 	}
-// }
+	want := []Record{
+		{Columns: columns, Values: []Value{MustToValue(1), MustToValue(1)}},
+		{Columns: columns, Values: []Value{MustToValue(1), MustToValue(1)}},
+		{Columns: columns, Values: []Value{MustToValue(2), MustToValue(2)}},
+		{Columns: columns, Values: []Value{MustToValue(2), MustToValue(2)}},
+		{Columns: columns, Values: []Value{MustToValue(4), MustToValue(4)}},
+	}
 
-// func TestJoinT_PanicWhenOuterKeySelectorFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "JoinT: parameter [outerKeySelectorFn] has a invalid function signature. Expected: 'func(T)T', actual: 'func(int,int)int'", func() {
-// 		From([]int{0, 1, 2}).JoinT(
-// 			From([]int{1, 2, 3, 4, 5, 6, 7, 8, 9}),
-// 			func(i, j int) int { return i },
-// 			func(i int) int { return i % 2 },
-// 			func(outer int, inner int) KeyValue { return KeyValue{outer, inner} },
-// 		)
-// 	})
-// }
+	q := fromInts(outer...).Join(
+		fromInts(inner...),
+		func(i Record) Value { return i.Values[0] },
+		func(i Record) Value { return i.Values[0] },
+		func(outer Record, inner Record) Record {
+			return Record{
+				Columns: append(outer.Columns, inner.Columns...),
+				Values:  append(outer.Values, inner.Values...),
+			}
+		})
 
-// func TestJoinT_PanicWhenInnerKeySelectorFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "JoinT: parameter [innerKeySelectorFn] has a invalid function signature. Expected: 'func(T)T', actual: 'func(int,int)int'", func() {
-// 		From([]int{0, 1, 2}).JoinT(
-// 			From([]int{1, 2, 3, 4, 5, 6, 7, 8, 9}),
-// 			func(i int) int { return i },
-// 			func(i, j int) int { return i % 2 },
-// 			func(outer int, inners []int) KeyValue { return KeyValue{outer, len(inners)} },
-// 		)
-// 	})
-// }
-
-// func TestJoinT_PanicWhenResultSelectorFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "JoinT: parameter [resultSelectorFn] has a invalid function signature. Expected: 'func(T,T)T', actual: 'func(int,int,int)linq.KeyValue'", func() {
-// 		From([]int{0, 1, 2}).JoinT(
-// 			From([]int{1, 2, 3, 4, 5, 6, 7, 8, 9}),
-// 			func(i int) int { return i },
-// 			func(i int) int { return i % 2 },
-// 			func(outer int, inner, j int) KeyValue { return KeyValue{outer, inner} },
-// 		)
-// 	})
-// }
+	if !validateQuery(q, want) {
+		t.Errorf("From().Join()=%v expected %v", toSlice(q), want)
+	}
+}

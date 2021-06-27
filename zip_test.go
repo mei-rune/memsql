@@ -1,26 +1,15 @@
 package memsql
 
-// import "testing"
+import "testing"
 
-// func TestZip(t *testing.T) {
-// 	input1 := []int{1, 2, 3}
-// 	input2 := []int{2, 4, 5, 1}
-// 	want := []interface{}{3, 6, 8}
+func TestZip(t *testing.T) {
+	input1 := []int64{1, 2, 3}
+	input2 := []int64{2, 4, 5, 1}
+	want := makeRecords(3, 6, 8)
 
-// 	if q := From(input1).Zip(From(input2), func(i, j interface{}) interface{} {
-// 		return i.(int) + j.(int)
-// 	}); !validateQuery(q, want) {
-// 		t.Errorf("From(%v).Zip(%v)=%v expected %v", input1, input2, toSlice(q), want)
-// 	}
-// }
-
-// func TestZipT_PanicWhenResultSelectorFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "ZipT: parameter [resultSelectorFn] has a invalid function signature. Expected: 'func(T,T)T', actual: 'func(int,int,int)int'", func() {
-// 		input1 := []int{1, 2, 3}
-// 		input2 := []int{2, 4, 5, 1}
-
-// 		From(input1).ZipT(From(input2), func(i, j, k int) int {
-// 			return i + j
-// 		})
-// 	})
-// }
+	if q := fromInts(input1...).Zip(fromInts(input2...), func(i, j Record) Record {
+		return makeRecord(i.Values[0].Int64 + j.Values[0].Int64)
+	}); !validateQuery(q, want) {
+		t.Errorf("From(%v).Zip(%v)=%v expected %v", input1, input2, toSlice(q), want)
+	}
+}

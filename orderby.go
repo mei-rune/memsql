@@ -2,6 +2,8 @@ package memsql
 
 import "sort"
 
+type comparer func(Value, Value) int
+
 type order struct {
 	selector func(Record) Value
 	compare  comparer
@@ -174,8 +176,17 @@ func (q Query) sort(orders []order) (r []Record) {
 		return
 	}
 
-	for i, j := range orders {
-		orders[i].compare = getComparer(j.selector(r[0]))
+	for i := range orders {
+		if orders[i].compare != nil {
+			continue
+		}
+		orders[i].compare = func(a Value, b Value) int {
+			ret, err := a.CompareTo(b, emptyCompareOption)
+			if err != nil {
+				panic(err)
+			}
+			return ret
+		}
 	}
 
 	s := sorter{

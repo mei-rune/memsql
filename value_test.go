@@ -50,11 +50,10 @@ func TestGetComparer(t *testing.T) {
 		{x: MustToValue(false), y: MustToValue(false), want: 0},
 		{x: MustToValue(true), y: MustToValue(false), want: 1},
 		{x: MustToValue(false), y: MustToValue(true), want: -1},
-		{x: MustToValue("foo"), y: MustToValue( "foo"), want: 0},
-		{x: MustToValue("foo"), y: MustToValue( "bar"), want: 1},
-		{x: MustToValue("bar"), y: MustToValue( "foo"), want: -1},
-		{x: MustToValue("FOO"), y: MustToValue( "bar"), want: -1},
-
+		{x: MustToValue("foo"), y: MustToValue("foo"), want: 0},
+		{x: MustToValue("foo"), y: MustToValue("bar"), want: 1},
+		{x: MustToValue("bar"), y: MustToValue("foo"), want: -1},
+		{x: MustToValue("FOO"), y: MustToValue("bar"), want: -1},
 
 		{x: MustToValue(100), y: MustToValue(uint64(500)), want: -1},
 		{x: MustToValue(600), y: MustToValue(uint64(500)), want: 1},
@@ -65,33 +64,39 @@ func TestGetComparer(t *testing.T) {
 
 		{x: MustToValue(100), y: MustToValue("500"), want: -1, fail: true},
 
-		{x: MustToValue(100), y: MustToValue("500"), want: -1, opt: CompareOption{Weak:true}},
-		{x: MustToValue(-100), y: MustToValue("-500"), want: 1, opt: CompareOption{Weak:true}},
-		{x: MustToValue(256), y: MustToValue("256"), want: 0, opt: CompareOption{Weak:true}},
-		{x: MustToValue("100"), y: MustToValue(500), want: -1, opt: CompareOption{Weak:true}},
-		{x: MustToValue("-100"), y: MustToValue(-500), want: 1, opt: CompareOption{Weak:true}},
-		{x: MustToValue("256"), y: MustToValue(256), want: 0, opt: CompareOption{Weak:true}},
-		{x: MustToValue("256.0"), y: MustToValue(256), want: 0, opt: CompareOption{Weak:true}},
+		{x: MustToValue(100), y: MustToValue("500"), want: -1, opt: CompareOption{Weak: true}},
+		{x: MustToValue(-100), y: MustToValue("-500"), want: 1, opt: CompareOption{Weak: true}},
+		{x: MustToValue(256), y: MustToValue("256"), want: 0, opt: CompareOption{Weak: true}},
+		{x: MustToValue("100"), y: MustToValue(500), want: -1, opt: CompareOption{Weak: true}},
+		{x: MustToValue("-100"), y: MustToValue(-500), want: 1, opt: CompareOption{Weak: true}},
+		{x: MustToValue("256"), y: MustToValue(256), want: 0, opt: CompareOption{Weak: true}},
+		{x: MustToValue("256.0"), y: MustToValue(256), want: 0, opt: CompareOption{Weak: true}},
 
-
-		{x: MustToValue(100.0), y: MustToValue("500"), want: -1, opt: CompareOption{Weak:true}},
-		{x: MustToValue(-100.0), y: MustToValue("-500"), want: 1, opt: CompareOption{Weak:true}},
+		{x: MustToValue(100.0), y: MustToValue("500"), want: -1, opt: CompareOption{Weak: true}},
+		{x: MustToValue(-100.0), y: MustToValue("-500"), want: 1, opt: CompareOption{Weak: true}},
 		// {x: MustToValue(256.0), y: MustToValue("256"), want: 0, opt: CompareOption{Weak:true}},
-		{x: MustToValue("100.1"), y: MustToValue(500), want: -1, opt: CompareOption{Weak:true}},
-		{x: MustToValue("-100.1"), y: MustToValue(-500), want: 1, opt: CompareOption{Weak:true}},
+		{x: MustToValue("100.1"), y: MustToValue(500), want: -1, opt: CompareOption{Weak: true}},
+		{x: MustToValue("-100.1"), y: MustToValue(-500), want: 1, opt: CompareOption{Weak: true}},
 		//{x: MustToValue("256.1"), y: MustToValue(256), want: 0, opt: CompareOption{Weak:true}},
-	
-		{x: MustToValue(100.0), y: MustToValue("500.1"), want: -1, opt: CompareOption{Weak:true}},
-		{x: MustToValue(-100.0), y: MustToValue("-500.1"), want: 1, opt: CompareOption{Weak:true}},
+
+		{x: MustToValue(100.0), y: MustToValue("500.1"), want: -1, opt: CompareOption{Weak: true}},
+		{x: MustToValue(-100.0), y: MustToValue("-500.1"), want: 1, opt: CompareOption{Weak: true}},
 		// {x: MustToValue(256.0), y: MustToValue("256.1"), want: 0, opt: CompareOption{Weak:true}},
-		{x: MustToValue("100.1"), y: MustToValue(500.0), want: -1, opt: CompareOption{Weak:true}},
-		{x: MustToValue("-100.1"), y: MustToValue(-500.0), want: 1, opt: CompareOption{Weak:true}},
+		{x: MustToValue("100.1"), y: MustToValue(500.0), want: -1, opt: CompareOption{Weak: true}},
+		{x: MustToValue("-100.1"), y: MustToValue(-500.0), want: 1, opt: CompareOption{Weak: true}},
 		// {x: MustToValue("256.1"), y: MustToValue(256.0), want: 0, opt: CompareOption{Weak:true}},
-	
+
+		{x: MustToValue("100"), y: MustToValue("500"), want: -1, opt: CompareOption{Weak: true}},
+		//{x: MustToValue("90"), y: MustToValue("500"), want: -1, opt: CompareOption{Weak:true}},
+		//{x: MustToValue("500"), y: MustToValue("90"), want: 1, opt: CompareOption{Weak:true}},
+		//{x: MustToValue("-100"), y: MustToValue("-500"), want: 1, opt: CompareOption{Weak:true}},
+		{x: MustToValue("256"), y: MustToValue("256"), want: 0, opt: CompareOption{Weak: true}},
+		//{x: MustToValue("256.0"), y: MustToValue("256"), want: 0, opt: CompareOption{Weak:true}},
+
 	}
 
 	for _, test := range tests {
-		r, err := test.x.CompareTo(test.y, test.opt);
+		r, err := test.x.CompareTo(test.y, test.opt)
 		if err != nil {
 			if !test.fail {
 				t.Errorf("(%v)(%v,%v)=%v expected %v, fail", test.x, test.x, test.y, r, test.want)

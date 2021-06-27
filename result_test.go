@@ -1,79 +1,62 @@
 package memsql
 
-// import (
-// 	"math"
-// 	"reflect"
-// 	"testing"
-// 	"unsafe"
-// )
+import (
+	"reflect"
+	"testing"
+)
 
-// func TestAll(t *testing.T) {
-// 	input := []int{2, 4, 6, 8}
+func TestAll(t *testing.T) {
+	input := []int64{2, 4, 6, 8}
 
-// 	r1 := From(input).All(func(i interface{}) bool {
-// 		return i.(int)%2 == 0
-// 	})
-// 	r2 := From(input).All(func(i interface{}) bool {
-// 		return i.(int)%2 != 0
-// 	})
+	r1 := fromInts(input...).All(func(i Record) bool {
+		return i.Values[0].Int64%2 == 0
+	})
+	r2 := fromInts(input...).All(func(i Record) bool {
+		return i.Values[0].Int64%2 != 0
+	})
 
-// 	if !r1 {
-// 		t.Errorf("From(%v).All()=%v", input, r1)
-// 	}
+	if !r1 {
+		t.Errorf("From(%v).All()=%v", input, r1)
+	}
 
-// 	if r2 {
-// 		t.Errorf("From(%v).All()=%v", input, r2)
-// 	}
-// }
+	if r2 {
+		t.Errorf("From(%v).All()=%v", input, r2)
+	}
+}
 
-// func TestAllT_PanicWhenPredicateFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "AllT: parameter [predicateFn] has a invalid function signature. Expected: 'func(T)bool', actual: 'func(int)int'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).AllT(func(item int) int { return item + 2 })
-// 	})
-// }
+func TestAny(t *testing.T) {
+	tests := []struct {
+		input []int64
+		want  bool
+	}{
+		{[]int64{1, 2, 2, 3, 1}, true},
+		{[]int64{}, false},
+	}
 
-// func TestAny(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  bool
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1}, true},
-// 		{[9]int{1, 1, 1, 2, 1, 2, 3, 4, 2}, true},
-// 		{"sstr", true},
-// 		{[]int{}, false},
-// 	}
+	for _, test := range tests {
+		if r := fromInts(test.input...).Any(); r != test.want {
+			t.Errorf("From(%v).Any()=%v expected %v", test.input, r, test.want)
+		}
+	}
+}
 
-// 	for _, test := range tests {
-// 		if r := From(test.input).Any(); r != test.want {
-// 			t.Errorf("From(%v).Any()=%v expected %v", test.input, r, test.want)
-// 		}
-// 	}
-// }
+func TestAnyWith(t *testing.T) {
+	tests := []struct {
+		input []int64
+		want  bool
+	}{
+		{[]int64{1, 2, 2, 3, 1}, false},
+		{[]int64{}, false},
+	}
 
-// func TestAnyWith(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  bool
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1}, false},
-// 		{[9]int{1, 1, 1, 2, 1, 2, 3, 4, 2}, true},
-// 		{[]int{}, false},
-// 	}
-
-// 	for _, test := range tests {
-// 		if r := From(test.input).AnyWith(func(i interface{}) bool {
-// 			return i.(int) == 4
-// 		}); r != test.want {
-// 			t.Errorf("From(%v).Any()=%v expected %v", test.input, r, test.want)
-// 		}
-// 	}
-// }
-
-// func TestAnyWithT_PanicWhenPredicateFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "AnyWithT: parameter [predicateFn] has a invalid function signature. Expected: 'func(T)bool', actual: 'func(int)int'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).AnyWithT(func(item int) int { return item + 2 })
-// 	})
-// }
+	for _, test := range tests {
+		if r := fromInts(test.input...).AnyWith(func(i Record) bool {
+			return i.Values[0].Int64 == 4
+		}); r != test.want {
+			t.Errorf("From(%v).Any()=%v expected %v", test.input, r, test.want)
+		}
+	}
+}
 
 // func TestAverage(t *testing.T) {
 // 	tests := []struct {
@@ -116,180 +99,161 @@ package memsql
 // 	}
 // }
 
-// func TestCount(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  int
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1}, 5},
-// 		{[7]uint{1, 2, 5, 7, 10, 12, 15}, 7},
-// 		{[]float32{}, 0},
-// 	}
+func TestCount(t *testing.T) {
+	tests := []struct {
+		input []int64
+		want  int
+	}{
+		{[]int64{1, 2, 2, 3, 1}, 5},
+		{[]int64{1, 2, 5, 7, 10, 12, 15}, 7},
+		{[]int64{}, 0},
+	}
 
-// 	for _, test := range tests {
-// 		if r := From(test.input).Count(); r != test.want {
-// 			t.Errorf("From(%v).Count()=%v expected %v", test.input, r, test.want)
-// 		}
-// 	}
-// }
+	for _, test := range tests {
+		if r := fromInts(test.input...).Count(); r != test.want {
+			t.Errorf("From(%v).Count()=%v expected %v", test.input, r, test.want)
+		}
+	}
+}
 
-// func TestCountWith(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  int
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1}, 4},
-// 		{[]int{}, 0},
-// 	}
+func TestCountWith(t *testing.T) {
+	tests := []struct {
+		input []int64
+		want  int
+	}{
+		{[]int64{1, 2, 2, 3, 1}, 4},
+		{[]int64{}, 0},
+	}
 
-// 	for _, test := range tests {
-// 		if r := From(test.input).CountWith(func(i interface{}) bool {
-// 			return i.(int) <= 2
-// 		}); r != test.want {
-// 			t.Errorf("From(%v).CountWith()=%v expected %v", test.input, r, test.want)
-// 		}
-// 	}
-// }
+	for _, test := range tests {
+		if r := fromInts(test.input...).CountWith(func(i Record) bool {
+			return i.Values[0].Int64 <= 2
+		}); r != test.want {
+			t.Errorf("From(%v).CountWith()=%v expected %v", test.input, r, test.want)
+		}
+	}
+}
 
-// func TestCountWithT_PanicWhenPredicateFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "CountWithT: parameter [predicateFn] has a invalid function signature. Expected: 'func(T)bool', actual: 'func(int)int'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).CountWithT(func(item int) int { return item + 2 })
-// 	})
-// }
+func TestFirst(t *testing.T) {
+	tests := []struct {
+		input       []int64
+		resultValid bool
+		want        int64
+	}{
+		{[]int64{1, 2, 2, 3, 1}, true, 1},
+		{[]int64{}, false, 0},
+	}
 
-// func TestFirst(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  interface{}
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1}, 1},
-// 		{[]int{}, nil},
-// 	}
+	for _, test := range tests {
+		r, ok := fromInts(test.input...).First()
+		if !ok {
+			if test.resultValid {
+				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
+			}
+			continue
+		}
+		if r.Values[0].Int64 != test.want {
+			t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
+		}
+	}
+}
 
-// 	for _, test := range tests {
-// 		if r := From(test.input).First(); r != test.want {
-// 			t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
-// 		}
-// 	}
-// }
+func TestFirstWith(t *testing.T) {
+	tests := []struct {
+		input       []int64
+		resultValid bool
+		want        int64
+	}{
+		{[]int64{1, 2, 2, 3, 1}, true, 3},
+		{[]int64{}, false, 0},
+	}
 
-// func TestFirstWith(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  interface{}
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1}, 3},
-// 		{[]int{}, nil},
-// 	}
+	for _, test := range tests {
+		r, ok := fromInts(test.input...).FirstWith(func(i Record) bool {
+			return i.Values[0].Int64 > 2
+		})
+		if !ok {
+			if test.resultValid {
+				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
+			}
+			continue
+		}
+		if r.Values[0].Int64 != test.want {
+			t.Errorf("From(%v).FirstWith()=%v expected %v", test.input, r, test.want)
+		}
+	}
+}
 
-// 	for _, test := range tests {
-// 		if r := From(test.input).FirstWith(func(i interface{}) bool {
-// 			return i.(int) > 2
-// 		}); r != test.want {
-// 			t.Errorf("From(%v).FirstWith()=%v expected %v", test.input, r, test.want)
-// 		}
-// 	}
-// }
+func TestForEachIndexed(t *testing.T) {
+	tests := []struct {
+		input []int64
+		want  []int64
+	}{
+		{[]int64{1, 2, 2, 35, 111}, []int64{1, 3, 4, 38, 115}},
+		{[]int64{}, []int64{}},
+	}
 
-// func TestFirstWithT_PanicWhenPredicateFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "FirstWithT: parameter [predicateFn] has a invalid function signature. Expected: 'func(T)bool', actual: 'func(int)int'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).FirstWithT(func(item int) int { return item + 2 })
-// 	})
-// }
+	for _, test := range tests {
+		output := []int64{}
+		fromInts(test.input...).ForEach(func(index int, item Record) {
+			output = append(output, item.Values[0].Int64+int64(index))
+		})
 
-// func TestForEach(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  interface{}
-// 	}{
-// 		{[5]int{1, 2, 2, 35, 111}, []int{2, 4, 4, 70, 222}},
-// 		{[]int{}, []int{}},
-// 	}
+		if !reflect.DeepEqual(output, test.want) {
+			t.Fatalf("From(%#v).ForEachIndexed()=%#v expected=%#v", test.input, output, test.want)
+		}
+	}
+}
 
-// 	for _, test := range tests {
-// 		output := []int{}
-// 		From(test.input).ForEach(func(item interface{}) {
-// 			output = append(output, item.(int)*2)
-// 		})
+func TestLast(t *testing.T) {
+	tests := []struct {
+		input       []int64
+		resultValid bool
+		want        int64
+	}{
+		{[]int64{1, 2, 2, 3, 1}, true, 1},
+		{[]int64{}, false, 0},
+	}
 
-// 		if !reflect.DeepEqual(output, test.want) {
-// 			t.Fatalf("From(%#v).ForEach()=%#v expected=%#v", test.input, output, test.want)
-// 		}
-// 	}
-// }
+	for _, test := range tests {
+		r, ok := fromInts(test.input...).Last()
+		if !ok {
+			if test.resultValid {
+				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
+			}
+			continue
+		}
+		if r.Values[0].Int64 != test.want {
+			t.Errorf("From(%v).Last()=%v expected %v", test.input, r, test.want)
+		}
+	}
+}
 
-// func TestForEachT_PanicWhenActionFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "ForEachT: parameter [actionFn] has a invalid function signature. Expected: 'func(T)', actual: 'func(int,int)'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).ForEachT(func(item, idx int) { item = item + 2 })
-// 	})
-// }
+func TestLastWith(t *testing.T) {
+	tests := []struct {
+		input       []int64
+		resultValid bool
+		want        int64
+	}{
+		{[]int64{1, 2, 2, 3, 1, 4, 2, 5, 1, 1}, true, 5},
+		{[]int64{}, false, 0},
+	}
 
-// func TestForEachIndexed(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  interface{}
-// 	}{
-// 		{[5]int{1, 2, 2, 35, 111}, []int{1, 3, 4, 38, 115}},
-// 		{[]int{}, []int{}},
-// 	}
-
-// 	for _, test := range tests {
-// 		output := []int{}
-// 		From(test.input).ForEachIndexed(func(index int, item interface{}) {
-// 			output = append(output, item.(int)+index)
-// 		})
-
-// 		if !reflect.DeepEqual(output, test.want) {
-// 			t.Fatalf("From(%#v).ForEachIndexed()=%#v expected=%#v", test.input, output, test.want)
-// 		}
-// 	}
-// }
-
-// func TestForEachIndexedT_PanicWhenActionFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "ForEachIndexedT: parameter [actionFn] has a invalid function signature. Expected: 'func(int,T)', actual: 'func(int)'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).ForEachIndexedT(func(item int) { item = item + 2 })
-// 	})
-// }
-
-// func TestLast(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  interface{}
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1}, 1},
-// 		{[]int{}, nil},
-// 	}
-
-// 	for _, test := range tests {
-// 		if r := From(test.input).Last(); r != test.want {
-// 			t.Errorf("From(%v).Last()=%v expected %v", test.input, r, test.want)
-// 		}
-// 	}
-// }
-
-// func TestLastWith(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  interface{}
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1, 4, 2, 5, 1, 1}, 5},
-// 		{[]int{}, nil},
-// 	}
-
-// 	for _, test := range tests {
-// 		if r := From(test.input).LastWith(func(i interface{}) bool {
-// 			return i.(int) > 2
-// 		}); r != test.want {
-// 			t.Errorf("From(%v).LastWith()=%v expected %v", test.input, r, test.want)
-// 		}
-// 	}
-// }
-
-// func TestLastWithT_PanicWhenPredicateFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "LastWithT: parameter [predicateFn] has a invalid function signature. Expected: 'func(T)bool', actual: 'func(int)int'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).LastWithT(func(item int) int { return item + 2 })
-// 	})
-// }
+	for _, test := range tests {
+		r, ok := fromInts(test.input...).LastWith(func(i Record) bool {
+			return i.Values[0].Int64 > 2
+		})
+		if !ok {
+			if test.resultValid {
+				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
+			}
+			continue
+		}
+		if r.Values[0].Int64 != test.want {
+			t.Errorf("From(%v).Last()=%v expected %v", test.input, r, test.want)
+		}
+	}
+}
 
 // func TestMax(t *testing.T) {
 // 	tests := []struct {
@@ -325,75 +289,86 @@ package memsql
 // 	}
 // }
 
-// func TestResults(t *testing.T) {
-// 	input := []int{1, 2, 3}
-// 	want := []interface{}{1, 2, 3}
+func TestResults(t *testing.T) {
+	input := []int64{1, 2, 3}
+	want := makeRecords(1, 2, 3)
 
-// 	if r := From(input).Results(); !reflect.DeepEqual(r, want) {
-// 		t.Errorf("From(%v).Raw()=%v expected %v", input, r, want)
-// 	}
-// }
+	if r := fromInts(input...).Results(); !reflect.DeepEqual(r, want) {
+		t.Errorf("From(%v).Raw()=%v expected %v", input, r, want)
+	}
+}
 
-// func TestSequenceEqual(t *testing.T) {
-// 	tests := []struct {
-// 		input  interface{}
-// 		input2 interface{}
-// 		want   bool
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1}, []int{4, 6}, false},
-// 		{[]int{1, -1, 100}, []int{1, -1, 100}, true},
-// 		{[]int{}, []int{}, true},
-// 	}
+func TestSequenceEqual(t *testing.T) {
+	tests := []struct {
+		input  []int64
+		input2 []int64
+		want   bool
+	}{
+		{[]int64{1, 2, 2, 3, 1}, []int64{4, 6}, false},
+		{[]int64{1, -1, 100}, []int64{1, -1, 100}, true},
+		{[]int64{}, []int64{}, true},
+	}
 
-// 	for _, test := range tests {
-// 		if r := From(test.input).SequenceEqual(From(test.input2)); r != test.want {
-// 			t.Errorf("From(%v).SequenceEqual(%v)=%v expected %v", test.input, test.input2, r, test.want)
-// 		}
-// 	}
-// }
+	for _, test := range tests {
+		if r := fromInts(test.input...).SequenceEqual(fromInts(test.input2...)); r != test.want {
+			t.Errorf("From(%v).SequenceEqual(%v)=%v expected %v", test.input, test.input2, r, test.want)
+		}
+	}
+}
 
-// func TestSingle(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  interface{}
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1}, nil},
-// 		{[]int{1}, 1},
-// 		{[]int{}, nil},
-// 	}
+func TestSingle(t *testing.T) {
+	tests := []struct {
+		input       []int64
+		resultValid bool
+		want        int64
+	}{
+		{[]int64{1, 2, 2, 3, 1}, false, 0},
+		{[]int64{1}, true, 1},
+		{[]int64{}, false, 0},
+	}
 
-// 	for _, test := range tests {
-// 		if r := From(test.input).Single(); r != test.want {
-// 			t.Errorf("From(%v).Single()=%v expected %v", test.input, r, test.want)
-// 		}
-// 	}
-// }
+	for _, test := range tests {
+		r, ok := fromInts(test.input...).Single()
+		if !ok {
+			if test.resultValid {
+				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
+			}
+			continue
+		}
 
-// func TestSingleWith(t *testing.T) {
-// 	tests := []struct {
-// 		input interface{}
-// 		want  interface{}
-// 	}{
-// 		{[]int{1, 2, 2, 3, 1}, 3},
-// 		{[]int{1, 1, 1}, nil},
-// 		{[]int{5, 1, 1, 10, 2, 2}, nil},
-// 		{[]int{}, nil},
-// 	}
+		if r.Values[0].Int64 != test.want {
+			t.Errorf("From(%v).Single()=%v expected %v", test.input, r, test.want)
+		}
+	}
+}
 
-// 	for _, test := range tests {
-// 		if r := From(test.input).SingleWith(func(i interface{}) bool {
-// 			return i.(int) > 2
-// 		}); r != test.want {
-// 			t.Errorf("From(%v).SingleWith()=%v expected %v", test.input, r, test.want)
-// 		}
-// 	}
-// }
+func TestSingleWith(t *testing.T) {
+	tests := []struct {
+		input       []int64
+		resultValid bool
+		want        int64
+	}{
+		{[]int64{1, 2, 2, 3, 1}, true, 3},
+		{[]int64{1, 1, 1}, false, 0},
+		{[]int64{5, 1, 1, 10, 2, 2}, false, 0},
+		{[]int64{}, false, 0},
+	}
 
-// func TestSingleWithT_PanicWhenPredicateFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "SingleWithT: parameter [predicateFn] has a invalid function signature. Expected: 'func(T)bool', actual: 'func(int)int'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).SingleWithT(func(item int) int { return item + 2 })
-// 	})
-// }
+	for _, test := range tests {
+		r, ok := fromInts(test.input...).SingleWith(func(i Record) bool {
+			return i.Values[0].Int64 > 2
+		})
+		if !ok {
+			if test.resultValid {
+				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
+			}
+			continue
+		}
+		if r.Values[0].Int64 != test.want {
+			t.Errorf("From(%v).SingleWith()=%v expected %v", test.input, r, test.want)
+		}
+	}
+}
 
 // func TestSumInts(t *testing.T) {
 // 	tests := []struct {
@@ -446,39 +421,23 @@ package memsql
 // 	}
 // }
 
-// func TestToChannel(t *testing.T) {
-// 	c := make(chan interface{})
-// 	input := []int{1, 2, 3, 4, 5}
+func TestToChannel(t *testing.T) {
+	c := make(chan Record)
+	input := []int64{1, 2, 3, 4, 5}
 
-// 	go func() {
-// 		From(input).ToChannel(c)
-// 	}()
+	go func() {
+		fromInts(input...).ToChannel(c)
+	}()
 
-// 	result := []int{}
-// 	for value := range c {
-// 		result = append(result, value.(int))
-// 	}
+	result := []int64{}
+	for value := range c {
+		result = append(result, value.Values[0].Int64)
+	}
 
-// 	if !reflect.DeepEqual(result, input) {
-// 		t.Errorf("From(%v).ToChannel()=%v expected %v", input, result, input)
-// 	}
-// }
-
-// func TestToChannelT(t *testing.T) {
-// 	c := make(chan string)
-// 	input := []string{"1", "2", "3", "4", "5"}
-
-// 	go From(input).ToChannelT(c)
-
-// 	result := []string{}
-// 	for value := range c {
-// 		result = append(result, value)
-// 	}
-
-// 	if !reflect.DeepEqual(result, input) {
-// 		t.Errorf("From(%v).ToChannelT()=%v expected %v", input, result, input)
-// 	}
-// }
+	if !reflect.DeepEqual(result, input) {
+		t.Errorf("From(%v).ToChannel()=%v expected %v", input, result, input)
+	}
+}
 
 // func TestToMap(t *testing.T) {
 // 	input := make(map[int]bool)

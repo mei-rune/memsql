@@ -1,17 +1,17 @@
 package memsql
 
-// import "testing"
+import "testing"
 
-// func TestEmpty(t *testing.T) {
-// 	q := From([]string{}).OrderBy(func(in interface{}) interface{} {
-// 		return 0
-// 	})
+func TestEmpty(t *testing.T) {
+	q := fromStrings([]string{}...).OrderBy(func(in Record) Value {
+		return Value{}
+	})
 
-// 	_, ok := q.Iterate()()
-// 	if ok {
-// 		t.Errorf("Iterator for empty collection must return ok=false")
-// 	}
-// }
+	_, ok := q.Iterate()()
+	if ok {
+		t.Errorf("Iterator for empty collection must return ok=false")
+	}
+}
 
 // func TestOrderBy(t *testing.T) {
 // 	slice := make([]foo, 100)
@@ -33,12 +33,6 @@ package memsql
 
 // 		j++
 // 	}
-// }
-
-// func TestOrderByT_PanicWhenSelectorFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "OrderByT: parameter [selectorFn] has a invalid function signature. Expected: 'func(T)T', actual: 'func(int,int)int'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).OrderByT(func(item, j int) int { return item + 2 })
-// 	})
 // }
 
 // func TestOrderByDescending(t *testing.T) {
