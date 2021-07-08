@@ -22,10 +22,16 @@ func parse(sqlstr string) (*sqlparser.Select, error) {
 
 type Datasource struct {
 	Table string
-	As string
+	 As string
 }
 
-func ExecuteSelect(s *storage, stmt *sqlparser.Select) (Query, error) {
+type simpleExecuteContext struct {
+  s *storage
+  stmt *sqlparser.Select
+  ds Datasource
+}
+
+func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (Query, error) {
 	if len(stmt.From) != 1 {
 		return nil, fmt.Errorf("currently only one expression in from supported, got %v", len(stmt.From))
 	}
@@ -54,47 +60,46 @@ func ExecuteSelect(s *storage, stmt *sqlparser.Select) (Query, error) {
 
 	// Where       *Where
 
-	root, err = ExecuteTableExpression(s, stmt.From[0])
+	err = ExecuteTableExpression(ec, stmt.From[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't parse from expression")
 	}
 }
 
-func ExecuteTableExpression(s *storage, expr sqlparser.TableExpr) (Query, error) {
+func ExecuteTableExpression(ec *simpleExecuteContext, expr sqlparser.TableExpr) (error) {
 	switch expr := expr.(type) {
 	case *sqlparser.AliasedTableExpr:
-		return ExecuteAliasedTableExpression(s, expr)
+		return ExecuteAliasedTableExpression(ec, expr)
 	// case *sqlparser.JoinTableExpr:
 	// 	return ParseJoinTableExpression(expr)
 	// case *sqlparser.ParenTableExpr:
 	// 	return ParseTableExpression(expr.Exprs[0])
 	default:
-		return nil, errors.Errorf("invalid table expression %+v of type %v", expr, reflect.TypeOf(expr))
+		return errors.Errorf("invalid table expression %+v of type %v", expr, reflect.TypeOf(expr))
 	}
 }
 
-type Datasource struct {
-	Table sring
-	 As string
-}
-
-func ExecuteAliasedTableExpression(s *storage, expr *sqlparser.AliasedTableExpr) (Query, error) {
+func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.AliasedTableExpr) error {
 	if len(expr.Partitions) >0 {
-		return nil, errors.Errorf("invalid partitions in the table expression %+v", expr.Expr)
+		return errors.Errorf("invalid partitions in the table expression %+v", expr.Expr)
 	}
 	if expr.Hints != nil {
-		return nil, errors.Errorf("invalid index hits in the table expression %+v", expr.Expr)
+		return errors.Errorf("invalid index hits in the table expression %+v", expr.Expr)
 	}
 	switch subExpr := expr.Expr.(type) {
 	case sqlparser.TableName:
-		return Datasource{Table: subExpr.Name.String(), As: expr.As.String()}
+		ec.ds.Table = subExpr.Name.String()
+		ec.ds.As = expr.As.String()
+
+		ec.storage.Select(ec.ds.Table)
+		return nil
 		// if expr.As.IsEmpty() {
 		// 	return nil, errors.Errorf("table \"%v\" must have unique alias", subExpr.Name)
 		// }
 		// return logical.NewDataSource(subExpr.Name.String(), expr.As.String()), nil
 	case *sqlparser.Subquery:
-		return nil, errors.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
+		return errors.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
 	default:
-		return nil, errors.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
+		return errors.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
 	}
 }
