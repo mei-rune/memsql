@@ -1,5 +1,6 @@
-package memsql
+package parser
 
+/*
 import (
 	"errors"
 	"fmt"
@@ -70,8 +71,8 @@ func ExecuteTableExpression(ec *simpleExecuteContext, expr sqlparser.TableExpr) 
 	switch expr := expr.(type) {
 	case *sqlparser.AliasedTableExpr:
 		return ExecuteAliasedTableExpression(ec, expr)
-	// case *sqlparser.JoinTableExpr:
-	// 	return ParseJoinTableExpression(expr)
+	case *sqlparser.JoinTableExpr:
+		return ParseJoinTableExpression(expr)
 	// case *sqlparser.ParenTableExpr:
 	// 	return ParseTableExpression(expr.Exprs[0])
 	default:
@@ -79,27 +80,58 @@ func ExecuteTableExpression(ec *simpleExecuteContext, expr sqlparser.TableExpr) 
 	}
 }
 
-func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.AliasedTableExpr) error {
+func ExecuteJoinTableExpression(ec *simpleExecuteContext, expr *sqlparser.JoinTableExpr) error {
+// 	type JoinTableExpr struct {
+// 	LeftExpr  TableExpr
+// 	Join      string
+// 	RightExpr TableExpr
+// 	Condition JoinCondition
+// }
+
+  err := ExecuteAliasedTableExpression(ec, expr.LeftExpr)
+  if err != nil {
+  	return err
+  }
+
+
+  err = ExecuteAliasedTableExpression(ec, expr.RightExpr)
+  if err != nil {
+  	return err
+  }
+
+  return nil
+}
+
+func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.AliasedTableExpr) (Query, error) {
 	if len(expr.Partitions) >0 {
-		return errors.Errorf("invalid partitions in the table expression %+v", expr.Expr)
+		return nil, errors.Errorf("invalid partitions in the table expression %+v", expr.Expr)
 	}
 	if expr.Hints != nil {
-		return errors.Errorf("invalid index hits in the table expression %+v", expr.Expr)
+		return nil, errors.Errorf("invalid index hits in the table expression %+v", expr.Expr)
 	}
 	switch subExpr := expr.Expr.(type) {
 	case sqlparser.TableName:
 		ec.ds.Table = subExpr.Name.String()
-		ec.ds.As = expr.As.String()
+		if expr.As == nil {
+			ec.ds.As = ec.ds.Table
+		} else {
+			ec.ds.As = expr.As.String()
+		}
 
-		ec.storage.Select(ec.ds.Table)
-		return nil
+		return ExecuteWhere(ec, ec.ds, ec.stmt.)
 		// if expr.As.IsEmpty() {
 		// 	return nil, errors.Errorf("table \"%v\" must have unique alias", subExpr.Name)
 		// }
 		// return logical.NewDataSource(subExpr.Name.String(), expr.As.String()), nil
 	case *sqlparser.Subquery:
-		return errors.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
+		return nil, errors.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
 	default:
-		return errors.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
+		return nil, errors.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
 	}
 }
+
+
+func ExecuteWhere(ec *simpleExecuteContext, es Datasource, expr *sqlparser.Expr) error {
+}
+
+*/
