@@ -12,12 +12,12 @@ func SplitByOr(expr sqlparser.Expr, results []sqlparser.Expr) ([]sqlparser.Expr,
 
 func splitByOr(expr sqlparser.Expr, results []sqlparser.Expr) ([]sqlparser.Expr, error) {
 	switch v := expr.(type) {
-	case *sqlparser.AndExpr          :
-		leftList, err :=  splitByOr(v.Left, nil)
+	case *sqlparser.AndExpr:
+		leftList, err := splitByOr(v.Left, nil)
 		if err != nil {
 			return nil, err
 		}
-		rightList, err :=  splitByOr(v.Right, nil)
+		rightList, err := splitByOr(v.Right, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -29,76 +29,76 @@ func splitByOr(expr sqlparser.Expr, results []sqlparser.Expr) ([]sqlparser.Expr,
 			results = append(results, leftList[:len(leftList)-1]...)
 		}
 		results = append(results, &sqlparser.AndExpr{
-			Left: leftList[len(leftList)-1],  
+			Left:  leftList[len(leftList)-1],
 			Right: rightList[0],
 		})
 		if len(rightList) > 1 {
 			results = append(results, rightList[1:]...)
 		}
 		return nil, nil
-	case *sqlparser.OrExpr           :
-		leftList, err :=  splitByOr(v.Left, nil)
+	case *sqlparser.OrExpr:
+		leftList, err := splitByOr(v.Left, nil)
 		if err != nil {
 			return nil, err
 		}
-		rightList, err :=  splitByOr(v.Right, nil)
+		rightList, err := splitByOr(v.Right, nil)
 		if err != nil {
 			return nil, err
 		}
-		return append(append(results, leftList...),rightList...), nil
-	case *sqlparser.NotExpr          :
+		return append(append(results, leftList...), rightList...), nil
+	case *sqlparser.NotExpr:
 		return append(results, expr), nil
-	case *sqlparser.ParenExpr        :
+	case *sqlparser.ParenExpr:
 		return append(results, expr), nil
-	case *sqlparser.ComparisonExpr   :
+	case *sqlparser.ComparisonExpr:
 		return append(results, expr), nil
-	case *sqlparser.RangeCond        :
+	case *sqlparser.RangeCond:
 		return append(results, expr), nil
-	case *sqlparser.IsExpr           :
+	case *sqlparser.IsExpr:
 		return append(results, expr), nil
-	case *sqlparser.ExistsExpr       :
+	case *sqlparser.ExistsExpr:
 		return append(results, expr), nil
-	case *sqlparser.SQLVal           :
+	case *sqlparser.SQLVal:
 		return append(results, expr), nil
-	case *sqlparser.NullVal          :
+	case *sqlparser.NullVal:
 		return append(results, expr), nil
-	case sqlparser.BoolVal           :
+	case sqlparser.BoolVal:
 		return append(results, expr), nil
-	case *sqlparser.ColName          :
+	case *sqlparser.ColName:
 		return append(results, expr), nil
-	case sqlparser.ValTuple          :
+	case sqlparser.ValTuple:
 		return append(results, expr), nil
-	case *sqlparser.Subquery         :
+	case *sqlparser.Subquery:
 		return append(results, expr), nil
-	case sqlparser.ListArg           :
+	case sqlparser.ListArg:
 		return append(results, expr), nil
-	case *sqlparser.BinaryExpr       :
+	case *sqlparser.BinaryExpr:
 		return append(results, expr), nil
-	case *sqlparser.UnaryExpr        :
+	case *sqlparser.UnaryExpr:
 		return append(results, expr), nil
-	case *sqlparser.IntervalExpr     :
+	case *sqlparser.IntervalExpr:
 		return append(results, expr), nil
-	case *sqlparser.CollateExpr      :
+	case *sqlparser.CollateExpr:
 		return append(results, expr), nil
-	case *sqlparser.FuncExpr         :
+	case *sqlparser.FuncExpr:
 		return append(results, expr), nil
-	case *sqlparser.CaseExpr         :
+	case *sqlparser.CaseExpr:
 		return append(results, expr), nil
-	case *sqlparser.ValuesFuncExpr   :
+	case *sqlparser.ValuesFuncExpr:
 		return append(results, expr), nil
-	case *sqlparser.ConvertExpr      :
+	case *sqlparser.ConvertExpr:
 		return append(results, expr), nil
-	case *sqlparser.SubstrExpr       :
+	case *sqlparser.SubstrExpr:
 		return append(results, expr), nil
-	case *sqlparser.ConvertUsingExpr :
+	case *sqlparser.ConvertUsingExpr:
 		return append(results, expr), nil
-	case *sqlparser.MatchExpr        :
+	case *sqlparser.MatchExpr:
 		return append(results, expr), nil
-	case *sqlparser.GroupConcatExpr  :
+	case *sqlparser.GroupConcatExpr:
 		return append(results, expr), nil
-	case *sqlparser.Default          :
+	case *sqlparser.Default:
 		return append(results, expr), nil
-	default                :
+	default:
 		return nil, fmt.Errorf("invalid expression %+v", expr)
 	}
 }

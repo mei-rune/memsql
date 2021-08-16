@@ -1,9 +1,9 @@
 package parser
 
-/*
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/xwb1989/sqlparser"
 )
@@ -23,13 +23,13 @@ func parse(sqlstr string) (*sqlparser.Select, error) {
 
 type Datasource struct {
 	Table string
-	 As string
+	As    string
 }
 
 type simpleExecuteContext struct {
-  s *storage
-  stmt *sqlparser.Select
-  ds Datasource
+	s    *storage
+	stmt *sqlparser.Select
+	ds   Datasource
 }
 
 func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (Query, error) {
@@ -61,18 +61,19 @@ func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (Query, err
 
 	// Where       *Where
 
-	err = ExecuteTableExpression(ec, stmt.From[0])
+	query, err = ExecuteTableExpression(ec, stmt.From[0], stmt.Where)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't parse from expression")
 	}
+	return query, nil
 }
 
-func ExecuteTableExpression(ec *simpleExecuteContext, expr sqlparser.TableExpr) (error) {
+func ExecuteTableExpression(ec *simpleExecuteContext, expr sqlparser.TableExpr, where *sqlparser.Where) error {
 	switch expr := expr.(type) {
 	case *sqlparser.AliasedTableExpr:
-		return ExecuteAliasedTableExpression(ec, expr)
+		return ExecuteAliasedTableExpression(ec, expr, where)
 	case *sqlparser.JoinTableExpr:
-		return ParseJoinTableExpression(expr)
+		return ParseJoinTableExpression(ec, expr, where)
 	// case *sqlparser.ParenTableExpr:
 	// 	return ParseTableExpression(expr.Exprs[0])
 	default:
@@ -80,7 +81,8 @@ func ExecuteTableExpression(ec *simpleExecuteContext, expr sqlparser.TableExpr) 
 	}
 }
 
-func ExecuteJoinTableExpression(ec *simpleExecuteContext, expr *sqlparser.JoinTableExpr) error {
+/*
+func ExecuteJoinTableExpression(ec *simpleExecuteContext, expr *sqlparser.JoinTableExpr, where *sqlparser.Where) error {
 // 	type JoinTableExpr struct {
 // 	LeftExpr  TableExpr
 // 	Join      string
@@ -88,26 +90,26 @@ func ExecuteJoinTableExpression(ec *simpleExecuteContext, expr *sqlparser.JoinTa
 // 	Condition JoinCondition
 // }
 
-  err := ExecuteAliasedTableExpression(ec, expr.LeftExpr)
+  err := ExecuteAliasedTableExpression(ec, expr.LeftExpr, where)
   if err != nil {
   	return err
   }
 
-
-  err = ExecuteAliasedTableExpression(ec, expr.RightExpr)
+  err = ExecuteAliasedTableExpression(ec, expr.RightExpr, where)
   if err != nil {
   	return err
   }
 
   return nil
 }
+*/
 
-func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.AliasedTableExpr) (Query, error) {
-	if len(expr.Partitions) >0 {
-		return nil, errors.Errorf("invalid partitions in the table expression %+v", expr.Expr)
+func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.AliasedTableExpr, where *sqlparser.Where) (Query, error) {
+	if len(expr.Partitions) > 0 {
+		return nil, fmt.Errorf("invalid partitions in the table expression %+v", expr.Expr)
 	}
 	if expr.Hints != nil {
-		return nil, errors.Errorf("invalid index hits in the table expression %+v", expr.Expr)
+		return nil, fmt.Errorf("invalid index hits in the table expression %+v", expr.Expr)
 	}
 	switch subExpr := expr.Expr.(type) {
 	case sqlparser.TableName:
@@ -118,20 +120,28 @@ func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.Ali
 			ec.ds.As = expr.As.String()
 		}
 
-		return ExecuteWhere(ec, ec.ds, ec.stmt.)
+		return ExecuteTable(ec, ec.ds, ec.stmt.Where)
 		// if expr.As.IsEmpty() {
-		// 	return nil, errors.Errorf("table \"%v\" must have unique alias", subExpr.Name)
+		// 	return nil, fmt.Errorf("table \"%v\" must have unique alias", subExpr.Name)
 		// }
 		// return logical.NewDataSource(subExpr.Name.String(), expr.As.String()), nil
 	case *sqlparser.Subquery:
-		return nil, errors.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
+		return nil, fmt.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
 	default:
-		return nil, errors.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
+		return nil, fmt.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
 	}
 }
 
+func ExecuteTable(ec *simpleExecuteContext, ds Datasource, expr sqlparser.Expr) (Query, error) {
+	tableExpr, err := SplitByColumnName(expr, ByTag())
+	if err != nil {
+		return nil, errors.Wrap(err, "couldn't resolve where '"+sqlparser.Source(expr)+"'")
+	}
 
-func ExecuteWhere(ec *simpleExecuteContext, es Datasource, expr *sqlparser.Expr) error {
+	filter, err := toFilter(tableExpr)
+	if err != nil {
+		return nil, errors.Wrap(err, "couldn't convert where '"+sqlparser.Source(expr)+"'")
+	}
+
+	ec.From(ds.Table)
 }
-
-*/

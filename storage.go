@@ -80,7 +80,7 @@ type storage struct {
 	measurements map[string]map[string]measurement
 }
 
-func (s *storage) Select(name string, tags []KeyValue) (Query, error) {
+func (s *storage) From(name string, tags []KeyValue) (Query, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

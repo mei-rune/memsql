@@ -7,19 +7,57 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
+func ByTag() func(*sqlparser.ColName) bool {
+	return func(expr *sqlparser.ColName) bool {
+		return strings.HasPrefix(expr.Name.String(), "@")
+	}
+}
+
+func ByTableTag(tablename string) func(*sqlparser.ColName) bool {
+	isEmpty := tablename == ""
+	tablename = strings.ToLower(tablename)
+
+	return func(expr *sqlparser.ColName) bool {
+		if isEmpty && expr.Qualifier.IsEmpty() {
+			return strings.HasPrefix(expr.Name.String(), "@")
+		}
+		if tablename == strings.ToLower(expr.Qualifier.Name.String()) ||
+			tablename == strings.ToLower(expr.Qualifier.Qualifier.String()) {
+			return strings.HasPrefix(expr.Name.String(), "@")
+		}
+		return false
+	}
+}
+
 func SplitByTableName(expr sqlparser.Expr, tablename string) (sqlparser.Expr, error) {
-	_, expr, err := splitByTableName(expr, tablename)
+	_, expr, err := SplitByColumnName(expr, ByTable(tablename))
 	return expr, err
 }
 
-func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Expr, error) {
+func ByTable(tablename string) func(*sqlparser.ColName) bool {
+	isEmpty := tablename == ""
+	tablename = strings.ToLower(tablename)
+
+	return func(expr *sqlparser.ColName) bool {
+		if isEmpty && expr.Qualifier.IsEmpty() {
+			return true
+		}
+		if tablename == strings.ToLower(expr.Qualifier.Name.String()) ||
+			tablename == strings.ToLower(expr.Qualifier.Qualifier.String()) {
+			return true
+		}
+		return false
+	}
+}
+
+func SplitByColumnName(expr sqlparser.Expr, filter func(*sqlparser.ColName) bool) (bool, sqlparser.Expr, error) {
 	switch v := expr.(type) {
-	case *sqlparser.AndExpr          :
-		leftChanged, left, err :=  splitByTableName(v.Left, tablename)
+	case *sqlparser.AndExpr:
+		leftChanged, left, err := SplitByColumnName(v.Left, filter)
 		if err != nil {
 			return false, nil, err
 		}
-		rightChanged, right, err :=  splitByTableName(v.Right, tablename)
+		rightChanged, right, err := SplitByColumnName(v.Right, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -33,15 +71,15 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return false, expr, nil
 		}
 		return true, &sqlparser.AndExpr{
-			Left: left,  
+			Left:  left,
 			Right: right,
 		}, nil
-	case *sqlparser.OrExpr           :
-		leftChanged, left, err :=  splitByTableName(v.Left, tablename)
+	case *sqlparser.OrExpr:
+		leftChanged, left, err := SplitByColumnName(v.Left, filter)
 		if err != nil {
 			return false, nil, err
 		}
-		rightChanged, right, err :=  splitByTableName(v.Right, tablename)
+		rightChanged, right, err := SplitByColumnName(v.Right, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -55,11 +93,11 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return false, expr, nil
 		}
 		return true, &sqlparser.OrExpr{
-			Left: left,  
+			Left:  left,
 			Right: right,
 		}, nil
-	case *sqlparser.NotExpr          :
-		changed, x, err := splitByTableName(v.Expr, tablename)
+	case *sqlparser.NotExpr:
+		changed, x, err := SplitByColumnName(v.Expr, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -70,8 +108,8 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return false, expr, err
 		}
 		return true, &sqlparser.NotExpr{Expr: x}, nil
-	case *sqlparser.ParenExpr        :
-		changed, x, err := splitByTableName(v.Expr, tablename)
+	case *sqlparser.ParenExpr:
+		changed, x, err := SplitByColumnName(v.Expr, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -82,8 +120,8 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return false, expr, err
 		}
 		return true, &sqlparser.ParenExpr{Expr: x}, nil
-	case *sqlparser.ComparisonExpr   :
-		leftChanged, left, err :=  splitByTableName(v.Left, tablename)
+	case *sqlparser.ComparisonExpr:
+		leftChanged, left, err := SplitByColumnName(v.Left, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -94,7 +132,7 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		escape := v.Escape
 		escapeChanged := false
 		if escape != nil {
-			escapeChanged, escape, err =  splitByTableName(escape, tablename)
+			escapeChanged, escape, err = SplitByColumnName(escape, filter)
 			if err != nil {
 				return false, nil, err
 			}
@@ -103,7 +141,7 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			}
 		}
 
-		rightChanged, right, err :=  splitByTableName(v.Right, tablename)
+		rightChanged, right, err := SplitByColumnName(v.Right, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -115,12 +153,12 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		}
 		return true, &sqlparser.ComparisonExpr{
 			Operator: v.Operator,
-			Left: left,  
-			Right: right,
-			Escape: escape,
+			Left:     left,
+			Right:    right,
+			Escape:   escape,
 		}, nil
-	case *sqlparser.RangeCond        :
-		leftChanged, left, err :=  splitByTableName(v.Left, tablename)
+	case *sqlparser.RangeCond:
+		leftChanged, left, err := SplitByColumnName(v.Left, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -128,7 +166,7 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return true, nil, nil
 		}
 
-		fromChanged, from, err :=  splitByTableName(v.From, tablename)
+		fromChanged, from, err := SplitByColumnName(v.From, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -136,7 +174,7 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return true, nil, nil
 		}
 
-		toChanged, to, err :=  splitByTableName(v.To, tablename)
+		toChanged, to, err := SplitByColumnName(v.To, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -149,12 +187,12 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		}
 		return true, &sqlparser.RangeCond{
 			Operator: v.Operator,
-			Left: left,  
-			From: from,  
-			To: to,
+			Left:     left,
+			From:     from,
+			To:       to,
 		}, nil
-	case *sqlparser.IsExpr           :
-		changed, x, err :=  splitByTableName(v.Expr, tablename)
+	case *sqlparser.IsExpr:
+		changed, x, err := SplitByColumnName(v.Expr, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -166,12 +204,12 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		}
 		return true, &sqlparser.IsExpr{
 			Operator: v.Operator,
-			Expr: x,
+			Expr:     x,
 		}, nil
-	case *sqlparser.ExistsExpr       :
+	case *sqlparser.ExistsExpr:
 		return false, expr, nil
 
-		// changed, x, err :=  splitSubqueryByTableName(v.Expr, tablename)
+		// changed, x, err :=  splitSubqueryByTableName(v.Expr, filter)
 		// if err != nil {
 		// 	return false, nil, err
 		// }
@@ -184,22 +222,22 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		// return true, &sqlparser.ExistsExpr{
 		// 	Subquery: x,
 		// }, nil
-	case *sqlparser.SQLVal           :
-		return false,  expr, nil
-	case *sqlparser.NullVal          :
-		return false,  expr, nil
-	case sqlparser.BoolVal           :
-		return false,  expr, nil
-	case *sqlparser.ColName          :
-		changed, x, err := splitColNameByTableName(v, tablename)
-		if x == nil {
-			return changed, nil, err
+	case *sqlparser.SQLVal:
+		return false, expr, nil
+	case *sqlparser.NullVal:
+		return false, expr, nil
+	case sqlparser.BoolVal:
+		return false, expr, nil
+	case *sqlparser.ColName:
+		ok := filter(v)
+		if !ok {
+			return true, nil, nil
 		}
-		return changed, x, err
-	case sqlparser.ValTuple          :
+		return false, v, nil
+	case sqlparser.ValTuple:
 		var results = make([]sqlparser.Expr, 0, len(v))
 		for idx := range []sqlparser.Expr(sqlparser.Exprs(v)) {
-			changed, x, err :=  splitByTableName(v[idx], tablename)
+			changed, x, err := SplitByColumnName(v[idx], filter)
 			if err != nil {
 				return false, nil, err
 			}
@@ -210,13 +248,13 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			results = append(results, v[idx])
 		}
 		return true, sqlparser.ValTuple(results), nil
-	case *sqlparser.Subquery         :
+	case *sqlparser.Subquery:
 		return false, expr, nil
-		// return splitSubqueryByTableName(v, tablename)
-	case sqlparser.ListArg           :
+		// return splitSubqueryByTableName(v, filter)
+	case sqlparser.ListArg:
 		return false, expr, nil
-	case *sqlparser.BinaryExpr       :
-		leftChanged, left, err :=  splitByTableName(v.Left, tablename)
+	case *sqlparser.BinaryExpr:
+		leftChanged, left, err := SplitByColumnName(v.Left, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -224,7 +262,7 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return true, nil, nil
 		}
 
-		rightChanged, right, err :=  splitByTableName(v.Right, tablename)
+		rightChanged, right, err := SplitByColumnName(v.Right, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -236,11 +274,11 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		}
 		return true, &sqlparser.BinaryExpr{
 			Operator: v.Operator,
-			Left: left,  
-			Right: right,
+			Left:     left,
+			Right:    right,
 		}, nil
-	case *sqlparser.UnaryExpr        :
-		changed, x, err :=  splitByTableName(v.Expr, tablename)
+	case *sqlparser.UnaryExpr:
+		changed, x, err := SplitByColumnName(v.Expr, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -252,10 +290,10 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		}
 		return true, &sqlparser.UnaryExpr{
 			Operator: v.Operator,
-			Expr: x, 
+			Expr:     x,
 		}, nil
-	case *sqlparser.IntervalExpr     :
-		changed, x, err :=  splitByTableName(v.Expr, tablename)
+	case *sqlparser.IntervalExpr:
+		changed, x, err := SplitByColumnName(v.Expr, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -266,11 +304,11 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return false, expr, nil
 		}
 		return true, &sqlparser.IntervalExpr{
-			Expr: x, 
+			Expr: x,
 			Unit: v.Unit,
 		}, nil
-	case *sqlparser.CollateExpr      :
-		changed, x, err :=  splitByTableName(v.Expr, tablename)
+	case *sqlparser.CollateExpr:
+		changed, x, err := SplitByColumnName(v.Expr, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -282,10 +320,10 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		}
 		return true, &sqlparser.CollateExpr{
 			Charset: v.Charset,
-			Expr: x, 
+			Expr:    x,
 		}, nil
-	case *sqlparser.FuncExpr         :
-		changed, x, err :=  splitSelectExprsByTableName(v.Exprs, tablename)
+	case *sqlparser.FuncExpr:
+		changed, x, err := splitSelectExprsByTableName(v.Exprs, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -297,16 +335,16 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		}
 		return true, &sqlparser.FuncExpr{
 			Qualifier: v.Qualifier,
-			Name: v.Name,
-			Distinct: v.Distinct,
-			Exprs: x,
+			Name:      v.Name,
+			Distinct:  v.Distinct,
+			Exprs:     x,
 		}, nil
-	case *sqlparser.CaseExpr         :
-			return true, nil, nil
-	case *sqlparser.ValuesFuncExpr   :
-			return true, nil, nil
-	case *sqlparser.ConvertExpr      :
-		changed, x, err :=  splitByTableName(v.Expr, tablename)
+	case *sqlparser.CaseExpr:
+		return true, nil, nil
+	case *sqlparser.ValuesFuncExpr:
+		return true, nil, nil
+	case *sqlparser.ConvertExpr:
+		changed, x, err := SplitByColumnName(v.Expr, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -318,18 +356,15 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		}
 		return true, &sqlparser.ConvertExpr{
 			Type: v.Type,
-			Expr: x, 
+			Expr: x,
 		}, nil
-	case *sqlparser.SubstrExpr       :
-		nameChanged, name, err :=  splitColNameByTableName(v.Name, tablename)
-		if err != nil {
-			return false, nil, err
-		}
-		if name == nil {
+	case *sqlparser.SubstrExpr:
+		nameok := filter(v.Name)
+		if !nameok {
 			return true, nil, nil
 		}
 
-		fromChanged, from, err :=  splitByTableName(v.From, tablename)
+		fromChanged, from, err := SplitByColumnName(v.From, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -337,7 +372,7 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return true, nil, nil
 		}
 
-		toChanged, to, err :=  splitByTableName(v.To, tablename)
+		toChanged, to, err := SplitByColumnName(v.To, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -349,12 +384,12 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return false, expr, nil
 		}
 		return true, &sqlparser.SubstrExpr{
-			Name: name,
-			From: from,  
-			To: to,
+			Name: v.Name,
+			From: from,
+			To:   to,
 		}, nil
-	case *sqlparser.ConvertUsingExpr :
-		changed, x, err :=  splitByTableName(v.Expr, tablename)
+	case *sqlparser.ConvertUsingExpr:
+		changed, x, err := SplitByColumnName(v.Expr, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -366,10 +401,10 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		}
 		return true, &sqlparser.ConvertUsingExpr{
 			Type: v.Type,
-			Expr: x, 
+			Expr: x,
 		}, nil
-	case *sqlparser.MatchExpr        :
-		columnsChanged, columns, err :=  splitSelectExprsByTableName(v.Columns, tablename)
+	case *sqlparser.MatchExpr:
+		columnsChanged, columns, err := splitSelectExprsByTableName(v.Columns, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -380,7 +415,7 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 			return false, expr, nil
 		}
 
-		changed, x, err :=  splitByTableName(v.Expr, tablename)
+		changed, x, err := SplitByColumnName(v.Expr, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -392,39 +427,39 @@ func splitByTableName(expr sqlparser.Expr, tablename string) (bool, sqlparser.Ex
 		}
 		return true, &sqlparser.MatchExpr{
 			Columns: columns,
-			Expr: x, 
-			Option: v.Option,
+			Expr:    x,
+			Option:  v.Option,
 		}, nil
-	case *sqlparser.GroupConcatExpr  :
+	case *sqlparser.GroupConcatExpr:
 		return true, nil, nil
-	case *sqlparser.Default          :
+	case *sqlparser.Default:
 		return true, nil, nil
-	default                :
+	default:
 		return false, nil, fmt.Errorf("invalid expression %+v", expr)
 	}
 }
 
-func splitColNameByTableName(expr *sqlparser.ColName, tablename string) (bool, *sqlparser.ColName, error) {
-		if tablename == "" && expr.Qualifier.IsEmpty() {
-			return false, expr, nil
-		}
-		if tablename == strings.ToLower(expr.Qualifier.Name.String()) ||
-			tablename == strings.ToLower(expr.Qualifier.Qualifier.String()) {
-			return false, expr, nil
-		}
-		return true, nil, nil
-}
-
-func splitSelectExprsByTableName(expr sqlparser.SelectExprs, tablename string) (bool, sqlparser.SelectExprs, error) {
+func splitSelectExprsByTableName(expr sqlparser.SelectExprs, filter func(tablename string) bool) (bool, sqlparser.SelectExprs, error) {
 	var selectExprs []sqlparser.SelectExpr
 	allchanged := false
 	for idx := range expr {
 		switch v := expr[idx].(type) {
 		case *sqlparser.StarExpr:
-		return true, nil, nil
+			return true, nil, nil
 		case *sqlparser.AliasedExpr:
+			changed, x, err := SplitByColumnName(v.AliasedExpr, filter)
+			if err != nil {
+				return true, nil, err
+			}
+			if changed {
+				allchanged = true
+			}
+			if x == nil {
+				return true, nil, nil
+			}
+			selectExprs = append(selectExprs, sqlparser.AliasedExpr{Expr: x, As: v.As})
 		case sqlparser.Nextval:
-			changed, x, err := splitByTableName(v.Expr, tablename)
+			changed, x, err := SplitByColumnName(v.Expr, filter)
 			if err != nil {
 				return true, nil, err
 			}
@@ -447,28 +482,28 @@ func splitSelectExprsByTableName(expr sqlparser.SelectExprs, tablename string) (
 	return true, sqlparser.SelectExprs(selectExprs), nil
 }
 
-// func splitSubqueryByTableName(expr *sqlparser.Subquery, tablename string) (bool, sqlparser.Expr, error) {
-// 	_, x, err splitSelectStatementByTableName(expr.Select, tablename)
+// func splitSubqueryByTableName(expr *sqlparser.Subquery, filter func(tablename string) bool) (bool, sqlparser.Expr, error) {
+// 	_, x, err splitSelectStatementByTableName(expr.Select, filter)
 
 // }
 
-// func splitSelectStatementByTableName(expr sqlparser.SelectStatement, tablename string) (bool, sqlparser.SelectStatement, error) {
+// func splitSelectStatementByTableName(expr sqlparser.SelectStatement, filter func(tablename string) bool) (bool, sqlparser.SelectStatement, error) {
 // 	switch sel := expr.(type) {
 // 	case *sqlparser.Select:
-// 		changed, x, err :=  splitByTableName(sel.Where.Expr, tablename)
+// 		changed, x, err :=  SplitByColumnName(sel.Where.Expr, filter)
 // 		if err != nil {
 // 			return changed, x, err
 // 		}
 // 		if !changed {
 // 			return change, x, err
-// 		} 
+// 		}
 // 		var where *sqlparser.Where
 // 		if x != nil {
 // 			where = &sqlparser.Where{
 // 				Type: sel.Type,
 // 				Expr: x,
 // 			}
-// 		} 
+// 		}
 // 		return true, &sqlparser.Select{
 // 				Cache: sel.Cache,
 // 				Comments: sel.Comments,

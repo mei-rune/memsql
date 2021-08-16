@@ -57,7 +57,7 @@ func TestSplitByName(t *testing.T) {
 				continue
 			}
 
-			if expr == nil  {
+			if expr == nil {
 				if txt != "" {
 					t.Error(test.s)
 					t.Error("["+key+"] want:", txt)

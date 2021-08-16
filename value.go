@@ -673,6 +673,10 @@ var _ encoding.TextMarshaler = &Value{}
 // 	return v.marshalText()
 // }
 
+func Null() Value {
+	return Value{Type: ValueNil}
+}
+
 func ToValue(value interface{}) (Value, error) {
 	if value == nil {
 		return Value{}, nil
@@ -821,6 +825,22 @@ func StringToValue(value string) Value {
 		Type: ValueString,
 		Str:  value,
 	}
+}
+
+func StringAsNumber(s string) (Value, error) {
+	i64, err := strconv.ParseInt(s, 10, 64)
+  if err == nil {
+    return IntToValue(i64), nil
+  }
+  u64, err := strconv.ParseUint(s, 10, 64)
+  if err == nil {
+    return UintToValue(u64), nil
+  }
+  f64, err := strconv.ParseFloat(s, 64)
+  if err == nil {
+    return FloatToValue(f64), nil
+  }
+  return Value{}, NewTypeError(s, "string", "number")
 }
 
 func DatetimeToValue(value time.Time) Value {
