@@ -47,6 +47,21 @@ func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (boo
 		if err != nil {
 			return nil, err
 		}
+		if v.Operator == sqlparser.InStr {
+			rightValues, err := ToGetValues(ctx, v.Right)
+			if err != nil {
+				return nil, err
+			}
+			return filter.In(leftValue, rightValues)
+		}
+		if v.Operator == sqlparser.NotInStr {
+			rightValues, err := ToGetValues(ctx, v.Right)
+			if err != nil {
+				return nil, err
+			}
+			return filter.NotIn(leftValue, rightValues)
+		}
+
 		rightValue, err := ToGetValue(ctx, v.Right)
 		if err != nil {
 			return nil, err
@@ -64,12 +79,10 @@ func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (boo
 			return filter.GreaterEqual(leftValue, rightValue)
 		case sqlparser.NotEqualStr:
 			return filter.NotEqual(leftValue, rightValue)
+		// case sqlparser.InStr:
+		// case sqlparser.NotInStr:
 		case sqlparser.NullSafeEqualStr:
-			return filter.NullSafeEqual(leftValue, rightValue)
-		case sqlparser.InStr:
-			return filter.In(leftValue, rightValue)
-		case sqlparser.NotInStr:
-			return filter.NotIn(leftValue, rightValue)
+			return nil, errUnknownOperator(v.Operator)
 		case sqlparser.LikeStr:
 			return filter.Like(leftValue, rightValue)
 		case sqlparser.NotLikeStr:
@@ -243,6 +256,42 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (m
 		}
 		return func(ctx filter.Context) (memsql.Value, error) {
 			return ctx.GetValue("", name)
+		}, nil
+	default:
+		return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)
+	}
+}
+
+func ToGetValues(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) ([]memsql.Value, error), error) {
+	switch v := expr.(type) {
+	case sqlparser.SelectExprs:
+		var funcs []func(filter.Context) (memsql.Value, error)
+		for idx := range v {
+			switch subexpr := v[idx].(type) {
+			case *sqlparser.StarExpr:
+				return nil, fmt.Errorf("invalid expression %T %+v", subexpr, subexpr)
+			case *sqlparser.AliasedExpr:
+				readValue, err := ToGetValue(ctx, subexpr.Expr)
+				if err != nil {
+					return nil, err
+				}
+				funcs = append(funcs, readValue)
+			case sqlparser.Nextval:
+					return nil, fmt.Errorf("invalid expression %T %+v", subexpr, subexpr)
+			default:
+					return nil, fmt.Errorf("invalid expression %T %+v", subexpr, subexpr)
+			}
+		}
+		return func(ctx filter.Context) ([]memsql.Value, error) {
+				values := make([]memsql.Value, len(funcs))
+				for idx, read := range funcs {
+					value, err := read(ctx)
+					if err != nil {
+						return nil, err
+					}
+					values[idx] = value
+				}
+				return values, nil
 		}, nil
 	default:
 		return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)
