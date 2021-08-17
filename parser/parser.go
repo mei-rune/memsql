@@ -259,7 +259,14 @@ func ExecuteWhere(ec *simpleExecuteContext, query memcore.Query, expr sqlparser.
 		return query, nil
   }
 
-  // TODO: XXX
+
+	f, err = ToFilter(ec, expr)
+	if err != nil {
+		return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
+	}
+	query = query.Where(func(idx int, r memcore.Record) bool{
+  		return f(toRecordGetValuer(r))
+	})
 
   // type Where Expr
 	return query, nil
@@ -281,26 +288,91 @@ func ExecuteHaving(ec *simpleExecuteContext, query memcore.Query, having *sqlpar
 }
 
 func ExecuteOrderBy(ec *simpleExecuteContext, query memcore.Query, orderBy sqlparser.OrderBy) (memcore.Query, error) {
-  // TODO: XXX
+  if len(orderBy) == 0 {
+  	return query, nil
+  }
 
-	// 	for idx := range stmt.OrderBy {
-	// 		// Order represents an ordering expression.
-	// 		type Order struct {
-	// 			Expr      Expr
-	// 			Direction string
-	// 		}
+  read, err := ToGetValue(ec, orderBy[0])
+	if err != nil {
+		return memcore.Query{}, err
+	}
 
-	// 		// Order.Direction
-	// 		const (
-	// 			AscScr  = "asc"
-	// 			DescScr = "desc"
-	// 		)
-	// 	}
-	return query, nil
+	var orderedQuery OrderedQuery
+  switch orderBy[0].Direction {
+  case sqlparser.AscScr, "":
+	  	orderedQuery = query.OrderBy(func(r Record) Value{
+	  		return read(toRecordGetValuer(r))
+	  	})
+  case sqlparser.DescScr:
+  	orderedQuery = query.OrderByDescending(func(r Record) Value{
+  		return read(toRecordGetValuer(r))
+  	})
+  default:
+		return memcore.Query{}, errors.New("invalid order by " + sqlparser.String(orderBy[0]))
+  }
+
+	for idx := 1; idx < len(orderBy); idx ++ {
+	  read, err := ToGetValue(ec, orderBy[idx])
+		if err != nil {
+			return memcore.Query{}, err
+		}
+	  switch orderBy[idx].Direction {
+	  case sqlparser.AscScr, "":
+	  	orderedQuery = orderedQuery.ThenBy(func(r Record) Value{
+	  		return read(toRecordGetValuer(r))
+	  	})
+	  case sqlparser.DescScr:
+	  	orderedQuery = orderedQuery.ThenByDescending(func(r Record) Value{
+	  		return read(toRecordGetValuer(r))
+	  	})
+	  default:
+			return memcore.Query{}, errors.New("invalid order by " + sqlparser.String(orderBy[0]))
+	  }
+	}
+	return orderedQuery, nil
 }
 
 func ExecuteLimit(ec *simpleExecuteContext, query memcore.Query, limit *sqlparser.Limit) (memcore.Query, error) {
-  // TODO: XXX
+	if limit == nil {
+		return query, nil
+	}
+
+	if limit.Offset != nil {
+		readOffset, err := ToGetValue(nil, limit.Offset)
+		if err != nil {
+			return query, err
+		}
+
+		offset, err := readOffset(nil)
+		if err != nil {
+			return query, err
+		}
+
+		i64, err := offset.AsInt()
+		if err != nil {
+			return query, err
+		}
+		query = query.Skip(i64)
+	}
+
+	if limit.Rowcount != nil {
+		readRowcount, err := ToGetValue(nil, limit.Rowcount)
+		if err != nil {
+			return query, err
+		}
+
+		rowCount, err := readRowcount(nil)
+		if err != nil {
+			return query, err
+		}
+
+		i64, err := rowCount.AsInt()
+		if err != nil {
+			return query, err
+		}
+		query = query.Limit(rowCount)
+	}
+
 
 	// if stmt.Limit != nil {
 	// 	Offset, 
