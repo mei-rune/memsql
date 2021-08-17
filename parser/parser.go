@@ -67,7 +67,20 @@ func ExecuteUnion(ec *simpleExecuteContext, stmt *sqlparser.Union) (memcore.Quer
 	default:
 		return memcore.Query{}, fmt.Errorf("invalid union type %s", stmt.Type)
 	}
-
+	
+	if len(stmt.OrderBy) > 0 {
+		query, err = ExecuteOrderBy(ec, query, stmt.OrderBy)
+		if err != nil {
+			return memcore.Query{}, err
+		}
+	}
+	
+	if stmt.Limit != nil {
+		query, err = ExecuteLimit(ec, query, stmt.Limit)
+		if err != nil {
+			return memcore.Query{}, err
+		}
+	}
 	// if 	len(stmt.OrderBy) > 0 {
 	// 	for idx := range stmt.OrderBy {
 	// 		// Order represents an ordering expression.
@@ -100,18 +113,7 @@ func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (memcore.Qu
 	if stmt.Hints != "" {
 		return memcore.Query{}, errors.New("currently unsupport hints")
 	}
-	if stmt.Having != nil {
-		return memcore.Query{}, errors.New("currently unsupport having")
-	}
-	if stmt.GroupBy != nil {
-		return memcore.Query{}, errors.New("currently unsupport groupBy")
-	}
-	if stmt.OrderBy != nil {
-		return memcore.Query{}, errors.New("currently unsupport orderBy")
-	}
-	if stmt.Limit != nil {
-		return memcore.Query{}, errors.New("currently unsupport limit")
-	}
+
 	if stmt.Lock != "" {
 		return memcore.Query{}, errors.New("currently unsupport lock")
 	}
@@ -125,6 +127,39 @@ func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (memcore.Qu
 	if err != nil {
 		return memcore.Query{}, errors.Wrap(err, "couldn't parse from expression")
 	}
+
+	if stmt.GroupBy != nil {
+		query, err = ExecuteGroupBy(ec, query, stmt.GroupBy)
+		if err != nil {
+			return memcore.Query{}, err
+		}
+
+		if stmt.Having != nil {
+			query, err = ExecuteHaving(ec, query, stmt.Having)
+			if err != nil {
+				return memcore.Query{}, err
+			}
+		}
+	} else {
+		if stmt.Having != nil {
+			return memcore.Query{}, errors.New("currently unsupport having")
+		}
+	}
+
+	if stmt.OrderBy != nil {
+		query, err = ExecuteOrderBy(ec, query, stmt.OrderBy)
+		if err != nil {
+			return memcore.Query{}, err
+		}
+	}
+	
+	if stmt.Limit != nil {
+		query, err = ExecuteLimit(ec, query, stmt.Limit)
+		if err != nil {
+			return memcore.Query{}, err
+		}
+	}
+
 	return query, nil
 }
 
@@ -211,5 +246,65 @@ func ExecuteTable(ec *simpleExecuteContext, ds Datasource, expr sqlparser.Expr) 
 		}
 	}
 
-	return ec.s.From(ec, ds.Table, f)
+	query, err := ec.s.From(ec, ds.Table, f)
+	if err != nil {
+		return memcore.Query{}, err
+	}
+
+	return ExecuteWhere(ec, query, expr)
+}
+
+func ExecuteWhere(ec *simpleExecuteContext, query memcore.Query, expr sqlparser.Expr) (memcore.Query, error) {
+  if expr == nil {
+		return query, nil
+  }
+
+  // TODO: XXX
+
+  // type Where Expr
+	return query, nil
+}
+
+func ExecuteGroupBy(ec *simpleExecuteContext, query memcore.Query, groupBy sqlparser.GroupBy) (memcore.Query, error) {
+  // type GroupBy []Expr
+
+  // TODO: XXX
+	return query, nil
+}
+
+
+func ExecuteHaving(ec *simpleExecuteContext, query memcore.Query, having *sqlparser.Where) (memcore.Query, error) {
+		if having == nil {
+			return query, nil
+		}
+		return ExecuteWhere(ec, query, ec.stmt.Where.Expr)
+}
+
+func ExecuteOrderBy(ec *simpleExecuteContext, query memcore.Query, orderBy sqlparser.OrderBy) (memcore.Query, error) {
+  // TODO: XXX
+
+	// 	for idx := range stmt.OrderBy {
+	// 		// Order represents an ordering expression.
+	// 		type Order struct {
+	// 			Expr      Expr
+	// 			Direction string
+	// 		}
+
+	// 		// Order.Direction
+	// 		const (
+	// 			AscScr  = "asc"
+	// 			DescScr = "desc"
+	// 		)
+	// 	}
+	return query, nil
+}
+
+func ExecuteLimit(ec *simpleExecuteContext, query memcore.Query, limit *sqlparser.Limit) (memcore.Query, error) {
+  // TODO: XXX
+
+	// if stmt.Limit != nil {
+	// 	Offset, 
+	// 	Rowcount Expr
+	// }
+	return query, nil
 }
