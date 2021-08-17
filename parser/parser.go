@@ -1,11 +1,13 @@
 package parser
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 
 	"github.com/xwb1989/sqlparser"
+	"github.com/runner-mei/memsql/memcore"
+	"github.com/runner-mei/memsql/filter"
+	"github.com/runner-mei/errors"
 )
 
 func parse(sqlstr string) (*sqlparser.Select, error) {
@@ -27,57 +29,57 @@ type Datasource struct {
 }
 
 type simpleExecuteContext struct {
-	s    *storage
+	s    memcore.Storage
 	stmt *sqlparser.Select
 	ds   Datasource
 }
 
-func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (Query, error) {
+func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (memcore.Query, error) {
 	if len(stmt.From) != 1 {
-		return nil, fmt.Errorf("currently only one expression in from supported, got %v", len(stmt.From))
+		return memcore.Query{}, fmt.Errorf("currently only one expression in from supported, got %v", len(stmt.From))
 	}
 
 	if stmt.Hints != "" {
-		return nil, errors.Errorf("currently unsupport hints")
+		return memcore.Query{}, errors.New("currently unsupport hints")
 	}
 	if stmt.Having != nil {
-		return nil, errors.Errorf("currently unsupport having")
+		return memcore.Query{}, errors.New("currently unsupport having")
 	}
 	if stmt.GroupBy != nil {
-		return nil, errors.Errorf("currently unsupport groupBy")
+		return memcore.Query{}, errors.New("currently unsupport groupBy")
 	}
 	if stmt.OrderBy != nil {
-		return nil, errors.Errorf("currently unsupport orderBy")
+		return memcore.Query{}, errors.New("currently unsupport orderBy")
 	}
 	if stmt.Limit != nil {
-		return nil, errors.Errorf("currently unsupport limit")
+		return memcore.Query{}, errors.New("currently unsupport limit")
 	}
 	if stmt.Lock != "" {
-		return nil, errors.Errorf("currently unsupport lock")
+		return memcore.Query{}, errors.New("currently unsupport lock")
 	}
 	if stmt.Distinct != "" {
-		return nil, errors.Errorf("currently unsupport distinct")
+		return memcore.Query{}, errors.New("currently unsupport distinct")
 	}
 
 	// Where       *Where
 
-	query, err = ExecuteTableExpression(ec, stmt.From[0], stmt.Where)
+	query, err := ExecuteTableExpression(ec, stmt.From[0], stmt.Where)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't parse from expression")
+		return memcore.Query{}, errors.Wrap(err, "couldn't parse from expression")
 	}
 	return query, nil
 }
 
-func ExecuteTableExpression(ec *simpleExecuteContext, expr sqlparser.TableExpr, where *sqlparser.Where) error {
+func ExecuteTableExpression(ec *simpleExecuteContext, expr sqlparser.TableExpr, where *sqlparser.Where) (memcore.Query, error) {
 	switch expr := expr.(type) {
 	case *sqlparser.AliasedTableExpr:
 		return ExecuteAliasedTableExpression(ec, expr, where)
-	case *sqlparser.JoinTableExpr:
-		return ParseJoinTableExpression(ec, expr, where)
+	//case *sqlparser.JoinTableExpr:
+	//	return ParseJoinTableExpression(ec, expr, where)
 	// case *sqlparser.ParenTableExpr:
 	// 	return ParseTableExpression(expr.Exprs[0])
 	default:
-		return errors.Errorf("invalid table expression %+v of type %v", expr, reflect.TypeOf(expr))
+		return memcore.Query{}, fmt.Errorf("invalid table expression %+v of type %v", expr, reflect.TypeOf(expr))
 	}
 }
 
@@ -104,12 +106,12 @@ func ExecuteJoinTableExpression(ec *simpleExecuteContext, expr *sqlparser.JoinTa
 }
 */
 
-func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.AliasedTableExpr, where *sqlparser.Where) (Query, error) {
+func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.AliasedTableExpr, where *sqlparser.Where) (memcore.Query, error) {
 	if len(expr.Partitions) > 0 {
-		return nil, fmt.Errorf("invalid partitions in the table expression %+v", expr.Expr)
+		return memcore.Query{}, fmt.Errorf("invalid partitions in the table expression %+v", expr.Expr)
 	}
 	if expr.Hints != nil {
-		return nil, fmt.Errorf("invalid index hits in the table expression %+v", expr.Expr)
+		return memcore.Query{}, fmt.Errorf("invalid index hits in the table expression %+v", expr.Expr)
 	}
 	switch subExpr := expr.Expr.(type) {
 	case sqlparser.TableName:
@@ -120,28 +122,36 @@ func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.Ali
 			ec.ds.As = expr.As.String()
 		}
 
-		return ExecuteTable(ec, ec.ds, ec.stmt.Where)
+		if ec.stmt.Where.Expr == nil {
+		return ExecuteTable(ec, ec.ds, nil)
+		}
+		return ExecuteTable(ec, ec.ds, ec.stmt.Where.Expr)
 		// if expr.As.IsEmpty() {
 		// 	return nil, fmt.Errorf("table \"%v\" must have unique alias", subExpr.Name)
 		// }
 		// return logical.NewDataSource(subExpr.Name.String(), expr.As.String()), nil
 	case *sqlparser.Subquery:
-		return nil, fmt.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
+		return memcore.Query{}, fmt.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
 	default:
-		return nil, fmt.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
+		return memcore.Query{}, fmt.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
 	}
 }
 
-func ExecuteTable(ec *simpleExecuteContext, ds Datasource, expr sqlparser.Expr) (Query, error) {
-	tableExpr, err := SplitByColumnName(expr, ByTag())
+func ExecuteTable(ec *simpleExecuteContext, ds Datasource, expr sqlparser.Expr) (memcore.Query, error) {
+	_, tableExpr, err := SplitByColumnName(expr, ByTag())
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't resolve where '"+sqlparser.Source(expr)+"'")
+		return memcore.Query{}, errors.Wrap(err, "couldn't resolve where '"+sqlparser.String(expr)+"'")
 	}
 
-	filter, err := toFilter(tableExpr)
-	if err != nil {
-		return nil, errors.Wrap(err, "couldn't convert where '"+sqlparser.Source(expr)+"'")
+	var f = func(filter.Context) (bool, error) {
+		return true, nil
+	}
+	if tableExpr != nil {
+		f, err = ToFilter(nil, tableExpr)
+		if err != nil {
+			return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
+		}
 	}
 
-	ec.From(ds.Table)
+	return ec.s.From(ds.Table, f)
 }

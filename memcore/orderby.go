@@ -1,0 +1,223 @@
+package memcore
+
+import "sort"
+
+type comparer func(Value, Value) int
+
+type order struct {
+	selector func(Record) Value
+	compare  comparer
+	desc     bool
+}
+
+// OrderedQuery is the type returned from OrderBy, OrderByDescending ThenBy and
+// ThenByDescending functions.
+type OrderedQuery struct {
+	Query
+	original Query
+	orders   []order
+}
+
+// OrderBy sorts the elements of a collection in ascending order. Elements are
+// sorted according to a key.
+func (q Query) OrderBy(selector func(Record) Value) OrderedQuery {
+	return OrderedQuery{
+		orders:   []order{{selector: selector}},
+		original: q,
+		Query: Query{
+			Iterate: func() Iterator {
+				items := q.sort([]order{{selector: selector}})
+				len := len(items)
+				index := 0
+
+				return func() (item Record, ok bool) {
+					ok = index < len
+					if ok {
+						item = items[index]
+						index++
+					}
+
+					return
+				}
+			},
+		},
+	}
+}
+
+// OrderByDescending sorts the elements of a collection in descending order.
+// Elements are sorted according to a key.
+func (q Query) OrderByDescending(selector func(Record) Value) OrderedQuery {
+	return OrderedQuery{
+		orders:   []order{{selector: selector, desc: true}},
+		original: q,
+		Query: Query{
+			Iterate: func() Iterator {
+				items := q.sort([]order{{selector: selector, desc: true}})
+				len := len(items)
+				index := 0
+
+				return func() (item Record, ok bool) {
+					ok = index < len
+					if ok {
+						item = items[index]
+						index++
+					}
+
+					return
+				}
+			},
+		},
+	}
+}
+
+// ThenBy performs a subsequent ordering of the elements in a collection in
+// ascending order. This method enables you to specify multiple sort criteria by
+// applying any number of ThenBy or ThenByDescending methods.
+func (oq OrderedQuery) ThenBy(selector func(Record) Value) OrderedQuery {
+	return OrderedQuery{
+		orders:   append(oq.orders, order{selector: selector}),
+		original: oq.original,
+		Query: Query{
+			Iterate: func() Iterator {
+				items := oq.original.sort(append(oq.orders, order{selector: selector}))
+				len := len(items)
+				index := 0
+
+				return func() (item Record, ok bool) {
+					ok = index < len
+					if ok {
+						item = items[index]
+						index++
+					}
+
+					return
+				}
+			},
+		},
+	}
+}
+
+// ThenByDescending performs a subsequent ordering of the elements in a
+// collection in descending order. This method enables you to specify multiple
+// sort criteria by applying any number of ThenBy or ThenByDescending methods.
+func (oq OrderedQuery) ThenByDescending(selector func(Record) Value) OrderedQuery {
+	return OrderedQuery{
+		orders:   append(oq.orders, order{selector: selector, desc: true}),
+		original: oq.original,
+		Query: Query{
+			Iterate: func() Iterator {
+				items := oq.original.sort(append(oq.orders, order{selector: selector, desc: true}))
+				len := len(items)
+				index := 0
+
+				return func() (item Record, ok bool) {
+					ok = index < len
+					if ok {
+						item = items[index]
+						index++
+					}
+
+					return
+				}
+			},
+		},
+	}
+}
+
+// Sort returns a new query by sorting elements with provided less function in
+// ascending order. The comparer function should return true if the parameter i
+// is less than j. While this method is uglier than chaining OrderBy,
+// OrderByDescending, ThenBy and ThenByDescending methods, it's performance is
+// much better.
+func (q Query) Sort(less func(i, j Record) bool) Query {
+	return Query{
+		Iterate: func() Iterator {
+			items := q.lessSort(less)
+			len := len(items)
+			index := 0
+
+			return func() (item Record, ok bool) {
+				ok = index < len
+				if ok {
+					item = items[index]
+					index++
+				}
+
+				return
+			}
+		},
+	}
+}
+
+type sorter struct {
+	items []Record
+	less  func(i, j Record) bool
+}
+
+func (s sorter) Len() int {
+	return len(s.items)
+}
+
+func (s sorter) Swap(i, j int) {
+	s.items[i], s.items[j] = s.items[j], s.items[i]
+}
+
+func (s sorter) Less(i, j int) bool {
+	return s.less(s.items[i], s.items[j])
+}
+
+func (q Query) sort(orders []order) (r []Record) {
+	next := q.Iterate()
+	for item, ok := next(); ok; item, ok = next() {
+		r = append(r, item)
+	}
+
+	if len(r) == 0 {
+		return
+	}
+
+	for i := range orders {
+		if orders[i].compare != nil {
+			continue
+		}
+		orders[i].compare = func(a Value, b Value) int {
+			ret, err := a.CompareTo(b, emptyCompareOption)
+			if err != nil {
+				panic(err)
+			}
+			return ret
+		}
+	}
+
+	s := sorter{
+		items: r,
+		less: func(i, j Record) bool {
+			for _, order := range orders {
+				x, y := order.selector(i), order.selector(j)
+				switch order.compare(x, y) {
+				case 0:
+					continue
+				case -1:
+					return !order.desc
+				default:
+					return order.desc
+				}
+			}
+			return false
+		}}
+
+	sort.Sort(s)
+	return
+}
+
+func (q Query) lessSort(less func(i, j Record) bool) (r []Record) {
+	next := q.Iterate()
+	for item, ok := next(); ok; item, ok = next() {
+		r = append(r, item)
+	}
+
+	s := sorter{items: r, less: less}
+
+	sort.Sort(s)
+	return
+}

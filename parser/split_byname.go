@@ -380,7 +380,7 @@ func SplitByColumnName(expr sqlparser.Expr, filter func(*sqlparser.ColName) bool
 			return true, nil, nil
 		}
 
-		if !nameChanged && !fromChanged && !toChanged {
+		if !fromChanged && !toChanged {
 			return false, expr, nil
 		}
 		return true, &sqlparser.SubstrExpr{
@@ -439,7 +439,7 @@ func SplitByColumnName(expr sqlparser.Expr, filter func(*sqlparser.ColName) bool
 	}
 }
 
-func splitSelectExprsByTableName(expr sqlparser.SelectExprs, filter func(tablename string) bool) (bool, sqlparser.SelectExprs, error) {
+func splitSelectExprsByTableName(expr sqlparser.SelectExprs, filter func(*sqlparser.ColName) bool) (bool, sqlparser.SelectExprs, error) {
 	var selectExprs []sqlparser.SelectExpr
 	allchanged := false
 	for idx := range expr {
@@ -447,7 +447,7 @@ func splitSelectExprsByTableName(expr sqlparser.SelectExprs, filter func(tablena
 		case *sqlparser.StarExpr:
 			return true, nil, nil
 		case *sqlparser.AliasedExpr:
-			changed, x, err := SplitByColumnName(v.AliasedExpr, filter)
+			changed, x, err := SplitByColumnName(v.Expr, filter)
 			if err != nil {
 				return true, nil, err
 			}
@@ -457,7 +457,7 @@ func splitSelectExprsByTableName(expr sqlparser.SelectExprs, filter func(tablena
 			if x == nil {
 				return true, nil, nil
 			}
-			selectExprs = append(selectExprs, sqlparser.AliasedExpr{Expr: x, As: v.As})
+			selectExprs = append(selectExprs, &sqlparser.AliasedExpr{Expr: x, As: v.As})
 		case sqlparser.Nextval:
 			changed, x, err := SplitByColumnName(v.Expr, filter)
 			if err != nil {
