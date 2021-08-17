@@ -27,7 +27,7 @@ func (f GetValueFunc)	GetValue(tableName, name string) (Value, error) {
 }
 
 type Storage interface {
-	From(ctx ExecuteContext, tablename string, filter func(ctx ExecuteContext) (bool, error))
+	From(ctx ExecuteContext, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, error)
 }
 
 type KeyValue struct {

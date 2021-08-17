@@ -116,14 +116,14 @@ func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.Ali
 	switch subExpr := expr.Expr.(type) {
 	case sqlparser.TableName:
 		ec.ds.Table = subExpr.Name.String()
-		if expr.As == nil {
+		if expr.As.IsEmpty() {
 			ec.ds.As = ec.ds.Table
 		} else {
 			ec.ds.As = expr.As.String()
 		}
 
 		if ec.stmt.Where.Expr == nil {
-		return ExecuteTable(ec, ec.ds, nil)
+			return ExecuteTable(ec, ec.ds, nil)
 		}
 		return ExecuteTable(ec, ec.ds, ec.stmt.Where.Expr)
 		// if expr.As.IsEmpty() {
@@ -153,5 +153,5 @@ func ExecuteTable(ec *simpleExecuteContext, ds Datasource, expr sqlparser.Expr) 
 		}
 	}
 
-	return ec.s.From(ds.Table, f)
+	return ec.s.From(ec, ds.Table, f)
 }
