@@ -34,6 +34,64 @@ type simpleExecuteContext struct {
 	ds   Datasource
 }
 
+func ExecuteSelectStatement(ec *simpleExecuteContext, stmt sqlparser.SelectStatement) (memcore.Query, error) {
+	switch expr := stmt.(type) {
+	case *sqlparser.Select:
+			return ExecuteSelect(ec, expr)
+	case *sqlparser.Union:
+			return ExecuteUnion(ec, expr)
+	case *sqlparser.ParenSelect:
+		return ExecuteSelectStatement(ec, expr.Select) 
+	default:
+		return memcore.Query{}, fmt.Errorf("invalid select %+v of type %T", stmt, stmt)
+	}
+}
+
+func ExecuteUnion(ec *simpleExecuteContext, stmt *sqlparser.Union) (memcore.Query, error) {
+	left, err := ExecuteSelectStatement(ec, stmt.Left)
+	if err != nil {
+		return memcore.Query{}, err
+	}
+	right, err := ExecuteSelectStatement(ec, stmt.Right)
+	if err != nil {
+		return memcore.Query{}, err
+	}
+
+	var query memcore.Query
+	switch stmt.Type {
+	case sqlparser.UnionStr:
+		query = left.Union(right)
+	case sqlparser.UnionAllStr:
+		query = left.UnionAll(right)
+	// case sqlparser.UnionDistinctStr:
+	default:
+		return memcore.Query{}, fmt.Errorf("invalid union type %s", stmt.Type)
+	}
+
+	// if 	len(stmt.OrderBy) > 0 {
+	// 	for idx := range stmt.OrderBy {
+	// 		// Order represents an ordering expression.
+	// 		type Order struct {
+	// 			Expr      Expr
+	// 			Direction string
+	// 		}
+
+	// 		// Order.Direction
+	// 		const (
+	// 			AscScr  = "asc"
+	// 			DescScr = "desc"
+	// 		)
+	// 	}
+	// }
+
+	// if stmt.Limit != nil {
+	// 	Offset, 
+	// 	Rowcount Expr
+	// }
+
+	return query, nil
+}
+
 func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (memcore.Query, error) {
 	if len(stmt.From) != 1 {
 		return memcore.Query{}, fmt.Errorf("currently only one expression in from supported, got %v", len(stmt.From))
@@ -131,7 +189,7 @@ func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.Ali
 		// }
 		// return logical.NewDataSource(subExpr.Name.String(), expr.As.String()), nil
 	case *sqlparser.Subquery:
-		return memcore.Query{}, fmt.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
+		return ExecuteSelectStatement(ec, subExpr.Select)
 	default:
 		return memcore.Query{}, fmt.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
 	}
