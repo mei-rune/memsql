@@ -178,7 +178,6 @@ func NotIn(left func(Context) (memsql.Value, error), right func(Context) ([]mems
     }
 }
 
-
 func Like(left, right func(Context) (memsql.Value, error)) func(Context) (bool, error) {
   return   return func(ctx Context) (bool, error) {
       leftValue, err := left(ctx)
@@ -189,6 +188,50 @@ func Like(left, right func(Context) (memsql.Value, error)) func(Context) (bool, 
       if err != nil {
         return false, err
       }
-      aa
+      leftStr, err := leftValue.ToString()
+      if err != nil {
+        return false, errors.Wrap(err, "left operant isnot string")
+      }
+      rightStr, err := rightValue.ToString()
+      if err != nil {
+        return false, errors.Wrap(err, "right operant isnot string")
+      }
+      if strings.HasPrefix(rightStr, "%") {
+        if strings.HasSuffix(rightStr, "%") {
+          s := strings.TrimPrefix(rightStr, "%")
+          s = strings.TrimSuffix(s, "%")
+          return strings.Contains(leftStr, s) 
+        }
+        return strings.HasSuffix(leftStr, strings.TrimPrefix("%"))
+      }
+      if strings.HasSuffix(rightStr, "%") {
+        return strings.HasPrefix(leftStr, strings.TrimSuffix(rightStr, "%"))
+      }
+      return leftStr == rightStr, nil
+  }
+}
+
+
+
+func Regexp(left, right func(Context) (memsql.Value, error)) func(Context) (bool, error) {
+  return   return func(ctx Context) (bool, error) {
+      leftValue, err := left(ctx)
+      if err != nil {
+        return false, err
+      }
+      rightValue, err := right(ctx)
+      if err != nil {
+        return false, err
+      }
+      leftStr, err := leftValue.ToString()
+      if err != nil {
+        return false, errors.Wrap(err, "left operant isnot string")
+      }
+      rightStr, err := rightValue.ToString()
+      if err != nil {
+        return false, errors.Wrap(err, "right operant isnot string")
+      }
+
+      
   }
 }
