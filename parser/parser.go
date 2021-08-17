@@ -259,7 +259,6 @@ func ExecuteWhere(ec *simpleExecuteContext, query memcore.Query, expr sqlparser.
 		return query, nil
   }
 
-
 	f, err = ToFilter(ec, expr)
 	if err != nil {
 		return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
