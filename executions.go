@@ -264,7 +264,7 @@ func ExecuteWhere(ec *simpleExecuteContext, query memcore.Query, expr sqlparser.
 	if err != nil {
 		return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
 	}
-	query = query.Where(func(idx int, r memcore.Record) bool{
+	query = query.Where(func(idx int, r memcore.Record) bool {
   		return f(toRecordGetValuer(r))
 	})
 
@@ -292,7 +292,7 @@ func ExecuteOrderBy(ec *simpleExecuteContext, query memcore.Query, orderBy sqlpa
   	return query, nil
   }
 
-  read, err := parser.ToGetValue(ec, orderBy[0])
+  read, err := parser.ToGetValue(ec, orderBy[0].Expr)
 	if err != nil {
 		return memcore.Query{}, err
 	}
@@ -312,7 +312,7 @@ func ExecuteOrderBy(ec *simpleExecuteContext, query memcore.Query, orderBy sqlpa
   }
 
 	for idx := 1; idx < len(orderBy); idx ++ {
-	  read, err := parser.ToGetValue(ec, orderBy[idx])
+	  read, err := parser.ToGetValue(ec, orderBy[idx].Expr)
 		if err != nil {
 			return memcore.Query{}, err
 		}
