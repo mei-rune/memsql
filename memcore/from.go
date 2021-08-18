@@ -10,8 +10,10 @@ func IsNoRows(e error) bool {
 	return e == ErrNoRows
 }
 
+type Context interface{}
+
 // Iterator is an alias for function to iterate over data.
-type Iterator func() (item Record, err error)
+type Iterator func(Context) (item Record, err error)
 
 // Query is the type returned from query functions. It can be iterated manually
 // as shown in the example.
@@ -34,7 +36,7 @@ func From(source Table) Query {
 		Iterate: func() Iterator {
 			index := 0
 
-			return func() (item Record, err error) {
+			return func(Context) (item Record, err error) {
 				if index < source.Length() {
 					item = source.At(index)
 					index++
@@ -53,7 +55,7 @@ func From(source Table) Query {
 func FromChannel(source <-chan Record) Query {
 	return Query{
 		Iterate: func() Iterator {
-			return func() (item Record, err error) {
+			return func(Context) (item Record, err error) {
 				var ok bool
 				item, ok = <-source
 				if !ok {
@@ -74,7 +76,7 @@ func FromRecords(source []Record) Query {
 		Iterate: func() Iterator {
 			index := 0
 
-			return func() (item Record, err error) {
+			return func(Context) (item Record, err error) {
 				if index < len(source) {
 					item = source[index]
 					index++

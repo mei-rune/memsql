@@ -8,14 +8,14 @@ import (
 func TestAll(t *testing.T) {
 	input := []int64{2, 4, 6, 8}
 
-	r1, err := fromInts(input...).All(func(i Record) bool {
+	r1, err := fromInts(input...).All(mkCtx(), func(i Record) bool {
 		return i.Values[0].Int64%2 == 0
 	})
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	r2, err := fromInts(input...).All(func(i Record) bool {
+	r2, err := fromInts(input...).All(mkCtx(), func(i Record) bool {
 		return i.Values[0].Int64%2 != 0
 	})
 	if err != nil {
@@ -42,7 +42,7 @@ func TestAny(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, err := fromInts(test.input...).Any()
+		r, err := fromInts(test.input...).Any(mkCtx())
 		if err != nil {
 			t.Error(err)
 			return
@@ -64,7 +64,7 @@ func TestAnyWith(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, err := fromInts(test.input...).AnyWith(func(i Record) bool {
+		r, err := fromInts(test.input...).AnyWith(mkCtx(), func(i Record) bool {
 			return i.Values[0].Int64 == 4
 		})
 		if err != nil {
@@ -130,7 +130,7 @@ func TestCount(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, err := fromInts(test.input...).Count()
+		r, err := fromInts(test.input...).Count(mkCtx())
 		if err != nil {
 			t.Error(err)
 			return
@@ -151,7 +151,7 @@ func TestCountWith(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, err := fromInts(test.input...).CountWith(func(i Record) bool {
+		r, err := fromInts(test.input...).CountWith(mkCtx(), func(i Record) bool {
 			return i.Values[0].Int64 <= 2
 		})
 		if err != nil {
@@ -176,7 +176,7 @@ func TestFirst(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok, err := fromInts(test.input...).First()
+		r, ok, err := fromInts(test.input...).First(mkCtx())
 		if err != nil {
 			t.Error(err)
 			continue
@@ -204,7 +204,7 @@ func TestFirstWith(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok, err := fromInts(test.input...).FirstWith(func(i Record) bool {
+		r, ok, err := fromInts(test.input...).FirstWith(mkCtx(), func(i Record) bool {
 			return i.Values[0].Int64 > 2
 		})
 		if err != nil {
@@ -234,7 +234,7 @@ func TestForEachIndexed(t *testing.T) {
 
 	for _, test := range tests {
 		output := []int64{}
-		err := fromInts(test.input...).ForEach(func(index int, item Record) error {
+		err := fromInts(test.input...).ForEach(mkCtx(), func(index int, item Record) error {
 			output = append(output, item.Values[0].Int64+int64(index))
 			return nil
 		})
@@ -259,7 +259,7 @@ func TestLast(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok, err := fromInts(test.input...).Last()
+		r, ok, err := fromInts(test.input...).Last(mkCtx())
 		if err != nil {
 			t.Error(err)
 			continue
@@ -287,7 +287,7 @@ func TestLastWith(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok, err := fromInts(test.input...).LastWith(func(i Record) bool {
+		r, ok, err := fromInts(test.input...).LastWith(mkCtx(), func(i Record) bool {
 			return i.Values[0].Int64 > 2
 		})
 		if err != nil {
@@ -343,7 +343,7 @@ func TestLastWith(t *testing.T) {
 func TestResults(t *testing.T) {
 	input := []int64{1, 2, 3}
 	want := makeRecords(1, 2, 3)
-	r, err := fromInts(input...).Results()
+	r, err := fromInts(input...).Results(mkCtx())
 	if err != nil {
 		t.Error(err)
 		return
@@ -365,7 +365,7 @@ func TestSequenceEqual(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, err := fromInts(test.input...).SequenceEqual(fromInts(test.input2...))
+		r, err := fromInts(test.input...).SequenceEqual(mkCtx(), fromInts(test.input2...))
 
 		if err != nil {
 			t.Error(err)
@@ -389,7 +389,7 @@ func TestSingle(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok, err := fromInts(test.input...).Single()
+		r, ok, err := fromInts(test.input...).Single(mkCtx())
 		if err != nil {
 			t.Error(err)
 			continue
@@ -420,7 +420,7 @@ func TestSingleWith(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok, err := fromInts(test.input...).SingleWith(func(i Record) bool {
+		r, ok, err := fromInts(test.input...).SingleWith(mkCtx(), func(i Record) bool {
 			return i.Values[0].Int64 > 2
 		})
 		if err != nil {

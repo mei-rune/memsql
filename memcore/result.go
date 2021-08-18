@@ -1,11 +1,11 @@
 package memcore
 
 // All determines whether all elements of a collection satisfy a condition.
-func (q Query) All(predicate func(Record) bool) (bool, error) {
+func (q Query) All(ctx Context, predicate func(Record) bool) (bool, error) {
 	next := q.Iterate()
 
 	for {
-		item, err := next()
+		item, err := next(ctx)
 		if err != nil {
 			if IsNoRows(err) {
 				break
@@ -23,8 +23,8 @@ func (q Query) All(predicate func(Record) bool) (bool, error) {
 }
 
 // Any determines whether any element of a collection exists.
-func (q Query) Any() (bool, error) {
-	_, err := q.Iterate()()
+func (q Query) Any(ctx Context) (bool, error) {
+	_, err := q.Iterate()(ctx)
 	if err != nil {
 		if IsNoRows(err) {
 			return false, nil
@@ -35,10 +35,10 @@ func (q Query) Any() (bool, error) {
 }
 
 // AnyWith determines whether any element of a collection satisfies a condition.
-func (q Query) AnyWith(predicate func(Record) bool) (bool, error) {
+func (q Query) AnyWith(ctx Context, predicate func(Record) bool) (bool, error) {
 	next := q.Iterate()
 	for {
-		item, err := next()
+		item, err := next(ctx)
 		if err != nil {
 			if IsNoRows(err) {
 				break
@@ -56,10 +56,10 @@ func (q Query) AnyWith(predicate func(Record) bool) (bool, error) {
 }
 
 // Count returns the number of elements in a collection.
-func (q Query) Count() (r int, err error) {
+func (q Query) Count(ctx Context) (r int, err error) {
 	next := q.Iterate()
 	for {
-		_, e := next()
+		_, e := next(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break
@@ -75,11 +75,11 @@ func (q Query) Count() (r int, err error) {
 
 // CountWith returns a number that represents how many elements in the specified
 // collection satisfy a condition.
-func (q Query) CountWith(predicate func(Record) bool) (r int, err error) {
+func (q Query) CountWith(ctx Context, predicate func(Record) bool) (r int, err error) {
 	next := q.Iterate()
 
 	for {
-		item, e := next()
+		item, e := next(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break
@@ -96,8 +96,8 @@ func (q Query) CountWith(predicate func(Record) bool) (r int, err error) {
 }
 
 // First returns the first element of a collection.
-func (q Query) First() (Record, bool, error) {
-	item, err := q.Iterate()()
+func (q Query) First(ctx Context) (Record, bool, error) {
+	item, err := q.Iterate()(ctx)
 	if err != nil {
 		if IsNoRows(err) {
 			return Record{}, false, nil
@@ -109,10 +109,10 @@ func (q Query) First() (Record, bool, error) {
 
 // FirstWith returns the first element of a collection that satisfies a
 // specified condition.
-func (q Query) FirstWith(predicate func(Record) bool) (Record, bool, error) {
+func (q Query) FirstWith(ctx Context, predicate func(Record) bool) (Record, bool, error) {
 	next := q.Iterate()
 	for {
-		item, err := next()
+		item, err := next(ctx)
 		if err != nil {
 			if IsNoRows(err) {
 				return Record{}, false, nil
@@ -134,11 +134,11 @@ func (q Query) FirstWith(predicate func(Record) bool) (Record, bool, error) {
 // index, for example. It can also be useful if you want to retrieve the index
 // of one or more elements. The second argument to action represents the
 // element to process.
-func (q Query) ForEach(action func(int, Record) error) error {
+func (q Query) ForEach(ctx Context, action func(int, Record) error) error {
 	next := q.Iterate()
 	index := 0
 	for {
-		item, err := next()
+		item, err := next(ctx)
 		if err != nil {
 			if IsNoRows(err) {
 				return nil
@@ -154,11 +154,11 @@ func (q Query) ForEach(action func(int, Record) error) error {
 }
 
 // Last returns the last element of a collection.
-func (q Query) Last() (r Record, exists bool, err error) {
+func (q Query) Last(ctx Context) (r Record, exists bool, err error) {
 	next := q.Iterate()
 
 	for {
-		item, e := next()
+		item, e := next(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break
@@ -177,11 +177,11 @@ func (q Query) Last() (r Record, exists bool, err error) {
 
 // LastWith returns the last element of a collection that satisfies a specified
 // condition.
-func (q Query) LastWith(predicate func(Record) bool) (r Record, exists bool, err error) {
+func (q Query) LastWith(ctx Context, predicate func(Record) bool) (r Record, exists bool, err error) {
 	next := q.Iterate()
 
 	for {
-		item, e := next()
+		item, e := next(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break
@@ -201,11 +201,11 @@ func (q Query) LastWith(predicate func(Record) bool) (r Record, exists bool, err
 }
 
 // Results iterates over a collection and returnes slice of interfaces
-func (q Query) Results() (r []Record, err error) {
+func (q Query) Results(ctx Context) (r []Record, err error) {
 	next := q.Iterate()
 
 	for {
-		item, e := next()
+		item, e := next(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break
@@ -222,12 +222,12 @@ func (q Query) Results() (r []Record, err error) {
 }
 
 // SequenceEqual determines whether two collections are equal.
-func (q Query) SequenceEqual(q2 Query) (bool, error) {
+func (q Query) SequenceEqual(ctx Context, q2 Query) (bool, error) {
 	next1 := q.Iterate()
 	next2 := q2.Iterate()
 
 	for {
-		item1, e := next1()
+		item1, e := next1(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break
@@ -236,7 +236,7 @@ func (q Query) SequenceEqual(q2 Query) (bool, error) {
 			return false, e
 		}
 
-		item2, e := next2()
+		item2, e := next2(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break
@@ -254,7 +254,7 @@ func (q Query) SequenceEqual(q2 Query) (bool, error) {
 		}
 	}
 
-	_, err := next2()
+	_, err := next2(ctx)
 	if err == nil {
 		return false, nil
 	}
@@ -266,9 +266,9 @@ func (q Query) SequenceEqual(q2 Query) (bool, error) {
 
 // Single returns the only element of a collection, and nil if there is not
 // exactly one element in the collection.
-func (q Query) Single() (Record, bool, error) {
+func (q Query) Single(ctx Context) (Record, bool, error) {
 	next := q.Iterate()
-	item, err := next()
+	item, err := next(ctx)
 	if err != nil {
 		if IsNoRows(err) {
 			err = nil
@@ -276,7 +276,7 @@ func (q Query) Single() (Record, bool, error) {
 		return Record{}, false, err
 	}
 
-	_, err = next()
+	_, err = next(ctx)
 	if err == nil {
 		return Record{}, false, nil
 	}
@@ -289,11 +289,11 @@ func (q Query) Single() (Record, bool, error) {
 
 // SingleWith returns the only element of a collection that satisfies a
 // specified condition, and nil if more than one such element exists.
-func (q Query) SingleWith(predicate func(Record) bool) (r Record, found bool, err error) {
+func (q Query) SingleWith(ctx Context, predicate func(Record) bool) (r Record, found bool, err error) {
 	next := q.Iterate()
 
 	for {
-		item, e := next()
+		item, e := next(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break

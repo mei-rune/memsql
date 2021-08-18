@@ -10,10 +10,10 @@ package memcore
 // result of f() replaces the previous aggregated value.
 //
 // Aggregate returns the final result of f().
-func (q Query) Aggregate(f func(Record, Record) (Record, error)) (result Record, err error) {
+func (q Query) Aggregate(ctx Context, f func(Record, Record) (Record, error)) (result Record, err error) {
 	next := q.Iterate()
 
-	result, err = next()
+	result, err = next(ctx)
 	if err != nil {
 		if IsNoRows(err) {
 			err = nil
@@ -22,7 +22,7 @@ func (q Query) Aggregate(f func(Record, Record) (Record, error)) (result Record,
 	}
 
 	for {
-		current, e := next()
+		current, e := next(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break
@@ -49,13 +49,13 @@ func (q Query) Aggregate(f func(Record, Record) (Record, error)) (result Record,
 // The result of f() replaces the previous aggregated value.
 //
 // Aggregate returns the final result of f().
-func (q Query) AggregateWithSeed(seed Record,
+func (q Query) AggregateWithSeed(ctx Context, seed Record,
 	f func(Record, Record) (Record, error)) (result Record, err error) {
 	next := q.Iterate()
 	result = seed
 
 	for {
-		current, e := next()
+		current, e := next(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break
@@ -84,7 +84,7 @@ func (q Query) AggregateWithSeed(seed Record,
 //
 // The final result of func is passed to resultSelector to obtain the final
 // result of Aggregate.
-func (q Query) AggregateWithSeedBy(seed Record,
+func (q Query) AggregateWithSeedBy(ctx Context, seed Record,
 	f func(Record, Record) (Record, error),
 	resultSelector func(Record) (Record, error)) (result Record, err error) {
 
@@ -92,7 +92,7 @@ func (q Query) AggregateWithSeedBy(seed Record,
 	result = seed
 
 	for {
-		current, e := next()
+		current, e := next(ctx)
 		if e != nil {
 			if IsNoRows(e) {
 				break

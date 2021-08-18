@@ -14,10 +14,10 @@ func (q Query) Union(q2 Query) Query {
 			set := RecordSet{}
 			use1 := true
 
-			return func() (item Record, err error) {
+			return func(ctx Context) (item Record, err error) {
 				if use1 {
 					for {
-						item, err = next1()
+						item, err = next1(ctx)
 						if err != nil {
 							if IsNoRows(err) {
 								break
@@ -35,7 +35,7 @@ func (q Query) Union(q2 Query) Query {
 				}
 
 				for {
-					item, err = next2()
+					item, err = next2(ctx)
 					if err != nil {
 						return
 					}
@@ -64,9 +64,9 @@ func (q Query) UnionAll(q2 Query) Query {
 			next2 := q2.Iterate()
 			use1 := true
 
-			return func() (item Record, err error) {
+			return func(ctx Context) (item Record, err error) {
 				if use1 {
-					item, err = next1()
+					item, err = next1(ctx)
 					if err == nil {
 						return
 					}
@@ -77,7 +77,7 @@ func (q Query) UnionAll(q2 Query) Query {
 					use1 = false
 				}
 
-				item, err = next2()
+				item, err = next2(ctx)
 				return
 			}
 		},

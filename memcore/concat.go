@@ -8,8 +8,8 @@ func (q Query) Append(item Record) Query {
 			next := q.Iterate()
 			appended := false
 
-			return func() (Record, error) {
-				i, err := next()
+			return func(ctx Context) (Record, error) {
+				i, err := next(ctx)
 				if err == nil {
 					return i, nil
 				}
@@ -45,9 +45,9 @@ func (q Query) Prepend(item Record) Query {
 			next := q.Iterate()
 			prepended := false
 
-			return func() (Record, error) {
+			return func(ctx Context) (Record, error) {
 				if prepended {
-					return next()
+					return next(ctx)
 				}
 
 				prepended = true

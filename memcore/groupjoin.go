@@ -26,24 +26,35 @@ func (q Query) GroupJoin(inner Query,
 			outernext := q.Iterate()
 			innernext := inner.Iterate()
 
-			innerLookup := make(map[Value][]Record)
-			for {
-				innerItem, err := innernext()
-				if err != nil {
-					if !IsNoRows(err) {
-						return func() (Record, error) {
-							return Record{}, err
-						}
+			var innerLookup = make(map[Value][]Record)
+			var readDone = false
+			var readError error
+
+
+			return func(ctx Context) (item Record, err error) {
+				if !readDone {
+					if readError != nil {
+						err = readError
+						return
 					}
-					break
+
+					for {
+						innerItem, err := innernext(ctx)
+						if err != nil {
+							if !IsNoRows(err) {
+								readError = err
+								return Record{}, err
+							}
+							break
+						}
+
+						innerKey := innerKeySelector(innerItem)
+						innerLookup[innerKey] = append(innerLookup[innerKey], innerItem)
+					}
+					readDone = true
 				}
 
-				innerKey := innerKeySelector(innerItem)
-				innerLookup[innerKey] = append(innerLookup[innerKey], innerItem)
-			}
-
-			return func() (item Record, err error) {
-				if item, err = outernext(); err != nil {
+				if item, err = outernext(ctx); err != nil {
 					return
 				}
 

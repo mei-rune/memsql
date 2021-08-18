@@ -8,9 +8,9 @@ func (q Query) Distinct() Query {
 			next := q.Iterate()
 			set := RecordSet{}
 
-			return func() (item Record, err error) {
+			return func(ctx Context) (item Record, err error) {
 				for {
-					item, err = next()
+					item, err = next(ctx)
 					if err != nil {
 						return
 					}
@@ -39,9 +39,9 @@ func (oq OrderedQuery) Distinct() OrderedQuery {
 				var prev Record
 				var hasPrev bool
 
-				return func() (item Record, err error) {
+				return func(ctx Context) (item Record, err error) {
 					if !hasPrev {
-						item, err = next()
+						item, err = next(ctx)
 						if err != nil {
 							return
 						}
@@ -52,7 +52,7 @@ func (oq OrderedQuery) Distinct() OrderedQuery {
 
 					var ok bool
 					for {
-						item, err = next()
+						item, err = next(ctx)
 						if err != nil {
 							return
 						}
@@ -81,9 +81,9 @@ func (q Query) DistinctBy(selector func(Record) Value) Query {
 			next := q.Iterate()
 			set := make(map[Value]struct{})
 
-			return func() (item Record, err error) {
+			return func(ctx Context) (item Record, err error) {
 				for {
-					item, err = next()
+					item, err = next(ctx)
 					if err != nil {
 						return
 					}

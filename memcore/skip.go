@@ -8,15 +8,15 @@ func (q Query) Skip(count int) Query {
 			next := q.Iterate()
 			n := count
 
-			return func() (item Record, err error) {
+			return func(ctx Context) (item Record, err error) {
 				for ; n > 0; n-- {
-					item, err = next()
+					item, err = next(ctx)
 					if err != nil {
 						return
 					}
 				}
 
-				return next()
+				return next(ctx)
 			}
 		},
 	}
@@ -37,9 +37,9 @@ func (q Query) SkipWhile(predicate func(int, Record) bool) Query {
 			ready := false
 			index := 0
 
-			return func() (item Record, err error) {
+			return func(ctx Context) (item Record, err error) {
 				for !ready {
-					item, err = next()
+					item, err = next(ctx)
 					if err != nil {
 						return
 					}
@@ -52,7 +52,7 @@ func (q Query) SkipWhile(predicate func(int, Record) bool) Query {
 					index++
 				}
 
-				return next()
+				return next(ctx)
 			}
 		},
 	}

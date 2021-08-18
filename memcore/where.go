@@ -11,9 +11,9 @@ func (q Query) Where(predicate func(int, Record) bool) Query {
 			next := q.Iterate()
 			index := 0
 
-			return func() (item Record, err error) {
+			return func(ctx Context) (item Record, err error) {
 				for {
-					item, err = next()
+					item, err = next(ctx)
 					if err != nil {
 						return
 					}

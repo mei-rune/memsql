@@ -8,10 +8,10 @@ func (q Query) DefaultIfEmpty(defaultValue Record) Query {
 			next := q.Iterate()
 			state := 1
 
-			return func() (item Record, err error) {
+			return func(ctx Context) (item Record, err error) {
 				switch state {
 				case 1:
-					item, err = next()
+					item, err = next(ctx)
 					if err == nil {
 						state = 2
 					} else if IsNoRows(err) {
@@ -21,7 +21,7 @@ func (q Query) DefaultIfEmpty(defaultValue Record) Query {
 					}
 					return
 				case 2:
-					return next()
+					return next(ctx)
 				}
 				err = ErrNoRows
 				return

@@ -18,12 +18,12 @@ func (q Query) Zip(q2 Query,
 			next1 := q.Iterate()
 			next2 := q2.Iterate()
 
-			return func() (item Record, err error) {
-				item1, err1 := next1()
+			return func(ctx Context) (item Record, err error) {
+				item1, err1 := next1(ctx)
 				if err1 != nil {
 					return Record{}, err1
 				}
-				item2, err2 := next2()
+				item2, err2 := next2(ctx)
 				if err2 != nil {
 					return Record{}, err2
 				}

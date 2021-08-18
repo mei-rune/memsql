@@ -10,24 +10,33 @@ func (q Query) Intersect(q2 Query) Query {
 			next1 := q.Iterate()
 			next2 := q2.Iterate()
 
-			set := RecordSet{}
-			for {
-				current, err := next2()
-				if err != nil {
-					if !IsNoRows(err) {
-						return func() (Record, error) {
-							return Record{}, err
-						}
+			var set = RecordSet{}
+			var readDone = false
+			var readError error
+
+			return func(ctx Context) (item Record, err error) {
+				if !readDone {
+					if readError != nil {
+						err = readError
+						return
 					}
-					break
+					for {
+						current, err := next2(ctx)
+						if err != nil {
+							if !IsNoRows(err) {
+								readError = err
+								return Record{}, err
+							}
+							break
+						}
+
+						set.Add(current)
+					}
+					readDone = true
 				}
 
-				set.Add(current)
-			}
-
-			return func() (item Record, err error) {
 				for {
-					item, err = next1()
+					item, err = next1(ctx)
 					if err != nil {
 						return
 					}
@@ -59,24 +68,34 @@ func (q Query) IntersectBy(q2 Query,
 			next2 := q2.Iterate()
 
 			set := make(map[Value]struct{})
-			for {
-				current, err := next2()
-				if err != nil {
-					if !IsNoRows(err) {
-						return func() (Record, error) {
-							return Record{}, err
-						}
+			var readDone = false
+			var readError error
+
+
+			return func(ctx Context) (item Record, err error) {
+				if !readDone {
+					if readError != nil {
+						err = readError
+						return
 					}
-					break
+					for {
+						current, err := next2(ctx)
+						if err != nil {
+							if !IsNoRows(err) {
+								readError = err
+								return Record{}, err
+							}
+							break
+						}
+
+						s := selector(current)
+						set[s] = struct{}{}
+					}
+					readDone = true
 				}
 
-				s := selector(current)
-				set[s] = struct{}{}
-			}
-
-			return func() (item Record, err error) {
 				for {
-					item, err = next1()
+					item, err = next1(ctx)
 					if err != nil {
 						return
 					}

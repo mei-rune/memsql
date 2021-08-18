@@ -5,6 +5,10 @@ import (
 	"testing"
 )
 
+func mkCtx() Context {
+	return nil
+}
+
 func makeRecord(value int64) Record {
 	return Record{
 		Columns: []Column{{Name: "c1"}},
@@ -23,6 +27,22 @@ func makeRecords(value ...int64) []Record {
 func fromInts(input ...int64) Query {
 	return FromRecords(makeRecords(input...))
 }
+
+func fromInt2(inputs [][2]int64) Query {
+	results := []Record{}
+	for _, value := range inputs {
+		record := Record{
+			Columns: []Column{{Name: "c1"}, {Name: "c2"}},
+			Values:  []Value{
+				{Type: ValueInt64, Int64: value[0]}, 
+				{Type: ValueInt64, Int64: value[1]},
+			},
+		}
+		results = append(results, record)
+	}
+	return FromRecords(results)
+}
+
 
 func makeRecordWithStr(value string) Record {
 	return Record{
@@ -55,7 +75,7 @@ type foo struct {
 func (f foo) Iterate() Iterator {
 	i := 0
 
-	return func() (item Record, err error) {
+	return func(ctx Context) (item Record, err error) {
 		switch i {
 		case 0:
 			item = Record{
@@ -97,7 +117,7 @@ func (f foo) Iterate() Iterator {
 // }
 
 func toSlice(q Query) (result []Record) {
-	result, err := q.Results()
+	result, err := q.Results(mkCtx())
 	if err != nil {
 		panic(err)
 	}
@@ -106,9 +126,10 @@ func toSlice(q Query) (result []Record) {
 
 func validateQuery(q Query, output []Record) bool {
 	next := q.Iterate()
+	ctx := mkCtx()
 
 	for _, oitem := range output {
-		qitem, err := next()
+		qitem, err := next(ctx)
 		if err != nil {
 			panic(err)
 		}
@@ -122,7 +143,7 @@ func validateQuery(q Query, output []Record) bool {
 		}
 	}
 
-	_, err := next()
+	_, err := next(ctx)
 	if err != nil {
 		if !IsNoRows(err) {
 			panic(err)
@@ -131,7 +152,7 @@ func validateQuery(q Query, output []Record) bool {
 		return false
 	}
 
-	_, err = next()
+	_, err = next(ctx)
 	if err != nil {
 		if IsNoRows(err) {
 			return true

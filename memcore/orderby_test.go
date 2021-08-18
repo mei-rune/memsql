@@ -3,11 +3,11 @@ package memcore
 import "testing"
 
 func TestEmpty(t *testing.T) {
-	q := fromStrings([]string{}...).OrderBy(func(in Record) Value {
+	q := fromStrings([]string{}...).OrderByAscending(func(in Record) Value {
 		return Value{}
 	})
 
-	_, err := q.Iterate()()
+	_, err := q.Iterate()(mkCtx())
 	if err != nil {
 		if !IsNoRows(err) {
 			t.Errorf("Iterator for empty collection must return ok=false %+v", err)
@@ -15,140 +15,142 @@ func TestEmpty(t *testing.T) {
 	}
 }
 
-// func TestOrderBy(t *testing.T) {
-// 	slice := make([]foo, 100)
+func TestOrderBy(t *testing.T) {
+	slice := make([]int64, 100)
 
-// 	for i := len(slice) - 1; i >= 0; i-- {
-// 		slice[i].f1 = i
-// 	}
+	for i := len(slice) - 1; i >= 0; i-- {
+		slice[i] = int64(i)
+	}
 
-// 	q := From(slice).OrderBy(func(i interface{}) interface{} {
-// 		return i.(foo).f1
-// 	})
+	q := fromInts(slice...).OrderByAscending(func(item Record) Value {
+		return item.Values[0]
+	})
 
-// 	j := 0
-// 	next := q.Iterate()
-// 	for item, ok := next(); ok; item, ok = next() {
-// 		if item.(foo).f1 != j {
-// 			t.Errorf("OrderBy()[%v]=%v expected %v", j, item, foo{f1: j})
-// 		}
+	items, err := q.Results(mkCtx())
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
-// 		j++
-// 	}
-// }
+	for j, item := range items {
+		if item.Values[0].Int64 != int64(j) {
+			t.Errorf("OrderByAscending()[%v]=%v expected %v", j, item, foo{f1: j})
+		}
+	}
+}
 
-// func TestOrderByDescending(t *testing.T) {
-// 	slice := make([]foo, 100)
+func TestOrderByDescending(t *testing.T) {
+	slice := make([]int64, 100)
+	for i := 0; i < len(slice); i++ {
+		slice[i] = int64(i)
+	}
 
-// 	for i := 0; i < len(slice); i++ {
-// 		slice[i].f1 = i
-// 	}
+	q := fromInts(slice...).OrderByDescending(func(item Record) Value {
+		return item.Values[0]
+	})
 
-// 	q := From(slice).OrderByDescending(func(i interface{}) interface{} {
-// 		return i.(foo).f1
-// 	})
+	items, err := q.Results(mkCtx())
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
-// 	j := len(slice) - 1
-// 	next := q.Iterate()
-// 	for item, ok := next(); ok; item, ok = next() {
-// 		if item.(foo).f1 != j {
-// 			t.Errorf("OrderByDescending()[%v]=%v expected %v", j, item, foo{f1: j})
-// 		}
 
-// 		j--
-// 	}
-// }
+	j := len(slice) - 1
 
-// func TestOrderByDescendingT_PanicWhenSelectorFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "OrderByDescendingT: parameter [selectorFn] has a invalid function signature. Expected: 'func(T)T', actual: 'func(int,int)int'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).OrderByDescendingT(func(item, j int) int { return item + 2 })
-// 	})
-// }
+	for _, item := range items {
+		if item.Values[0].Int64 != int64(j) {
+			t.Errorf("OrderByAscending()[%v]=%v expected %v", j, item, foo{f1: j})
+		}
+		j--
+	}
+}
 
-// func TestThenBy(t *testing.T) {
-// 	slice := make([]foo, 1000)
 
-// 	for i := len(slice) - 1; i >= 0; i-- {
-// 		slice[i].f1 = i
-// 		slice[i].f2 = i%2 == 0
-// 	}
+func TestThenByAscending(t *testing.T) {
+	slice := make([][2]int64, 1000)
 
-// 	q := From(slice).OrderBy(func(i interface{}) interface{} {
-// 		return i.(foo).f2
-// 	}).ThenBy(func(i interface{}) interface{} {
-// 		return i.(foo).f1
-// 	})
+	for i := len(slice) - 1; i >= 0; i-- {
+		slice[i][0] = int64(i)
+		if i%2 == 0 {
+			slice[i][1] = int64(1)
+		} else {
+			slice[i][1] = int64(0)
+		}
+	}
 
-// 	next := q.Iterate()
-// 	for item, ok := next(); ok; item, ok = next() {
-// 		if item.(foo).f2 != (item.(foo).f1%2 == 0) {
-// 			t.Errorf("OrderBy().ThenBy()=%v", item)
-// 		}
-// 	}
-// }
+	q := fromInt2(slice).OrderByAscending(func(item Record) Value {
+		return item.Values[1]
+	}).ThenByAscending(func(item Record) Value {
+		return item.Values[0]
+	})
 
-// func TestThenByT_PanicWhenSelectorFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "ThenByT: parameter [selectorFn] has a invalid function signature. Expected: 'func(T)T', actual: 'func(int,int)bool'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).
-// 			OrderByT(func(item int) int { return item }).
-// 			ThenByT(func(item, j int) bool { return true })
-// 	})
-// }
 
-// func TestThenByDescending(t *testing.T) {
-// 	slice := make([]foo, 1000)
+	items, err := q.Results(mkCtx())
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
-// 	for i := len(slice) - 1; i >= 0; i-- {
-// 		slice[i].f1 = i
-// 		slice[i].f2 = i%2 == 0
-// 	}
+	for _, item := range items {
+		if (item.Values[1].Int64 == 1) != (item.Values[0].Int64%2 == 0) {
+			t.Errorf("OrderByAscending().ThenBy()=%v", item)
+		}
+	}
+}
 
-// 	q := From(slice).OrderBy(func(i interface{}) interface{} {
-// 		return i.(foo).f2
-// 	}).ThenByDescending(func(i interface{}) interface{} {
-// 		return i.(foo).f1
-// 	})
+func TestThenByDescending(t *testing.T) {
+	slice := make([][2]int64, 1000)
 
-// 	next := q.Iterate()
-// 	for item, ok := next(); ok; item, ok = next() {
-// 		if item.(foo).f2 != (item.(foo).f1%2 == 0) {
-// 			t.Errorf("OrderBy().ThenByDescending()=%v", item)
-// 		}
-// 	}
-// }
+	for i := len(slice) - 1; i >= 0; i-- {
+		slice[i][0] = int64(i)
+		if i%2 == 0 {
+			slice[i][1] = int64(1)
+		} else {
+			slice[i][1] = int64(0)
+		}
+	}
 
-// func TestThenByDescendingT_PanicWhenSelectorFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "ThenByDescending: parameter [selectorFn] has a invalid function signature. Expected: 'func(T)T', actual: 'func(int,int)bool'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).
-// 			OrderByT(func(item int) int { return item }).
-// 			ThenByDescendingT(func(item, j int) bool { return true })
-// 	})
-// }
+	q := fromInt2(slice).OrderByAscending(func(item Record) Value {
+		return item.Values[1]
+	}).ThenByDescending(func(item Record) Value {
+		return item.Values[0]
+	})
 
-// func TestSort(t *testing.T) {
-// 	slice := make([]foo, 100)
+	items, err := q.Results(mkCtx())
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
-// 	for i := len(slice) - 1; i >= 0; i-- {
-// 		slice[i].f1 = i
-// 	}
+	for _, item := range items {
+		if (item.Values[1].Int64 == 1) != (item.Values[0].Int64%2 == 0) {
+			t.Errorf("OrderBy().ThenByDescending()=%v", item)
+		}
+	}
+}
 
-// 	q := From(slice).Sort(func(i, j interface{}) bool {
-// 		return i.(foo).f1 < j.(foo).f1
-// 	})
 
-// 	j := 0
-// 	next := q.Iterate()
-// 	for item, ok := next(); ok; item, ok = next() {
-// 		if item.(foo).f1 != j {
-// 			t.Errorf("Sort()[%v]=%v expected %v", j, item, foo{f1: j})
-// 		}
+func TestSort(t *testing.T) {
+	slice := make([]int64, 100)
 
-// 		j++
-// 	}
-// }
+	for i := len(slice) - 1; i >= 0; i-- {
+		slice[i] = int64(i)
+	}
 
-// func TestSortT_PanicWhenLessFnIsInvalid(t *testing.T) {
-// 	mustPanicWithError(t, "SortT: parameter [lessFn] has a invalid function signature. Expected: 'func(T,T)bool', actual: 'func(int,int)string'", func() {
-// 		From([]int{1, 1, 1, 2, 1, 2, 3, 4, 2}).SortT(func(i, j int) string { return "" })
-// 	})
-// }
+	q := fromInts(slice...).Sort(func(i, j Record) bool {
+		return i.Values[0].Int64 < j.Values[0].Int64
+	})
+
+	items, err := q.Results(mkCtx())
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	for j, item := range items {
+		if item.Values[0].Int64 != int64(j) {
+			t.Errorf("Sort()[%v]=%v expected %v", j, item, foo{f1: j})
+		}
+	}
+}

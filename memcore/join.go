@@ -20,31 +20,41 @@ func (q Query) Join(inner Query,
 			outernext := q.Iterate()
 			innernext := inner.Iterate()
 
-			innerLookup := make(map[Value][]Record)
-			for {
-				innerItem, err := innernext()
-				if err != nil {
-					if !IsNoRows(err) {
-						return func() (Record, error) {
-							return Record{}, err
-						}
-					}
-					break
-				}
+			var innerLookup = make(map[Value][]Record)
+			var readDone = false
+			var readError error
 
-				innerKey := innerKeySelector(innerItem)
-				innerLookup[innerKey] = append(innerLookup[innerKey], innerItem)
-			}
 
 			var outerItem Record
 			var innerGroup []Record
 			innerLen, innerIndex := 0, 0
 
-			return func() (item Record, err error) {
+			return func(ctx Context) (item Record, err error) {
+				if !readDone {
+					if readError != nil {
+						err = readError
+						return
+					}
+					for {
+						innerItem, err := innernext(ctx)
+						if err != nil {
+							if !IsNoRows(err) {
+								readError = err
+								return Record{}, err
+							}
+							break
+						}
+
+						innerKey := innerKeySelector(innerItem)
+						innerLookup[innerKey] = append(innerLookup[innerKey], innerItem)
+					}
+					readDone = true
+				}
+
 				if innerIndex >= innerLen {
 					has := false
 					for !has {
-						outerItem, err = outernext()
+						outerItem, err = outernext(ctx)
 						if err != nil {
 							return
 						}

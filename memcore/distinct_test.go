@@ -30,7 +30,7 @@ func TestDistinctForOrderedQuery(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if q := fromInts(test.input...).OrderBy(func(i Record) Value {
+		if q := fromInts(test.input...).OrderByAscending(func(i Record) Value {
 			return i.Values[0]
 		}).Distinct(); !validateQuery(q.Query, test.output) {
 			t.Errorf("From(%v).Distinct()=%v expected %v", test.input, toSlice(q.Query), test.output)

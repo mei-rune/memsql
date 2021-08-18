@@ -20,7 +20,7 @@ func TestIndexOf(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		index, err := FromRecords(test.input).IndexOf(test.predicate)
+		index, err := FromRecords(test.input).IndexOf(mkCtx(), test.predicate)
 		if err != nil {
 			t.Error(err)
 			return

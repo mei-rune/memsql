@@ -25,8 +25,8 @@ func (q Query) Select(selector func(int, Record) Record) Query {
 			next := q.Iterate()
 			index := 0
 
-			return func() (item Record, err error) {
-				item, err = next()
+			return func(ctx Context) (item Record, err error) {
+				item, err = next(ctx)
 				if err == nil {
 					item = selector(index, item)
 					index++

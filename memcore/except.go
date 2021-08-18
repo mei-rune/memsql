@@ -6,26 +6,36 @@ func (q Query) Except(q2 Query) Query {
 	return Query{
 		Iterate: func() Iterator {
 			next1 := q.Iterate()
-
 			next2 := q2.Iterate()
 			set := RecordSet{}
 
-			for {
-				current, err := next2()
-				if err != nil {
-					if !IsNoRows(err) {
-						return func() (Record, error) {
-							return Record{}, err
-						}
-					}
-					break
-				}
-				set.Add(current)
-			}
+			readDone := false
+			var readError error
 
-			return func() (item Record, err error) {
+			return func(ctx Context) (item Record, err error) {
+				if !readDone {
+					if readError != nil {
+						err = readError
+						return
+					}
+
+					for {
+						current, err := next2(ctx)
+						if err != nil {
+							if !IsNoRows(err) {
+								readError = err
+								return Record{}, err
+							}
+							break
+						}
+
+						set.Add(current)
+					}
+					readDone = true
+				}
+
 				for {
-					item, err = next1()
+					item, err = next1(ctx)
 					if err != nil {
 						return
 					}
@@ -47,28 +57,36 @@ func (q Query) ExceptBy(q2 Query,
 	return Query{
 		Iterate: func() Iterator {
 			next1 := q.Iterate()
-
 			next2 := q2.Iterate()
+
 			set := make(map[Value]struct{})
+			readDone := false
+			var readError error
 
-			for {
-				current, err := next2()
-				if err != nil {
-					if !IsNoRows(err) {
-						return func() (Record, error) {
-							return Record{}, err
-						}
+			return func(ctx Context) (item Record, err error) {
+				if !readDone {
+					if readError != nil {
+						err = readError
+						return
 					}
-					break
+
+					for {
+						current, err := next2(ctx)
+						if err != nil {
+							if !IsNoRows(err) {
+								readError = err
+								return Record{}, err
+							}
+							break
+						}
+
+						s := selector(current)
+						set[s] = struct{}{}
+					}
+					readDone = true
 				}
-
-				s := selector(current)
-				set[s] = struct{}{}
-			}
-
-			return func() (item Record, err error) {
 				for {
-					item, err = next1()
+					item, err = next1(ctx)
 					if err != nil {
 						return
 					}
