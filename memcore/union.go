@@ -8,15 +8,23 @@ package memcore
 func (q Query) Union(q2 Query) Query {
 	return Query{
 		Iterate: func() Iterator {
-			next := q.Iterate()
+			next1 := q.Iterate()
 			next2 := q2.Iterate()
 
 			set := RecordSet{}
 			use1 := true
 
-			return func() (item Record, ok bool) {
+			return func() (item Record, err error) {
 				if use1 {
-					for item, ok = next(); ok; item, ok = next() {
+					for {
+						item, err = next1()
+						if err != nil {
+							if IsNoRows(err) {
+								break
+							}
+							return
+						}
+
 						if !set.Has(item) {
 							set.Add(item)
 							return
@@ -26,7 +34,12 @@ func (q Query) Union(q2 Query) Query {
 					use1 = false
 				}
 
-				for item, ok = next2(); ok; item, ok = next2() {
+				for {
+					item, err = next2()
+					if err != nil {
+						return
+					}
+
 					if !set.Has(item) {
 						set.Add(item)
 						return
@@ -39,7 +52,11 @@ func (q Query) Union(q2 Query) Query {
 	}
 }
 
-
+// UnionAll concatenates two collections.
+//
+// The UnionAll method differs from the Union method because the UnionAll method
+// returns all the original elements in the input sequences. The Union method
+// returns only unique elements.
 func (q Query) UnionAll(q2 Query) Query {
 	return Query{
 		Iterate: func() Iterator {
@@ -47,16 +64,20 @@ func (q Query) UnionAll(q2 Query) Query {
 			next2 := q2.Iterate()
 			use1 := true
 
-			return func() (item Record, ok bool) {
+			return func() (item Record, err error) {
 				if use1 {
-					item, ok = next1()
-					if ok {
+					item, err = next1()
+					if err == nil {
 						return
 					}
+					if !IsNoRows(err) {
+						return
+					}
+
 					use1 = false
 				}
 
-				item, ok = next2()
+				item, err = next2()
 				return
 			}
 		},

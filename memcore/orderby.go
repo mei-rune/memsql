@@ -26,17 +26,22 @@ func (q Query) OrderBy(selector func(Record) Value) OrderedQuery {
 		original: q,
 		Query: Query{
 			Iterate: func() Iterator {
-				items := q.sort([]order{{selector: selector}})
+				items, err := q.sort([]order{{selector: selector}})
+				if err != nil {
+					return func() (Record, error) {
+						return Record{}, err
+					}
+				}
 				len := len(items)
 				index := 0
 
-				return func() (item Record, ok bool) {
-					ok = index < len
-					if ok {
+				return func() (item Record, err error) {
+					if index < len {
 						item = items[index]
 						index++
+						return
 					}
-
+					err = ErrNoRows
 					return
 				}
 			},
@@ -52,17 +57,23 @@ func (q Query) OrderByDescending(selector func(Record) Value) OrderedQuery {
 		original: q,
 		Query: Query{
 			Iterate: func() Iterator {
-				items := q.sort([]order{{selector: selector, desc: true}})
-				len := len(items)
+				items, err := q.sort([]order{{selector: selector, desc: true}})
+				if err != nil {
+					return func() (Record, error) {
+						return Record{}, err
+					}
+				}
+				length := len(items)
 				index := 0
 
-				return func() (item Record, ok bool) {
-					ok = index < len
-					if ok {
+				return func() (item Record, err error) {
+					if index < length {
 						item = items[index]
 						index++
+						return
 					}
 
+					err = ErrNoRows
 					return
 				}
 			},
@@ -79,17 +90,23 @@ func (oq OrderedQuery) ThenBy(selector func(Record) Value) OrderedQuery {
 		original: oq.original,
 		Query: Query{
 			Iterate: func() Iterator {
-				items := oq.original.sort(append(oq.orders, order{selector: selector}))
-				len := len(items)
+				items, err := oq.original.sort(append(oq.orders, order{selector: selector}))
+				if err != nil {
+					return func() (Record, error) {
+						return Record{}, err
+					}
+				}
+				length := len(items)
 				index := 0
 
-				return func() (item Record, ok bool) {
-					ok = index < len
-					if ok {
+				return func() (item Record, err error) {
+					if index < length {
 						item = items[index]
 						index++
+						return
 					}
 
+					err = ErrNoRows
 					return
 				}
 			},
@@ -106,17 +123,23 @@ func (oq OrderedQuery) ThenByDescending(selector func(Record) Value) OrderedQuer
 		original: oq.original,
 		Query: Query{
 			Iterate: func() Iterator {
-				items := oq.original.sort(append(oq.orders, order{selector: selector, desc: true}))
-				len := len(items)
+				items, err := oq.original.sort(append(oq.orders, order{selector: selector, desc: true}))
+				if err != nil {
+					return func() (Record, error) {
+						return Record{}, err
+					}
+				}
+				length := len(items)
 				index := 0
 
-				return func() (item Record, ok bool) {
-					ok = index < len
-					if ok {
+				return func() (item Record, err error) {
+					if index < length {
 						item = items[index]
 						index++
+						return
 					}
 
+					err = ErrNoRows
 					return
 				}
 			},
@@ -132,17 +155,23 @@ func (oq OrderedQuery) ThenByDescending(selector func(Record) Value) OrderedQuer
 func (q Query) Sort(less func(i, j Record) bool) Query {
 	return Query{
 		Iterate: func() Iterator {
-			items := q.lessSort(less)
-			len := len(items)
+			items, err := q.lessSort(less)
+			if err != nil {
+				return func() (Record, error) {
+					return Record{}, err
+				}
+			}
+			length := len(items)
 			index := 0
 
-			return func() (item Record, ok bool) {
-				ok = index < len
-				if ok {
+			return func() (item Record, err error) {
+				if index < length {
 					item = items[index]
 					index++
+					return
 				}
 
+				err = ErrNoRows
 				return
 			}
 		},
@@ -166,9 +195,17 @@ func (s sorter) Less(i, j int) bool {
 	return s.less(s.items[i], s.items[j])
 }
 
-func (q Query) sort(orders []order) (r []Record) {
+func (q Query) sort(orders []order) (r []Record, err error) {
 	next := q.Iterate()
-	for item, ok := next(); ok; item, ok = next() {
+	for {
+		item, err := next()
+		if err != nil {
+			if IsNoRows(err) {
+				break
+			}
+			return nil, err
+		}
+
 		r = append(r, item)
 	}
 
@@ -210,9 +247,17 @@ func (q Query) sort(orders []order) (r []Record) {
 	return
 }
 
-func (q Query) lessSort(less func(i, j Record) bool) (r []Record) {
+func (q Query) lessSort(less func(i, j Record) bool) (r []Record, err error) {
 	next := q.Iterate()
-	for item, ok := next(); ok; item, ok = next() {
+	for {
+		item, err := next()
+		if err != nil {
+			if IsNoRows(err) {
+				break
+			}
+			return nil, err
+		}
+
 		r = append(r, item)
 	}
 

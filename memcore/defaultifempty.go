@@ -8,24 +8,22 @@ func (q Query) DefaultIfEmpty(defaultValue Record) Query {
 			next := q.Iterate()
 			state := 1
 
-			return func() (item Record, ok bool) {
+			return func() (item Record, err error) {
 				switch state {
 				case 1:
-					item, ok = next()
-					if ok {
+					item, err = next()
+					if err == nil {
 						state = 2
-					} else {
+					} else if IsNoRows(err) {
 						item = defaultValue
-						ok = true
+						err = nil
 						state = -1
 					}
 					return
 				case 2:
-					for item, ok = next(); ok; item, ok = next() {
-						return
-					}
-					return
+					return next()
 				}
+				err = ErrNoRows
 				return
 			}
 		},

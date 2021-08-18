@@ -1,7 +1,17 @@
 package memcore
 
+import (
+	"database/sql"
+)
+
+var ErrNoRows = sql.ErrNoRows
+
+func IsNoRows(e error) bool {
+	return e == ErrNoRows
+}
+
 // Iterator is an alias for function to iterate over data.
-type Iterator func() (item Record, ok bool)
+type Iterator func() (item Record, err error)
 
 // Query is the type returned from query functions. It can be iterated manually
 // as shown in the example.
@@ -24,12 +34,14 @@ func From(source Table) Query {
 		Iterate: func() Iterator {
 			index := 0
 
-			return func() (item Record, ok bool) {
-				ok = index < source.Length()
-				if ok {
+			return func() (item Record, err error) {
+				if index < source.Length() {
 					item = source.At(index)
 					index++
+					return
 				}
+
+				err = ErrNoRows
 				return
 			}
 		},
@@ -41,8 +53,12 @@ func From(source Table) Query {
 func FromChannel(source <-chan Record) Query {
 	return Query{
 		Iterate: func() Iterator {
-			return func() (item Record, ok bool) {
+			return func() (item Record, err error) {
+				var ok bool
 				item, ok = <-source
+				if !ok {
+					err = ErrNoRows
+				}
 				return
 			}
 		},
@@ -58,12 +74,14 @@ func FromRecords(source []Record) Query {
 		Iterate: func() Iterator {
 			index := 0
 
-			return func() (item Record, ok bool) {
-				ok = index < len(source)
-				if ok {
+			return func() (item Record, err error) {
+				if index < len(source) {
 					item = source[index]
 					index++
+					return
 				}
+
+				err = ErrNoRows
 				return
 			}
 		},

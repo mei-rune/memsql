@@ -11,17 +11,28 @@ func (q Query) Reverse() Query {
 			next := q.Iterate()
 
 			items := make([]Record, 0, 16)
-			for item, ok := next(); ok; item, ok = next() {
-				items = append(items, item)
+			for {
+				current, err := next()
+				if err != nil {
+					if !IsNoRows(err) {
+						return func() (Record, error) {
+							return Record{}, err
+						}
+					}
+					break
+				}
+
+				items = append(items, current)
 			}
 
 			index := len(items) - 1
-			return func() (item Record, ok bool) {
+			return func() (item Record, err error) {
 				if index < 0 {
+					err = ErrNoRows
 					return
 				}
 
-				item, ok = items[index], true
+				item = items[index]
 				index--
 				return
 			}

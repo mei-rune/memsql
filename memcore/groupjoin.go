@@ -27,13 +27,23 @@ func (q Query) GroupJoin(inner Query,
 			innernext := inner.Iterate()
 
 			innerLookup := make(map[Value][]Record)
-			for innerItem, ok := innernext(); ok; innerItem, ok = innernext() {
+			for {
+				innerItem, err := innernext()
+				if err != nil {
+					if !IsNoRows(err) {
+						return func() (Record, error) {
+							return Record{}, err
+						}
+					}
+					break
+				}
+
 				innerKey := innerKeySelector(innerItem)
 				innerLookup[innerKey] = append(innerLookup[innerKey], innerItem)
 			}
 
-			return func() (item Record, ok bool) {
-				if item, ok = outernext(); !ok {
+			return func() (item Record, err error) {
+				if item, err = outernext(); err != nil {
 					return
 				}
 

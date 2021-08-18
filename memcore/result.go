@@ -1,42 +1,72 @@
 package memcore
 
 // All determines whether all elements of a collection satisfy a condition.
-func (q Query) All(predicate func(Record) bool) bool {
+func (q Query) All(predicate func(Record) bool) (bool, error) {
 	next := q.Iterate()
 
-	for item, ok := next(); ok; item, ok = next() {
+	for {
+		item, err := next()
+		if err != nil {
+			if IsNoRows(err) {
+				break
+			}
+
+			return false, err
+		}
+
 		if !predicate(item) {
-			return false
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }
 
 // Any determines whether any element of a collection exists.
-func (q Query) Any() bool {
-	_, ok := q.Iterate()()
-	return ok
+func (q Query) Any() (bool, error) {
+	_, err := q.Iterate()()
+	if err != nil {
+		if IsNoRows(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // AnyWith determines whether any element of a collection satisfies a condition.
-func (q Query) AnyWith(predicate func(Record) bool) bool {
+func (q Query) AnyWith(predicate func(Record) bool) (bool, error) {
 	next := q.Iterate()
+	for {
+		item, err := next()
+		if err != nil {
+			if IsNoRows(err) {
+				break
+			}
 
-	for item, ok := next(); ok; item, ok = next() {
+			return false, err
+		}
+
 		if predicate(item) {
-			return true
+			return true, nil
 		}
 	}
 
-	return false
+	return false, nil
 }
 
 // Count returns the number of elements in a collection.
-func (q Query) Count() (r int) {
+func (q Query) Count() (r int, err error) {
 	next := q.Iterate()
+	for {
+		_, e := next()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+			return 0, e
+		}
 
-	for _, ok := next(); ok; _, ok = next() {
 		r++
 	}
 
@@ -45,10 +75,18 @@ func (q Query) Count() (r int) {
 
 // CountWith returns a number that represents how many elements in the specified
 // collection satisfy a condition.
-func (q Query) CountWith(predicate func(Record) bool) (r int) {
+func (q Query) CountWith(predicate func(Record) bool) (r int, err error) {
 	next := q.Iterate()
 
-	for item, ok := next(); ok; item, ok = next() {
+	for {
+		item, e := next()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+			return 0, e
+		}
+
 		if predicate(item) {
 			r++
 		}
@@ -58,23 +96,34 @@ func (q Query) CountWith(predicate func(Record) bool) (r int) {
 }
 
 // First returns the first element of a collection.
-func (q Query) First() (Record, bool) {
-	item, ok := q.Iterate()()
-	return item, ok
+func (q Query) First() (Record, bool, error) {
+	item, err := q.Iterate()()
+	if err != nil {
+		if IsNoRows(err) {
+			return Record{}, false, nil
+		}
+		return Record{}, false, err
+	}
+	return item, true, nil
 }
 
 // FirstWith returns the first element of a collection that satisfies a
 // specified condition.
-func (q Query) FirstWith(predicate func(Record) bool) (Record, bool) {
+func (q Query) FirstWith(predicate func(Record) bool) (Record, bool, error) {
 	next := q.Iterate()
+	for {
+		item, err := next()
+		if err != nil {
+			if IsNoRows(err) {
+				return Record{}, false, nil
+			}
+			return Record{}, false, err
+		}
 
-	for item, ok := next(); ok; item, ok = next() {
 		if predicate(item) {
-			return item, true
+			return item, true, nil
 		}
 	}
-
-	return Record{}, false
 }
 
 // ForEach performs the specified action on each element of a collection.
@@ -85,47 +134,87 @@ func (q Query) FirstWith(predicate func(Record) bool) (Record, bool) {
 // index, for example. It can also be useful if you want to retrieve the index
 // of one or more elements. The second argument to action represents the
 // element to process.
-func (q Query) ForEach(action func(int, Record)) {
+func (q Query) ForEach(action func(int, Record) error) error {
 	next := q.Iterate()
 	index := 0
+	for {
+		item, err := next()
+		if err != nil {
+			if IsNoRows(err) {
+				return nil
+			}
+			return err
+		}
 
-	for item, ok := next(); ok; item, ok = next() {
-		action(index, item)
+		if err := action(index, item); err != nil {
+			return err
+		}
 		index++
 	}
 }
 
 // Last returns the last element of a collection.
-func (q Query) Last() (r Record, ok bool) {
+func (q Query) Last() (r Record, exists bool, err error) {
 	next := q.Iterate()
 
-	for item, exists := next(); exists; item, exists = next() {
+	for {
+		item, e := next()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+
+			err = e
+			return
+		}
+
 		r = item
-		ok = true
+		exists = true
+		err = nil
 	}
 	return
 }
 
 // LastWith returns the last element of a collection that satisfies a specified
 // condition.
-func (q Query) LastWith(predicate func(Record) bool) (r Record, ok bool) {
+func (q Query) LastWith(predicate func(Record) bool) (r Record, exists bool, err error) {
 	next := q.Iterate()
 
-	for item, exists := next(); exists; item, exists = next() {
+	for {
+		item, e := next()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+
+			err = e
+			return
+		}
+
 		if predicate(item) {
 			r = item
-			ok = true
+			exists = true
+			err = nil
 		}
 	}
-
 	return
 }
 
 // Results iterates over a collection and returnes slice of interfaces
-func (q Query) Results() (r []Record) {
+func (q Query) Results() (r []Record, err error) {
 	next := q.Iterate()
 
-	for item, ok := next(); ok; item, ok = next() {
+	for {
+		item, e := next()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+
+			err = e
+			return
+		}
+
 		r = append(r, item)
 	}
 
@@ -133,51 +222,89 @@ func (q Query) Results() (r []Record) {
 }
 
 // SequenceEqual determines whether two collections are equal.
-func (q Query) SequenceEqual(q2 Query) bool {
-	next := q.Iterate()
+func (q Query) SequenceEqual(q2 Query) (bool, error) {
+	next1 := q.Iterate()
 	next2 := q2.Iterate()
 
-	for item, ok := next(); ok; item, ok = next() {
-		item2, ok2 := next2()
-		if !ok2 {
-			return false
+	for {
+		item1, e := next1()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+
+			return false, e
 		}
-		ok3, _ := item.EqualTo(item2, emptyCompareOption)
+
+		item2, e := next2()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+
+			return false, e
+		}
+
+		ok3, err := item1.EqualTo(item2, emptyCompareOption)
+		if err != nil {
+			return false, err
+		}
 		if !ok3 {
-			return false
+			return false, nil
 		}
 	}
 
-	_, ok2 := next2()
-	return !ok2
+	_, err := next2()
+	if err == nil {
+		return false, nil
+	}
+	if IsNoRows(err) {
+		return true, nil
+	}
+	return false, err
 }
 
 // Single returns the only element of a collection, and nil if there is not
 // exactly one element in the collection.
-func (q Query) Single() (Record, bool) {
+func (q Query) Single() (Record, bool, error) {
 	next := q.Iterate()
-	item, ok := next()
-	if !ok {
-		return Record{}, false
+	item, err := next()
+	if err != nil {
+		if IsNoRows(err) {
+			err = nil
+		}
+		return Record{}, false, err
 	}
 
-	_, ok = next()
-	if ok {
-		return Record{}, false
+	_, err = next()
+	if err == nil {
+		return Record{}, false, nil
+	}
+	if !IsNoRows(err) {
+		return Record{}, false, err
 	}
 
-	return item, true
+	return item, true, nil
 }
 
 // SingleWith returns the only element of a collection that satisfies a
 // specified condition, and nil if more than one such element exists.
-func (q Query) SingleWith(predicate func(Record) bool) (r Record, found bool) {
+func (q Query) SingleWith(predicate func(Record) bool) (r Record, found bool, err error) {
 	next := q.Iterate()
 
-	for item, exists := next(); exists; item, exists = next() {
+	for {
+		item, e := next()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+			err = e
+			return
+		}
+
 		if predicate(item) {
 			if found {
-				return Record{}, false
+				return Record{}, false, nil
 			}
 
 			found = true
@@ -185,17 +312,17 @@ func (q Query) SingleWith(predicate func(Record) bool) (r Record, found bool) {
 		}
 	}
 
-	return r, found
+	return r, found, nil
 }
 
-// ToChannel iterates over a collection and outputs each element to a channel,
-// then closes it.
-func (q Query) ToChannel(result chan<- Record) {
-	next := q.Iterate()
+// // ToChannel iterates over a collection and outputs each element to a channel,
+// // then closes it.
+// func (q Query) ToChannel(result chan<- Record) {
+// 	next := q.Iterate()
 
-	for item, ok := next(); ok; item, ok = next() {
-		result <- item
-	}
+// 	for item, ok := next(); ok; item, ok = next() {
+// 		result <- item
+// 	}
 
-	close(result)
-}
+// 	close(result)
+// }

@@ -8,12 +8,20 @@ import (
 func TestAll(t *testing.T) {
 	input := []int64{2, 4, 6, 8}
 
-	r1 := fromInts(input...).All(func(i Record) bool {
+	r1, err := fromInts(input...).All(func(i Record) bool {
 		return i.Values[0].Int64%2 == 0
 	})
-	r2 := fromInts(input...).All(func(i Record) bool {
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	r2, err := fromInts(input...).All(func(i Record) bool {
 		return i.Values[0].Int64%2 != 0
 	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	if !r1 {
 		t.Errorf("From(%v).All()=%v", input, r1)
@@ -34,7 +42,13 @@ func TestAny(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if r := fromInts(test.input...).Any(); r != test.want {
+		r, err := fromInts(test.input...).Any()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		if r != test.want {
 			t.Errorf("From(%v).Any()=%v expected %v", test.input, r, test.want)
 		}
 	}
@@ -50,9 +64,15 @@ func TestAnyWith(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if r := fromInts(test.input...).AnyWith(func(i Record) bool {
+		r, err := fromInts(test.input...).AnyWith(func(i Record) bool {
 			return i.Values[0].Int64 == 4
-		}); r != test.want {
+		})
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		if r != test.want {
 			t.Errorf("From(%v).Any()=%v expected %v", test.input, r, test.want)
 		}
 	}
@@ -110,7 +130,12 @@ func TestCount(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if r := fromInts(test.input...).Count(); r != test.want {
+		r, err := fromInts(test.input...).Count()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if r != test.want {
 			t.Errorf("From(%v).Count()=%v expected %v", test.input, r, test.want)
 		}
 	}
@@ -126,9 +151,15 @@ func TestCountWith(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if r := fromInts(test.input...).CountWith(func(i Record) bool {
+		r, err := fromInts(test.input...).CountWith(func(i Record) bool {
 			return i.Values[0].Int64 <= 2
-		}); r != test.want {
+		})
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		if r != test.want {
 			t.Errorf("From(%v).CountWith()=%v expected %v", test.input, r, test.want)
 		}
 	}
@@ -145,7 +176,11 @@ func TestFirst(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok := fromInts(test.input...).First()
+		r, ok, err := fromInts(test.input...).First()
+		if err != nil {
+			t.Error(err)
+			continue
+		}
 		if !ok {
 			if test.resultValid {
 				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
@@ -169,9 +204,13 @@ func TestFirstWith(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok := fromInts(test.input...).FirstWith(func(i Record) bool {
+		r, ok, err := fromInts(test.input...).FirstWith(func(i Record) bool {
 			return i.Values[0].Int64 > 2
 		})
+		if err != nil {
+			t.Error(err)
+			continue
+		}
 		if !ok {
 			if test.resultValid {
 				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
@@ -195,9 +234,13 @@ func TestForEachIndexed(t *testing.T) {
 
 	for _, test := range tests {
 		output := []int64{}
-		fromInts(test.input...).ForEach(func(index int, item Record) {
+		err := fromInts(test.input...).ForEach(func(index int, item Record) error {
 			output = append(output, item.Values[0].Int64+int64(index))
+			return nil
 		})
+		if err != nil {
+			t.Error(err)
+		}
 
 		if !reflect.DeepEqual(output, test.want) {
 			t.Fatalf("From(%#v).ForEachIndexed()=%#v expected=%#v", test.input, output, test.want)
@@ -216,7 +259,11 @@ func TestLast(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok := fromInts(test.input...).Last()
+		r, ok, err := fromInts(test.input...).Last()
+		if err != nil {
+			t.Error(err)
+			continue
+		}
 		if !ok {
 			if test.resultValid {
 				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
@@ -240,9 +287,13 @@ func TestLastWith(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok := fromInts(test.input...).LastWith(func(i Record) bool {
+		r, ok, err := fromInts(test.input...).LastWith(func(i Record) bool {
 			return i.Values[0].Int64 > 2
 		})
+		if err != nil {
+			t.Error(err)
+			continue
+		}
 		if !ok {
 			if test.resultValid {
 				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
@@ -292,8 +343,12 @@ func TestLastWith(t *testing.T) {
 func TestResults(t *testing.T) {
 	input := []int64{1, 2, 3}
 	want := makeRecords(1, 2, 3)
-
-	if r := fromInts(input...).Results(); !reflect.DeepEqual(r, want) {
+	r, err := fromInts(input...).Results()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if !reflect.DeepEqual(r, want) {
 		t.Errorf("From(%v).Raw()=%v expected %v", input, r, want)
 	}
 }
@@ -310,7 +365,13 @@ func TestSequenceEqual(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if r := fromInts(test.input...).SequenceEqual(fromInts(test.input2...)); r != test.want {
+		r, err := fromInts(test.input...).SequenceEqual(fromInts(test.input2...))
+
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if r != test.want {
 			t.Errorf("From(%v).SequenceEqual(%v)=%v expected %v", test.input, test.input2, r, test.want)
 		}
 	}
@@ -328,7 +389,11 @@ func TestSingle(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok := fromInts(test.input...).Single()
+		r, ok, err := fromInts(test.input...).Single()
+		if err != nil {
+			t.Error(err)
+			continue
+		}
 		if !ok {
 			if test.resultValid {
 				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
@@ -355,9 +420,13 @@ func TestSingleWith(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, ok := fromInts(test.input...).SingleWith(func(i Record) bool {
+		r, ok, err := fromInts(test.input...).SingleWith(func(i Record) bool {
 			return i.Values[0].Int64 > 2
 		})
+		if err != nil {
+			t.Error(err)
+			continue
+		}
 		if !ok {
 			if test.resultValid {
 				t.Errorf("From(%v).First()=%v expected %v", test.input, r, test.want)
@@ -421,23 +490,23 @@ func TestSingleWith(t *testing.T) {
 // 	}
 // }
 
-func TestToChannel(t *testing.T) {
-	c := make(chan Record)
-	input := []int64{1, 2, 3, 4, 5}
+// func TestToChannel(t *testing.T) {
+// 	c := make(chan Record)
+// 	input := []int64{1, 2, 3, 4, 5}
 
-	go func() {
-		fromInts(input...).ToChannel(c)
-	}()
+// 	go func() {
+// 		fromInts(input...).ToChannel(c)
+// 	}()
 
-	result := []int64{}
-	for value := range c {
-		result = append(result, value.Values[0].Int64)
-	}
+// 	result := []int64{}
+// 	for value := range c {
+// 		result = append(result, value.Values[0].Int64)
+// 	}
 
-	if !reflect.DeepEqual(result, input) {
-		t.Errorf("From(%v).ToChannel()=%v expected %v", input, result, input)
-	}
-}
+// 	if !reflect.DeepEqual(result, input) {
+// 		t.Errorf("From(%v).ToChannel()=%v expected %v", input, result, input)
+// 	}
+// }
 
 // func TestToMap(t *testing.T) {
 // 	input := make(map[int]bool)

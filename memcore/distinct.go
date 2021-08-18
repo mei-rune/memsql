@@ -8,15 +8,18 @@ func (q Query) Distinct() Query {
 			next := q.Iterate()
 			set := RecordSet{}
 
-			return func() (item Record, ok bool) {
-				for item, ok = next(); ok; item, ok = next() {
+			return func() (item Record, err error) {
+				for {
+					item, err = next()
+					if err != nil {
+						return
+					}
+
 					if !set.Has(item) {
 						set.Add(item)
 						return
 					}
 				}
-
-				return
 			}
 		},
 	}
@@ -36,10 +39,10 @@ func (oq OrderedQuery) Distinct() OrderedQuery {
 				var prev Record
 				var hasPrev bool
 
-				return func() (item Record, ok bool) {
+				return func() (item Record, err error) {
 					if !hasPrev {
-						item, ok = next()
-						if !ok {
+						item, err = next()
+						if err != nil {
 							return
 						}
 						prev = item
@@ -47,15 +50,22 @@ func (oq OrderedQuery) Distinct() OrderedQuery {
 						return
 					}
 
-					for item, ok = next(); ok; item, ok = next() {
-						ok2, _ := item.EqualTo(prev, emptyCompareOption)
-						if !ok2 {
+					var ok bool
+					for {
+						item, err = next()
+						if err != nil {
+							return
+						}
+
+						ok, err = item.EqualTo(prev, emptyCompareOption)
+						if err != nil {
+							return
+						}
+						if !ok {
 							prev = item
 							return
 						}
 					}
-
-					return
 				}
 			},
 		},
@@ -71,16 +81,18 @@ func (q Query) DistinctBy(selector func(Record) Value) Query {
 			next := q.Iterate()
 			set := make(map[Value]struct{})
 
-			return func() (item Record, ok bool) {
-				for item, ok = next(); ok; item, ok = next() {
+			return func() (item Record, err error) {
+				for {
+					item, err = next()
+					if err != nil {
+						return
+					}
 					s := selector(item)
 					if _, has := set[s]; !has {
 						set[s] = struct{}{}
 						return
 					}
 				}
-
-				return
 			}
 		},
 	}

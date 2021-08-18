@@ -7,16 +7,31 @@ package memcore
 func (q Query) Intersect(q2 Query) Query {
 	return Query{
 		Iterate: func() Iterator {
-			next := q.Iterate()
+			next1 := q.Iterate()
 			next2 := q2.Iterate()
 
 			set := RecordSet{}
-			for item, ok := next2(); ok; item, ok = next2() {
-				set.Add(item)
+			for {
+				current, err := next2()
+				if err != nil {
+					if !IsNoRows(err) {
+						return func() (Record, error) {
+							return Record{}, err
+						}
+					}
+					break
+				}
+
+				set.Add(current)
 			}
 
-			return func() (item Record, ok bool) {
-				for item, ok = next(); ok; item, ok = next() {
+			return func() (item Record, err error) {
+				for {
+					item, err = next1()
+					if err != nil {
+						return
+					}
+
 					if idx := set.Search(item); idx >= 0 {
 						set.Delete(idx)
 						return
@@ -40,25 +55,38 @@ func (q Query) IntersectBy(q2 Query,
 
 	return Query{
 		Iterate: func() Iterator {
-			next := q.Iterate()
+			next1 := q.Iterate()
 			next2 := q2.Iterate()
 
 			set := make(map[Value]struct{})
-			for item, ok := next2(); ok; item, ok = next2() {
-				s := selector(item)
+			for {
+				current, err := next2()
+				if err != nil {
+					if !IsNoRows(err) {
+						return func() (Record, error) {
+							return Record{}, err
+						}
+					}
+					break
+				}
+
+				s := selector(current)
 				set[s] = struct{}{}
 			}
 
-			return func() (item Record, ok bool) {
-				for item, ok = next(); ok; item, ok = next() {
+			return func() (item Record, err error) {
+				for {
+					item, err = next1()
+					if err != nil {
+						return
+					}
+
 					s := selector(item)
 					if _, has := set[s]; has {
 						delete(set, s)
 						return
 					}
 				}
-
-				return
 			}
 		},
 	}

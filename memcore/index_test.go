@@ -20,7 +20,11 @@ func TestIndexOf(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		index := FromRecords(test.input).IndexOf(test.predicate)
+		index, err := FromRecords(test.input).IndexOf(test.predicate)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		if index != test.expected {
 			t.Errorf("From(%v).IndexOf() expected %v received %v", test.input, test.expected, index)
 		}

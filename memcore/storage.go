@@ -14,15 +14,15 @@ func TableNotExists(table string) error {
 	return errors.WithTitle(errors.ErrTableNotExists, "table '"+table+"' isnot exists")
 }
 
-type ExecuteContext interface {}
+type ExecuteContext interface{}
 
-type GetValuer interface{
+type GetValuer interface {
 	GetValue(tableName, name string) (Value, error)
 }
 
-type GetValueFunc  func(tableName, name string) (Value, error)
+type GetValueFunc func(tableName, name string) (Value, error)
 
-func (f GetValueFunc)	GetValue(tableName, name string) (Value, error) {
+func (f GetValueFunc) GetValue(tableName, name string) (Value, error) {
 	return f(tableName, name)
 }
 
@@ -104,7 +104,7 @@ type measurement struct {
 	table Table
 }
 
-func toGetValuer(tags  KeyValues) GetValuer {
+func toGetValuer(tags KeyValues) GetValuer {
 	return GetValueFunc(func(tableName, name string) (Value, error) {
 		value, ok := tags.Get(name)
 		if ok {
@@ -129,7 +129,7 @@ func (s *storage) From(ctx ExecuteContext, tablename string, filter func(ctx Get
 		return Query{}, TableNotExists(tablename)
 	}
 
-	var list []measurement 
+	var list []measurement
 	for _, m := range byKey {
 		values := toGetValuer(m.tags)
 		ok, err := filter(values)
@@ -145,7 +145,7 @@ func (s *storage) From(ctx ExecuteContext, tablename string, filter func(ctx Get
 		return Query{}, TableNotExists(tablename)
 	}
 	query := From(list[0].table)
-	for i := 1; i < len(list); i ++ {
+	for i := 1; i < len(list); i++ {
 		query = query.UnionAll(From(list[i].table))
 	}
 	return query, nil
@@ -164,8 +164,8 @@ func (s *storage) Set(name string, tags []KeyValue, table Table) {
 	copyed := KeyValues(CloneKeyValues(tags))
 	sort.Sort(copyed)
 	key := KeyValues(copyed).ToKey()
-	byKey[key] = measurement {
-					tags: copyed,
-					table: table,
-				}
+	byKey[key] = measurement{
+		tags:  copyed,
+		table: table,
+	}
 }

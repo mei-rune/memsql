@@ -10,19 +10,32 @@ package memcore
 // result of f() replaces the previous aggregated value.
 //
 // Aggregate returns the final result of f().
-func (q Query) Aggregate(f func(Record, Record) Record) (Record, bool) {
+func (q Query) Aggregate(f func(Record, Record) (Record, error)) (result Record, err error) {
 	next := q.Iterate()
 
-	result, any := next()
-	if !any {
-		return Record{}, false
+	result, err = next()
+	if err != nil {
+		if IsNoRows(err) {
+			err = nil
+		}
+		return
 	}
 
-	for current, ok := next(); ok; current, ok = next() {
-		result = f(result, current)
-	}
+	for {
+		current, e := next()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+			return Record{}, e
+		}
 
-	return result, true
+		result, err = f(result, current)
+		if err != nil {
+			return
+		}
+	}
+	return
 }
 
 // AggregateWithSeed applies an accumulator function over a sequence. The
@@ -37,16 +50,25 @@ func (q Query) Aggregate(f func(Record, Record) Record) (Record, bool) {
 //
 // Aggregate returns the final result of f().
 func (q Query) AggregateWithSeed(seed Record,
-	f func(Record, Record) Record) Record {
-
+	f func(Record, Record) (Record, error)) (result Record, err error) {
 	next := q.Iterate()
-	result := seed
+	result = seed
 
-	for current, ok := next(); ok; current, ok = next() {
-		result = f(result, current)
+	for {
+		current, e := next()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+			return Record{}, e
+		}
+
+		result, err = f(result, current)
+		if err != nil {
+			return
+		}
 	}
-
-	return result
+	return
 }
 
 // AggregateWithSeedBy applies an accumulator function over a sequence. The
@@ -63,14 +85,25 @@ func (q Query) AggregateWithSeed(seed Record,
 // The final result of func is passed to resultSelector to obtain the final
 // result of Aggregate.
 func (q Query) AggregateWithSeedBy(seed Record,
-	f func(Record, Record) Record,
-	resultSelector func(Record) Record) Record {
+	f func(Record, Record) (Record, error),
+	resultSelector func(Record) (Record, error)) (result Record, err error) {
 
 	next := q.Iterate()
-	result := seed
+	result = seed
 
-	for current, ok := next(); ok; current, ok = next() {
-		result = f(result, current)
+	for {
+		current, e := next()
+		if e != nil {
+			if IsNoRows(e) {
+				break
+			}
+			return Record{}, e
+		}
+
+		result, err = f(result, current)
+		if err != nil {
+			return
+		}
 	}
 
 	return resultSelector(result)

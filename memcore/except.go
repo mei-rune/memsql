@@ -5,22 +5,35 @@ package memcore
 func (q Query) Except(q2 Query) Query {
 	return Query{
 		Iterate: func() Iterator {
-			next := q.Iterate()
+			next1 := q.Iterate()
 
 			next2 := q2.Iterate()
 			set := RecordSet{}
-			for i, ok := next2(); ok; i, ok = next2() {
-				set.Add(i)
+
+			for {
+				current, err := next2()
+				if err != nil {
+					if !IsNoRows(err) {
+						return func() (Record, error) {
+							return Record{}, err
+						}
+					}
+					break
+				}
+				set.Add(current)
 			}
 
-			return func() (item Record, ok bool) {
-				for item, ok = next(); ok; item, ok = next() {
+			return func() (item Record, err error) {
+				for {
+					item, err = next1()
+					if err != nil {
+						return
+					}
+
 					if !set.Has(item) {
 						return
 					}
 				}
-
-				return
 			}
 		},
 	}
@@ -33,23 +46,38 @@ func (q Query) ExceptBy(q2 Query,
 	selector func(Record) Value) Query {
 	return Query{
 		Iterate: func() Iterator {
-			next := q.Iterate()
+			next1 := q.Iterate()
 
 			next2 := q2.Iterate()
 			set := make(map[Value]struct{})
-			for i, ok := next2(); ok; i, ok = next2() {
-				s := selector(i)
+
+			for {
+				current, err := next2()
+				if err != nil {
+					if !IsNoRows(err) {
+						return func() (Record, error) {
+							return Record{}, err
+						}
+					}
+					break
+				}
+
+				s := selector(current)
 				set[s] = struct{}{}
 			}
 
-			return func() (item Record, ok bool) {
-				for item, ok = next(); ok; item, ok = next() {
+			return func() (item Record, err error) {
+				for {
+					item, err = next1()
+					if err != nil {
+						return
+					}
+
 					s := selector(item)
 					if _, has := set[s]; !has {
 						return
 					}
 				}
-				return
 			}
 		},
 	}

@@ -55,28 +55,28 @@ type foo struct {
 func (f foo) Iterate() Iterator {
 	i := 0
 
-	return func() (item Record, ok bool) {
+	return func() (item Record, err error) {
 		switch i {
 		case 0:
 			item = Record{
 				Columns: []Column{{Name: "c1"}},
 				Values:  []Value{{Type: ValueInt64, Int64: int64(f.f1)}},
 			}
-			ok = true
+			err = nil
 		case 1:
 			item = Record{
 				Columns: []Column{{Name: "c1"}},
 				Values:  []Value{{Type: ValueBool, Bool: f.f2}},
 			}
-			ok = true
+			err = nil
 		case 2:
 			item = Record{
 				Columns: []Column{{Name: "c1"}},
 				Values:  []Value{{Type: ValueString, Str: f.f3}},
 			}
-			ok = true
+			err = nil
 		default:
-			ok = false
+			err = ErrNoRows
 		}
 
 		i++
@@ -97,29 +97,49 @@ func (f foo) Iterate() Iterator {
 // }
 
 func toSlice(q Query) (result []Record) {
-	next := q.Iterate()
-
-	for item, ok := next(); ok; item, ok = next() {
-		result = append(result, item)
+	result, err := q.Results()
+	if err != nil {
+		panic(err)
 	}
-
-	return
+	return result
 }
 
 func validateQuery(q Query, output []Record) bool {
 	next := q.Iterate()
 
 	for _, oitem := range output {
-		qitem, _ := next()
+		qitem, err := next()
+		if err != nil {
+			panic(err)
+		}
 
-		if !oitem.EqualTo(qitem, emptyCompareOption) {
+		ok, err := oitem.EqualTo(qitem, emptyCompareOption)
+		if err != nil {
+			panic(err)
+		}
+		if !ok {
 			return false
 		}
 	}
 
-	_, ok := next()
-	_, ok2 := next()
-	return !(ok || ok2)
+	_, err := next()
+	if err != nil {
+		if !IsNoRows(err) {
+			panic(err)
+		}
+	} else {
+		return false
+	}
+
+	_, err = next()
+	if err != nil {
+		if IsNoRows(err) {
+			return true
+		}
+		panic(err)
+	} else {
+		return false
+	}
 }
 
 func mustPanicWithError(t *testing.T, expectedErr string, f func()) {

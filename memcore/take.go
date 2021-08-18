@@ -8,8 +8,9 @@ func (q Query) Take(count int) Query {
 			next := q.Iterate()
 			n := count
 
-			return func() (item Record, ok bool) {
+			return func() (item Record, err error) {
 				if n <= 0 {
+					err = ErrNoRows
 					return
 				}
 
@@ -32,25 +33,26 @@ func (q Query) TakeWhile(predicate func(int, Record) bool) Query {
 			done := false
 			index := 0
 
-			return func() (item Record, ok bool) {
+			return func() (item Record, err error) {
 				if done {
+					err = ErrNoRows
 					return
 				}
 
-				item, ok = next()
-				if !ok {
-					done = true
-					return
-				}
+				for {
+					item, err = next()
+					if err != nil {
+						if IsNoRows(err) {
+							done = true
+						}
+						return
+					}
 
-				if predicate(index, item) {
-					index++
-					return
+					if predicate(index, item) {
+						index++
+						return
+					}
 				}
-
-				done = true
-				ok = false
-				return
 			}
 		},
 	}

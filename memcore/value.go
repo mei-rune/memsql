@@ -254,7 +254,7 @@ func (r *Value) EqualToInt64(to int64, opt CompareOption) (bool, error) {
 		return r.Int64 == to, nil
 	case ValueUint64:
 		if to < 0 {
-		return false, nil
+			return false, nil
 		}
 		return r.Uint64 == uint64(to), nil
 	case ValueFloat64:
@@ -296,7 +296,7 @@ func (r *Value) EqualToUint64(to uint64, opt CompareOption) (bool, error) {
 }
 
 func (r *Value) EqualToFloat64(to float64, opt CompareOption) (bool, error) {
-		return false, NewTypeMismatch(r.Type.String(), "float")
+	return false, NewTypeMismatch(r.Type.String(), "float")
 }
 
 func (r *Value) EqualToDatetime(to int64, opt CompareOption) (bool, error) {
@@ -837,18 +837,18 @@ func StringToValue(value string) Value {
 
 func StringAsNumber(s string) (Value, error) {
 	i64, err := strconv.ParseInt(s, 10, 64)
-  if err == nil {
-    return IntToValue(i64), nil
-  }
-  u64, err := strconv.ParseUint(s, 10, 64)
-  if err == nil {
-    return UintToValue(u64), nil
-  }
-  f64, err := strconv.ParseFloat(s, 64)
-  if err == nil {
-    return FloatToValue(f64), nil
-  }
-  return Value{}, NewTypeError(s, "string", "number")
+	if err == nil {
+		return IntToValue(i64), nil
+	}
+	u64, err := strconv.ParseUint(s, 10, 64)
+	if err == nil {
+		return UintToValue(u64), nil
+	}
+	f64, err := strconv.ParseFloat(s, 64)
+	if err == nil {
+		return FloatToValue(f64), nil
+	}
+	return Value{}, NewTypeError(s, "string", "number")
 }
 
 func DatetimeToValue(value time.Time) Value {

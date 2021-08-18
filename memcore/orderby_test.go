@@ -7,9 +7,11 @@ func TestEmpty(t *testing.T) {
 		return Value{}
 	})
 
-	_, ok := q.Iterate()()
-	if ok {
-		t.Errorf("Iterator for empty collection must return ok=false")
+	_, err := q.Iterate()()
+	if err != nil {
+		if !IsNoRows(err) {
+			t.Errorf("Iterator for empty collection must return ok=false %+v", err)
+		}
 	}
 }
 

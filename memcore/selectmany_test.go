@@ -5,7 +5,6 @@ package memcore
 // 	"testing"
 // )
 
-
 // func TestSelectManyIndexed(t *testing.T) {
 // 	tests := []struct {
 // 		input    interface{}

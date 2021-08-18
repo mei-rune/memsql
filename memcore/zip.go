@@ -18,16 +18,17 @@ func (q Query) Zip(q2 Query,
 			next1 := q.Iterate()
 			next2 := q2.Iterate()
 
-			return func() (item Record, ok bool) {
-				item1, ok1 := next1()
-				item2, ok2 := next2()
-
-				if ok1 && ok2 {
-					return resultSelector(item1, item2), true
+			return func() (item Record, err error) {
+				item1, err1 := next1()
+				if err1 != nil {
+					return Record{}, err1
+				}
+				item2, err2 := next2()
+				if err2 != nil {
+					return Record{}, err2
 				}
 
-				ok = false
-				return
+				return resultSelector(item1, item2), nil
 			}
 		},
 	}
