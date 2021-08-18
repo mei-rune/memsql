@@ -1,4 +1,4 @@
-package parser
+package memsql
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"github.com/xwb1989/sqlparser"
 	"github.com/runner-mei/memsql/memcore"
 	"github.com/runner-mei/memsql/filter"
+	"github.com/runner-mei/memsql/parser"
 	"github.com/runner-mei/errors"
 )
 
@@ -231,7 +232,7 @@ func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.Ali
 }
 
 func ExecuteTable(ec *simpleExecuteContext, ds Datasource, expr sqlparser.Expr) (memcore.Query, error) {
-	_, tableExpr, err := SplitByColumnName(expr, ByTag())
+	_, tableExpr, err := parser.SplitByColumnName(expr, parser.ByTag())
 	if err != nil {
 		return memcore.Query{}, errors.Wrap(err, "couldn't resolve where '"+sqlparser.String(expr)+"'")
 	}
@@ -240,7 +241,7 @@ func ExecuteTable(ec *simpleExecuteContext, ds Datasource, expr sqlparser.Expr) 
 		return true, nil
 	}
 	if tableExpr != nil {
-		f, err = ToFilter(nil, tableExpr)
+		f, err = parser.ToFilter(nil, tableExpr)
 		if err != nil {
 			return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
 		}
@@ -259,7 +260,7 @@ func ExecuteWhere(ec *simpleExecuteContext, query memcore.Query, expr sqlparser.
 		return query, nil
   }
 
-	f, err = ToFilter(ec, expr)
+	f, err := parser.ToFilter(ec, expr)
 	if err != nil {
 		return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
 	}
@@ -291,19 +292,19 @@ func ExecuteOrderBy(ec *simpleExecuteContext, query memcore.Query, orderBy sqlpa
   	return query, nil
   }
 
-  read, err := ToGetValue(ec, orderBy[0])
+  read, err := parser.ToGetValue(ec, orderBy[0])
 	if err != nil {
 		return memcore.Query{}, err
 	}
 
-	var orderedQuery OrderedQuery
+	var orderedQuery memcore.OrderedQuery
   switch orderBy[0].Direction {
   case sqlparser.AscScr, "":
-	  	orderedQuery = query.OrderBy(func(r Record) Value{
+	  	orderedQuery = query.OrderByAscending(func(r memcore.Record) memcore.Value{
 	  		return read(toRecordGetValuer(r))
 	  	})
   case sqlparser.DescScr:
-  	orderedQuery = query.OrderByDescending(func(r Record) Value{
+  	orderedQuery = query.OrderByDescending(func(r memcore.Record) memcore.Value{
   		return read(toRecordGetValuer(r))
   	})
   default:
@@ -311,17 +312,17 @@ func ExecuteOrderBy(ec *simpleExecuteContext, query memcore.Query, orderBy sqlpa
   }
 
 	for idx := 1; idx < len(orderBy); idx ++ {
-	  read, err := ToGetValue(ec, orderBy[idx])
+	  read, err := parser.ToGetValue(ec, orderBy[idx])
 		if err != nil {
 			return memcore.Query{}, err
 		}
 	  switch orderBy[idx].Direction {
 	  case sqlparser.AscScr, "":
-	  	orderedQuery = orderedQuery.ThenBy(func(r Record) Value{
+	  	orderedQuery = orderedQuery.ThenByAscending(func(r memcore.Record) memcore.Value{
 	  		return read(toRecordGetValuer(r))
 	  	})
 	  case sqlparser.DescScr:
-	  	orderedQuery = orderedQuery.ThenByDescending(func(r Record) Value{
+	  	orderedQuery = orderedQuery.ThenByDescending(func(r memcore.Record) memcore.Value{
 	  		return read(toRecordGetValuer(r))
 	  	})
 	  default:
@@ -337,7 +338,7 @@ func ExecuteLimit(ec *simpleExecuteContext, query memcore.Query, limit *sqlparse
 	}
 
 	if limit.Offset != nil {
-		readOffset, err := ToGetValue(nil, limit.Offset)
+		readOffset, err := parser.ToGetValue(nil, limit.Offset)
 		if err != nil {
 			return query, err
 		}
@@ -355,7 +356,7 @@ func ExecuteLimit(ec *simpleExecuteContext, query memcore.Query, limit *sqlparse
 	}
 
 	if limit.Rowcount != nil {
-		readRowcount, err := ToGetValue(nil, limit.Rowcount)
+		readRowcount, err := parser.ToGetValue(nil, limit.Rowcount)
 		if err != nil {
 			return query, err
 		}
@@ -369,13 +370,8 @@ func ExecuteLimit(ec *simpleExecuteContext, query memcore.Query, limit *sqlparse
 		if err != nil {
 			return query, err
 		}
-		query = query.Limit(rowCount)
+		query = query.Take(rowCount)
 	}
 
-
-	// if stmt.Limit != nil {
-	// 	Offset, 
-	// 	Rowcount Expr
-	// }
 	return query, nil
 }
