@@ -18,7 +18,7 @@ func ColumnNotFound(columnName string) error {
 	return errors.WithTitle(errors.ErrNotFound, "column '"+columnName+"' isnot found")
 }
 
-type ExecuteContext interface{}
+type Context interface{}
 
 type GetValuer interface {
 	GetValue(tableName, name string) (Value, error)
@@ -31,12 +31,25 @@ func (f GetValueFunc) GetValue(tableName, name string) (Value, error) {
 }
 
 type Storage interface {
-	From(ctx ExecuteContext, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, error)
+	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, error)
+	Set(name string, tags []KeyValue, table Table)
 }
 
 type KeyValue struct {
 	Key   string
 	Value string
+}
+
+func MapToTags(tags map[string]string) []KeyValue {
+	results := make([]KeyValue, 0, len(tags))
+
+	for key, value := range tags {
+		results = append(results, KeyValue{
+			Key: key,
+			Value: value,
+		})
+	}
+	return results
 }
 
 type KeyValues []KeyValue
@@ -124,7 +137,13 @@ type storage struct {
 	measurements map[string]map[string]measurement
 }
 
-func (s *storage) From(ctx ExecuteContext, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, error) {
+func NewStorage() Storage {
+	return &storage{
+		measurements: map[string]map[string]measurement{},
+	}
+}
+
+func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

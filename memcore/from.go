@@ -10,8 +10,6 @@ func IsNoRows(e error) bool {
 	return e == ErrNoRows
 }
 
-type Context interface{}
-
 // Iterator is an alias for function to iterate over data.
 type Iterator func(Context) (item Record, err error)
 

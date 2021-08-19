@@ -1,24 +1,54 @@
 package memsql
 
 import (
+	"context"
 	"fmt"
-	"strconv"
 	"reflect"
+	"strconv"
 
-	"github.com/xwb1989/sqlparser"
-	"github.com/runner-mei/memsql/memcore"
-	"github.com/runner-mei/memsql/filter"
-	"github.com/runner-mei/memsql/parser"
 	"github.com/runner-mei/errors"
+	"github.com/runner-mei/memsql/filter"
+	"github.com/runner-mei/memsql/memcore"
+	"github.com/runner-mei/memsql/parser"
+	"github.com/xwb1989/sqlparser"
 )
 
-func parse(sqlstr string) (*sqlparser.Select, error) {
+type Table = memcore.Table
+type Record = memcore.Record
+type RecordSet = memcore.RecordSet
+type Storage = memcore.Storage
+
+type Context struct {
+	Ctx     context.Context
+	Storage Storage
+}
+
+func Execute(ctx *Context, sqlstmt string) (RecordSet, error) {
+	stmt, err := parse(sqlstmt)
+	if err != nil {
+		return nil, err
+	}
+
+	query, err := ExecuteSelectStatement(ctx, stmt)
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := query.Results(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return RecordSet(results), nil
+}
+
+func parse(sqlstr string) (sqlparser.SelectStatement, error) {
 	stmt, err := sqlparser.Parse(sqlstr)
 	if err != nil {
 		return nil, err
 	}
 	// Otherwise do something with stmt
-	selectStmt, ok := stmt.(*sqlparser.Select)
+	selectStmt, ok := stmt.(sqlparser.SelectStatement)
 	if !ok {
 		return nil, errors.New("only support select statement")
 	}
@@ -30,26 +60,20 @@ type Datasource struct {
 	As    string
 }
 
-type simpleExecuteContext struct {
-	s    memcore.Storage
-	stmt *sqlparser.Select
-	ds   Datasource
-}
-
-func ExecuteSelectStatement(ec *simpleExecuteContext, stmt sqlparser.SelectStatement) (memcore.Query, error) {
+func ExecuteSelectStatement(ec *Context, stmt sqlparser.SelectStatement) (memcore.Query, error) {
 	switch expr := stmt.(type) {
 	case *sqlparser.Select:
-			return ExecuteSelect(ec, expr)
+		return ExecuteSelect(ec, expr)
 	case *sqlparser.Union:
-			return ExecuteUnion(ec, expr)
+		return ExecuteUnion(ec, expr)
 	case *sqlparser.ParenSelect:
-		return ExecuteSelectStatement(ec, expr.Select) 
+		return ExecuteSelectStatement(ec, expr.Select)
 	default:
 		return memcore.Query{}, fmt.Errorf("invalid select %+v of type %T", stmt, stmt)
 	}
 }
 
-func ExecuteUnion(ec *simpleExecuteContext, stmt *sqlparser.Union) (memcore.Query, error) {
+func ExecuteUnion(ec *Context, stmt *sqlparser.Union) (memcore.Query, error) {
 	left, err := ExecuteSelectStatement(ec, stmt.Left)
 	if err != nil {
 		return memcore.Query{}, err
@@ -69,14 +93,14 @@ func ExecuteUnion(ec *simpleExecuteContext, stmt *sqlparser.Union) (memcore.Quer
 	default:
 		return memcore.Query{}, fmt.Errorf("invalid union type %s", stmt.Type)
 	}
-	
+
 	if len(stmt.OrderBy) > 0 {
 		query, err = ExecuteOrderBy(ec, query, stmt.OrderBy)
 		if err != nil {
 			return memcore.Query{}, err
 		}
 	}
-	
+
 	if stmt.Limit != nil {
 		query, err = ExecuteLimit(ec, query, stmt.Limit)
 		if err != nil {
@@ -100,14 +124,14 @@ func ExecuteUnion(ec *simpleExecuteContext, stmt *sqlparser.Union) (memcore.Quer
 	// }
 
 	// if stmt.Limit != nil {
-	// 	Offset, 
+	// 	Offset,
 	// 	Rowcount Expr
 	// }
 
 	return query, nil
 }
 
-func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (memcore.Query, error) {
+func ExecuteSelect(ec *Context, stmt *sqlparser.Select) (memcore.Query, error) {
 	if len(stmt.From) != 1 {
 		return memcore.Query{}, fmt.Errorf("currently only one expression in from supported, got %v", len(stmt.From))
 	}
@@ -154,7 +178,7 @@ func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (memcore.Qu
 			return memcore.Query{}, err
 		}
 	}
-	
+
 	if stmt.Limit != nil {
 		query, err = ExecuteLimit(ec, query, stmt.Limit)
 		if err != nil {
@@ -165,7 +189,7 @@ func ExecuteSelect(ec *simpleExecuteContext, stmt *sqlparser.Select) (memcore.Qu
 	return query, nil
 }
 
-func ExecuteTableExpression(ec *simpleExecuteContext, expr sqlparser.TableExpr, where *sqlparser.Where) (memcore.Query, error) {
+func ExecuteTableExpression(ec *Context, expr sqlparser.TableExpr, where *sqlparser.Where) (memcore.Query, error) {
 	switch expr := expr.(type) {
 	case *sqlparser.AliasedTableExpr:
 		return ExecuteAliasedTableExpression(ec, expr, where)
@@ -179,7 +203,7 @@ func ExecuteTableExpression(ec *simpleExecuteContext, expr sqlparser.TableExpr, 
 }
 
 /*
-func ExecuteJoinTableExpression(ec *simpleExecuteContext, expr *sqlparser.JoinTableExpr, where *sqlparser.Where) error {
+func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, where *sqlparser.Where) error {
 // 	type JoinTableExpr struct {
 // 	LeftExpr  TableExpr
 // 	Join      string
@@ -201,7 +225,7 @@ func ExecuteJoinTableExpression(ec *simpleExecuteContext, expr *sqlparser.JoinTa
 }
 */
 
-func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.AliasedTableExpr, where *sqlparser.Where) (memcore.Query, error) {
+func ExecuteAliasedTableExpression(ec *Context, expr *sqlparser.AliasedTableExpr, where *sqlparser.Where) (memcore.Query, error) {
 	if len(expr.Partitions) > 0 {
 		return memcore.Query{}, fmt.Errorf("invalid partitions in the table expression %+v", expr.Expr)
 	}
@@ -210,17 +234,18 @@ func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.Ali
 	}
 	switch subExpr := expr.Expr.(type) {
 	case sqlparser.TableName:
-		ec.ds.Table = subExpr.Name.String()
+		var ds Datasource
+		ds.Table = subExpr.Name.String()
 		if expr.As.IsEmpty() {
-			ec.ds.As = ec.ds.Table
+			ds.As = ds.Table
 		} else {
-			ec.ds.As = expr.As.String()
+			ds.As = expr.As.String()
 		}
 
-		if ec.stmt.Where.Expr == nil {
-			return ExecuteTable(ec, ec.ds, nil)
+		if where == nil || where.Expr == nil {
+			return ExecuteTable(ec, ds, nil)
 		}
-		return ExecuteTable(ec, ec.ds, ec.stmt.Where.Expr)
+		return ExecuteTable(ec, ds, where.Expr)
 		// if expr.As.IsEmpty() {
 		// 	return nil, fmt.Errorf("table \"%v\" must have unique alias", subExpr.Name)
 		// }
@@ -232,7 +257,7 @@ func ExecuteAliasedTableExpression(ec *simpleExecuteContext, expr *sqlparser.Ali
 	}
 }
 
-func ExecuteTable(ec *simpleExecuteContext, ds Datasource, expr sqlparser.Expr) (memcore.Query, error) {
+func ExecuteTable(ec *Context, ds Datasource, expr sqlparser.Expr) (memcore.Query, error) {
 	_, tableExpr, err := parser.SplitByColumnName(expr, parser.ByTag())
 	if err != nil {
 		return memcore.Query{}, errors.Wrap(err, "couldn't resolve where '"+sqlparser.String(expr)+"'")
@@ -248,7 +273,7 @@ func ExecuteTable(ec *simpleExecuteContext, ds Datasource, expr sqlparser.Expr) 
 		}
 	}
 
-	query, err := ec.s.From(ec, ds.Table, f)
+	query, err := ec.Storage.From(ec, ds.Table, f)
 	if err != nil {
 		return memcore.Query{}, err
 	}
@@ -256,79 +281,78 @@ func ExecuteTable(ec *simpleExecuteContext, ds Datasource, expr sqlparser.Expr) 
 	return ExecuteWhere(ec, query, expr)
 }
 
-func ExecuteWhere(ec *simpleExecuteContext, query memcore.Query, expr sqlparser.Expr) (memcore.Query, error) {
-  if expr == nil {
+func ExecuteWhere(ec *Context, query memcore.Query, expr sqlparser.Expr) (memcore.Query, error) {
+	if expr == nil {
 		return query, nil
-  }
+	}
 
 	f, err := parser.ToFilter(ec, expr)
 	if err != nil {
 		return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
 	}
 	query = query.Where(func(idx int, r memcore.Record) (bool, error) {
-  		return f(memcore.ToRecordValuer(&r))
+		return f(memcore.ToRecordValuer(&r))
 	})
 
-  // type Where Expr
+	// type Where Expr
 	return query, nil
 }
 
-func ExecuteGroupBy(ec *simpleExecuteContext, query memcore.Query, groupBy sqlparser.GroupBy) (memcore.Query, error) {
-  // type GroupBy []Expr
+func ExecuteGroupBy(ec *Context, query memcore.Query, groupBy sqlparser.GroupBy) (memcore.Query, error) {
+	// type GroupBy []Expr
 
-  // TODO: XXX
+	// TODO: XXX
 	return query, nil
 }
 
-
-func ExecuteHaving(ec *simpleExecuteContext, query memcore.Query, having *sqlparser.Where) (memcore.Query, error) {
-		if having == nil {
-			return query, nil
-		}
-		return ExecuteWhere(ec, query, ec.stmt.Where.Expr)
+func ExecuteHaving(ec *Context, query memcore.Query, having *sqlparser.Where) (memcore.Query, error) {
+	if having == nil {
+		return query, nil
+	}
+	return ExecuteWhere(ec, query, having.Expr)
 }
 
-func ExecuteOrderBy(ec *simpleExecuteContext, query memcore.Query, orderBy sqlparser.OrderBy) (memcore.Query, error) {
-  if len(orderBy) == 0 {
-  	return query, nil
-  }
+func ExecuteOrderBy(ec *Context, query memcore.Query, orderBy sqlparser.OrderBy) (memcore.Query, error) {
+	if len(orderBy) == 0 {
+		return query, nil
+	}
 
-  read, err := parser.ToGetValue(ec, orderBy[0].Expr)
+	read, err := parser.ToGetValue(ec, orderBy[0].Expr)
 	if err != nil {
 		return memcore.Query{}, err
 	}
 
 	var orderedQuery memcore.OrderedQuery
-  switch orderBy[0].Direction {
-  case sqlparser.AscScr, "":
-	  	orderedQuery = query.OrderByAscending(func(r memcore.Record) (memcore.Value, error) {
-	  		return read(memcore.ToRecordValuer(&r))
-	  	})
-  case sqlparser.DescScr:
-  	orderedQuery = query.OrderByDescending(func(r memcore.Record) (memcore.Value, error) {
-  		return read(memcore.ToRecordValuer(&r))
-  	})
-  default:
+	switch orderBy[0].Direction {
+	case sqlparser.AscScr, "":
+		orderedQuery = query.OrderByAscending(func(r memcore.Record) (memcore.Value, error) {
+			return read(memcore.ToRecordValuer(&r))
+		})
+	case sqlparser.DescScr:
+		orderedQuery = query.OrderByDescending(func(r memcore.Record) (memcore.Value, error) {
+			return read(memcore.ToRecordValuer(&r))
+		})
+	default:
 		return memcore.Query{}, errors.New("invalid order by " + sqlparser.String(orderBy[0]))
-  }
+	}
 
-	for idx := 1; idx < len(orderBy); idx ++ {
-	  read, err := parser.ToGetValue(ec, orderBy[idx].Expr)
+	for idx := 1; idx < len(orderBy); idx++ {
+		read, err := parser.ToGetValue(ec, orderBy[idx].Expr)
 		if err != nil {
 			return memcore.Query{}, err
 		}
-	  switch orderBy[idx].Direction {
-	  case sqlparser.AscScr, "":
-	  	orderedQuery = orderedQuery.ThenByAscending(func(r memcore.Record) (memcore.Value, error) {
-	  		return read(memcore.ToRecordValuer(&r))
-	  	})
-	  case sqlparser.DescScr:
-	  	orderedQuery = orderedQuery.ThenByDescending(func(r memcore.Record) (memcore.Value, error) {
-	  		return read(memcore.ToRecordValuer(&r))
-	  	})
-	  default:
+		switch orderBy[idx].Direction {
+		case sqlparser.AscScr, "":
+			orderedQuery = orderedQuery.ThenByAscending(func(r memcore.Record) (memcore.Value, error) {
+				return read(memcore.ToRecordValuer(&r))
+			})
+		case sqlparser.DescScr:
+			orderedQuery = orderedQuery.ThenByDescending(func(r memcore.Record) (memcore.Value, error) {
+				return read(memcore.ToRecordValuer(&r))
+			})
+		default:
 			return memcore.Query{}, errors.New("invalid order by " + sqlparser.String(orderBy[0]))
-	  }
+		}
 	}
 	return orderedQuery.Query, nil
 }
@@ -348,7 +372,7 @@ func asUint(value memcore.Value) (uint64, error) {
 		return 0, memcore.NewTypeMismatch(value.Type.String(), "unknown")
 	}
 }
-func ExecuteLimit(ec *simpleExecuteContext, query memcore.Query, limit *sqlparser.Limit) (memcore.Query, error) {
+func ExecuteLimit(ec *Context, query memcore.Query, limit *sqlparser.Limit) (memcore.Query, error) {
 	if limit == nil {
 		return query, nil
 	}

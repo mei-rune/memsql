@@ -4,6 +4,8 @@ import (
 	"encoding"
 	"encoding/json"
 	"fmt"
+	"io"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -880,6 +882,83 @@ type Record struct {
 	Values  []Value
 }
 
+func (r *Record) ToLine(w io.Writer, sep string) {
+	for idx, v := range r.Values {
+		if idx != 0 {
+			io.WriteString(w, sep)
+		}
+		switch v.Type {
+		case ValueNull:
+			io.WriteString(w, "null")
+		case ValueBool:
+			if v.Bool {
+				io.WriteString(w, "true")
+			} else {
+				io.WriteString(w, "false")
+			}
+		case ValueString:
+			bs, err := json.Marshal(v.Str)
+			if err != nil {
+				panic(err)
+			}
+			w.Write(bs)
+		case ValueInt64:
+			io.WriteString(w, strconv.FormatInt(v.Int64, 10))
+		case ValueUint64:
+			io.WriteString(w, strconv.FormatUint(v.Uint64, 10))
+		case ValueFloat64:
+			io.WriteString(w, strconv.FormatFloat(v.Float64, 'g', -1, 64))
+		case ValueDatetime:
+			io.WriteString(w, "\"")
+			io.WriteString(w, intToDatetime(v.Int64).Format(time.RFC3339))
+			io.WriteString(w, "\"")
+		default:
+			io.WriteString(w, "\"")
+			io.WriteString(w, "unknown_value_"+strconv.FormatInt(int64(v.Type), 10))
+			io.WriteString(w, "\"")
+		}
+	}
+}
+
+type colunmSorter Record
+
+func (s colunmSorter) Len() int {
+	return len(s.Columns)
+}
+
+func (s colunmSorter) Swap(i, j int) {
+	s.Columns[i], s.Columns[j] = s.Columns[j], s.Columns[i]
+	if len(s.Values) != len(s.Columns) {
+		for i := 0; i < len(s.Columns)-len(s.Values); i++ {
+			s.Values = append(s.Values, Null())
+		}
+	}
+
+	s.Values[i], s.Values[j] = s.Values[j], s.Values[i]
+}
+
+func (s colunmSorter) Less(i, j int) bool {
+	return s.Columns[i].Name < s.Columns[j].Name
+}
+
+func SortByColumnName(r Record) Record {
+	r = r.Clone()
+	sort.Sort(colunmSorter(r))
+	return r
+}
+
+func (r *Record) Clone() Record {
+	columns := make([]Column, len(r.Columns))
+	copy(columns, r.Columns)
+	values := make([]Value, len(r.Values))
+	copy(values, r.Values)
+
+	return Record{
+		Columns: columns,
+		Values:  values,
+	}
+}
+
 func (r *Record) Search(name string) int {
 	return columnSearchByName(r.Columns, name)
 }
@@ -1056,7 +1135,7 @@ func ToTable(values []map[string]interface{}) (Table, error) {
 	}
 	table.Records = append(table.Records, record)
 
-	for i :=1; i < len(values); i ++ {
+	for i := 1; i < len(values); i++ {
 		record = make([]Value, len(table.Columns))
 		for key, value := range values[i] {
 			v, err := ToValue(value)
