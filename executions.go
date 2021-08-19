@@ -2,6 +2,7 @@ package memsql
 
 import (
 	"fmt"
+	"strconv"
 	"reflect"
 
 	"github.com/xwb1989/sqlparser"
@@ -264,8 +265,8 @@ func ExecuteWhere(ec *simpleExecuteContext, query memcore.Query, expr sqlparser.
 	if err != nil {
 		return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
 	}
-	query = query.Where(func(idx int, r memcore.Record) bool {
-  		return f(toRecordGetValuer(r))
+	query = query.Where(func(idx int, r memcore.Record) (bool, error) {
+  		return f(memcore.ToRecordValuer(&r))
 	})
 
   // type Where Expr
@@ -300,12 +301,12 @@ func ExecuteOrderBy(ec *simpleExecuteContext, query memcore.Query, orderBy sqlpa
 	var orderedQuery memcore.OrderedQuery
   switch orderBy[0].Direction {
   case sqlparser.AscScr, "":
-	  	orderedQuery = query.OrderByAscending(func(r memcore.Record) memcore.Value{
-	  		return read(toRecordGetValuer(r))
+	  	orderedQuery = query.OrderByAscending(func(r memcore.Record) (memcore.Value, error) {
+	  		return read(memcore.ToRecordValuer(&r))
 	  	})
   case sqlparser.DescScr:
-  	orderedQuery = query.OrderByDescending(func(r memcore.Record) memcore.Value{
-  		return read(toRecordGetValuer(r))
+  	orderedQuery = query.OrderByDescending(func(r memcore.Record) (memcore.Value, error) {
+  		return read(memcore.ToRecordValuer(&r))
   	})
   default:
 		return memcore.Query{}, errors.New("invalid order by " + sqlparser.String(orderBy[0]))
@@ -318,20 +319,35 @@ func ExecuteOrderBy(ec *simpleExecuteContext, query memcore.Query, orderBy sqlpa
 		}
 	  switch orderBy[idx].Direction {
 	  case sqlparser.AscScr, "":
-	  	orderedQuery = orderedQuery.ThenByAscending(func(r memcore.Record) memcore.Value{
-	  		return read(toRecordGetValuer(r))
+	  	orderedQuery = orderedQuery.ThenByAscending(func(r memcore.Record) (memcore.Value, error) {
+	  		return read(memcore.ToRecordValuer(&r))
 	  	})
 	  case sqlparser.DescScr:
-	  	orderedQuery = orderedQuery.ThenByDescending(func(r memcore.Record) memcore.Value{
-	  		return read(toRecordGetValuer(r))
+	  	orderedQuery = orderedQuery.ThenByDescending(func(r memcore.Record) (memcore.Value, error) {
+	  		return read(memcore.ToRecordValuer(&r))
 	  	})
 	  default:
 			return memcore.Query{}, errors.New("invalid order by " + sqlparser.String(orderBy[0]))
 	  }
 	}
-	return orderedQuery, nil
+	return orderedQuery.Query, nil
 }
 
+func asUint(value memcore.Value) (uint64, error) {
+	switch value.Type {
+	case memcore.ValueString:
+		return strconv.ParseUint(value.Str, 10, 64)
+	case memcore.ValueInt64:
+		if value.Int64 < 0 {
+			return 0, nil
+		}
+		return uint64(value.Int64), nil
+	case memcore.ValueUint64:
+		return value.Uint64, nil
+	default:
+		return 0, memcore.NewTypeMismatch(value.Type.String(), "unknown")
+	}
+}
 func ExecuteLimit(ec *simpleExecuteContext, query memcore.Query, limit *sqlparser.Limit) (memcore.Query, error) {
 	if limit == nil {
 		return query, nil
@@ -348,11 +364,11 @@ func ExecuteLimit(ec *simpleExecuteContext, query memcore.Query, limit *sqlparse
 			return query, err
 		}
 
-		i64, err := offset.AsInt()
+		i64, err := asUint(offset)
 		if err != nil {
 			return query, err
 		}
-		query = query.Skip(i64)
+		query = query.Skip(int(i64))
 	}
 
 	if limit.Rowcount != nil {
@@ -366,11 +382,11 @@ func ExecuteLimit(ec *simpleExecuteContext, query memcore.Query, limit *sqlparse
 			return query, err
 		}
 
-		i64, err := rowCount.AsInt()
+		i64, err := asUint(rowCount)
 		if err != nil {
 			return query, err
 		}
-		query = query.Take(rowCount)
+		query = query.Take(int(i64))
 	}
 
 	return query, nil

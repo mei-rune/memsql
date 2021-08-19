@@ -3,8 +3,8 @@ package memcore
 import "testing"
 
 func TestEmpty(t *testing.T) {
-	q := fromStrings([]string{}...).OrderByAscending(func(in Record) Value {
-		return Value{}
+	q := fromStrings([]string{}...).OrderByAscending(func(in Record) (Value, error) {
+		return Value{}, nil
 	})
 
 	_, err := q.Iterate()(mkCtx())
@@ -22,8 +22,8 @@ func TestOrderBy(t *testing.T) {
 		slice[i] = int64(i)
 	}
 
-	q := fromInts(slice...).OrderByAscending(func(item Record) Value {
-		return item.Values[0]
+	q := fromInts(slice...).OrderByAscending(func(item Record) (Value, error) {
+		return item.Values[0], nil
 	})
 
 	items, err := q.Results(mkCtx())
@@ -45,8 +45,8 @@ func TestOrderByDescending(t *testing.T) {
 		slice[i] = int64(i)
 	}
 
-	q := fromInts(slice...).OrderByDescending(func(item Record) Value {
-		return item.Values[0]
+	q := fromInts(slice...).OrderByDescending(func(item Record) (Value, error) {
+		return item.Values[0], nil
 	})
 
 	items, err := q.Results(mkCtx())
@@ -79,10 +79,10 @@ func TestThenByAscending(t *testing.T) {
 		}
 	}
 
-	q := fromInt2(slice).OrderByAscending(func(item Record) Value {
-		return item.Values[1]
-	}).ThenByAscending(func(item Record) Value {
-		return item.Values[0]
+	q := fromInt2(slice).OrderByAscending(func(item Record) (Value, error) {
+		return item.Values[1], nil
+	}).ThenByAscending(func(item Record) (Value, error) {
+		return item.Values[0], nil
 	})
 
 
@@ -111,10 +111,10 @@ func TestThenByDescending(t *testing.T) {
 		}
 	}
 
-	q := fromInt2(slice).OrderByAscending(func(item Record) Value {
-		return item.Values[1]
-	}).ThenByDescending(func(item Record) Value {
-		return item.Values[0]
+	q := fromInt2(slice).OrderByAscending(func(item Record) (Value, error) {
+		return item.Values[1], nil
+	}).ThenByDescending(func(item Record) (Value, error) {
+		return item.Values[0], nil
 	})
 
 	items, err := q.Results(mkCtx())

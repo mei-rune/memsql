@@ -5,7 +5,7 @@ import "sort"
 type comparer func(Value, Value) int
 
 type order struct {
-	selector func(Record) Value
+	selector func(Record) (Value, error)
 	compare  comparer
 	desc     bool
 }
@@ -20,7 +20,7 @@ type OrderedQuery struct {
 
 // OrderByAscending sorts the elements of a collection in ascending order. Elements are
 // sorted according to a key.
-func (q Query) OrderByAscending(selector func(Record) Value) OrderedQuery {
+func (q Query) OrderByAscending(selector func(Record) (Value, error)) OrderedQuery {
 	return OrderedQuery{
 		orders:   []order{{selector: selector}},
 		original: q,
@@ -66,7 +66,7 @@ func (q Query) OrderByAscending(selector func(Record) Value) OrderedQuery {
 
 // OrderByDescending sorts the elements of a collection in descending order.
 // Elements are sorted according to a key.
-func (q Query) OrderByDescending(selector func(Record) Value) OrderedQuery {
+func (q Query) OrderByDescending(selector func(Record) (Value, error)) OrderedQuery {
 	return OrderedQuery{
 		orders:   []order{{selector: selector, desc: true}},
 		original: q,
@@ -115,7 +115,7 @@ func (q Query) OrderByDescending(selector func(Record) Value) OrderedQuery {
 // ThenByAscending performs a subsequent ordering of the elements in a collection in
 // ascending order. This method enables you to specify multiple sort criteria by
 // applying any number of ThenByAscending or ThenByDescending methods.
-func (oq OrderedQuery) ThenByAscending(selector func(Record) Value) OrderedQuery {
+func (oq OrderedQuery) ThenByAscending(selector func(Record) (Value, error)) OrderedQuery {
 	return OrderedQuery{
 		orders:   append(oq.orders, order{selector: selector}),
 		original: oq.original,
@@ -163,7 +163,7 @@ func (oq OrderedQuery) ThenByAscending(selector func(Record) Value) OrderedQuery
 // ThenByDescending performs a subsequent ordering of the elements in a
 // collection in descending order. This method enables you to specify multiple
 // sort criteria by applying any number of ThenBy or ThenByDescending methods.
-func (oq OrderedQuery) ThenByDescending(selector func(Record) Value) OrderedQuery {
+func (oq OrderedQuery) ThenByDescending(selector func(Record) (Value, error)) OrderedQuery {
 	return OrderedQuery{
 		orders:   append(oq.orders, order{selector: selector, desc: true}),
 		original: oq.original,
@@ -306,7 +306,16 @@ func (q Query) sort(ctx Context, orders []order) (r []Record, err error) {
 		items: r,
 		less: func(i, j Record) bool {
 			for _, order := range orders {
-				x, y := order.selector(i), order.selector(j)
+				x, e := order.selector(i)
+				if e != nil {
+					err = e
+					return false
+				}
+				y, e := order.selector(j)
+				if e != nil {
+					err = e
+					return true
+				}
 				switch order.compare(x, y) {
 				case 0:
 					continue

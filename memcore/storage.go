@@ -14,6 +14,10 @@ func TableNotExists(table string) error {
 	return errors.WithTitle(errors.ErrTableNotExists, "table '"+table+"' isnot exists")
 }
 
+func ColumnNotFound(columnName string) error {
+	return errors.WithTitle(errors.ErrNotFound, "column '"+columnName+"' isnot found")
+}
+
 type ExecuteContext interface{}
 
 type GetValuer interface {

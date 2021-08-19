@@ -5,11 +5,11 @@ import "testing"
 func TestWhereIndexed(t *testing.T) {
 	tests := []struct {
 		input     []int64
-		predicate func(int, Record) bool
+		predicate func(int, Record) (bool, error)
 		output    []Record
 	}{
-		{[]int64{1, 1, 1, 2, 1, 2, 3, 4, 2}, func(i int, x Record) bool {
-			return x.Values[0].Int64 < 4 && i > 4
+		{[]int64{1, 1, 1, 2, 1, 2, 3, 4, 2}, func(i int, x Record) (bool, error) {
+			return x.Values[0].Int64 < 4 && i > 4, nil
 		}, makeRecords(2, 3, 2)},
 		// {"sstr", func(i int, x interface{}) bool {
 		// 	return x.(rune) != 's' || i == 1

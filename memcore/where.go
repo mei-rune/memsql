@@ -5,7 +5,7 @@ package memcore
 //
 // The first argument represents the zero-based index of the element within
 // collection. The second argument of predicate represents the element to test.
-func (q Query) Where(predicate func(int, Record) bool) Query {
+func (q Query) Where(predicate func(int, Record) (bool, error)) Query {
 	return Query{
 		Iterate: func() Iterator {
 			next := q.Iterate()
@@ -18,7 +18,12 @@ func (q Query) Where(predicate func(int, Record) bool) Query {
 						return
 					}
 
-					if predicate(index, item) {
+					var ok bool
+					ok, err = predicate(index, item)
+					if err != nil {
+						return
+					}
+					if ok {
 						index++
 						return
 					}

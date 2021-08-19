@@ -885,6 +885,11 @@ func (r *Record) Search(name string) int {
 }
 
 func (r *Record) At(idx int) Value {
+	if len(r.Values) >= idx {
+		// Columns 和 Values 的长度不一定一致, 看下面的 ToTable
+		return Null()
+	}
+
 	return r.Values[idx]
 }
 
@@ -961,6 +966,25 @@ func (r Record) MarshalText() ([]byte, error) {
 
 var _ encoding.TextMarshaler = &Record{}
 
+type recordValuer Record
+
+func (r *recordValuer) GetValue(tableName, name string) (Value, error) {
+	value, ok := (*Record)(r).Get(name)
+	if ok {
+		return value, nil
+	}
+	if tableName == "" {
+		return Value{}, ColumnNotFound(name)
+	}
+	return Value{}, ColumnNotFound(tableName + "." + name)
+}
+
+var _ GetValuer = (*recordValuer)(nil)
+
+func ToRecordValuer(r *Record) GetValuer {
+	return (*recordValuer)(r)
+}
+
 // func (r *Record) MarshalText() ( []byte,  error) {
 // 	return r.marshalText()
 // }
@@ -1014,4 +1038,41 @@ func (table *Table) At(idx int) Record {
 		Columns: table.Columns,
 		Values:  table.Records[idx],
 	}
+}
+
+func ToTable(values []map[string]interface{}) (Table, error) {
+	if len(values) == 0 {
+		return Table{}, nil
+	}
+	var table = Table{}
+	var record []Value
+	for key, value := range values[0] {
+		table.Columns = append(table.Columns, Column{Name: key})
+		v, err := ToValue(value)
+		if err != nil {
+			return table, errors.Wrap(err, "value '"+fmt.Sprint(value)+"' with index is '0' and column is '"+key+"' is invalid ")
+		}
+		record = append(record, v)
+	}
+	table.Records = append(table.Records, record)
+
+	for i :=1; i < len(values); i ++ {
+		record = make([]Value, len(table.Columns))
+		for key, value := range values[i] {
+			v, err := ToValue(value)
+			if err != nil {
+				return table, errors.Wrap(err, "value '"+fmt.Sprint(value)+"' with index is '"+strconv.Itoa(i)+"' and column is '"+key+"' is invalid ")
+			}
+			foundIndex := columnSearchByName(table.Columns, key)
+			if foundIndex < 0 {
+				// 这里添加了一列，那么前几行的列值的数目会少于 Columns
+				table.Columns = append(table.Columns, Column{Name: key})
+				record = append(record, v)
+			} else {
+				record[foundIndex] = v
+			}
+		}
+		table.Records = append(table.Records, record)
+	}
+	return table, nil
 }
