@@ -117,6 +117,22 @@ func readValue(s string) Value {
 	case "false":
 		return memcore.BoolToValue(false)
 	}
+	if strings.HasPrefix(s, "u") {
+		u64, err := strconv.ParseUint(strings.TrimPrefix(s, "u"), 10, 64)
+		if err == nil {
+			return memcore.UintToValue(u64)
+		}
+		return memcore.StringToValue(s)
+	}
+
+	if strings.HasPrefix(s, "interval ") {
+		s=strings.TrimPrefix(s, "interval ")
+		interval, err := time.ParseDuration(s)
+		if err == nil {
+			return memcore.IntervalToValue(interval)
+		}
+		return memcore.StringToValue(s)
+	}
 	i64, err := strconv.ParseInt(s, 10, 64)
 	if err == nil {
 		return memcore.IntToValue(i64)
