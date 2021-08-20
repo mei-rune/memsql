@@ -790,6 +790,8 @@ func ToValue(value interface{}) (Value, error) {
 			Type:  ValueDatetime,
 			Int64: datetimeToInt(v),
 		}, nil
+	case Value:
+		return v, nil
 	}
 	return Value{}, fmt.Errorf("Unknown type %T: %v", value, value)
 }
@@ -800,6 +802,13 @@ func MustToValue(value interface{}) Value {
 		panic(err)
 	}
 	return v
+}
+
+func BoolToValue(value bool) Value {
+	return Value{
+		Type:  ValueBool,
+		Bool: value,
+	}
 }
 
 func IntToValue(value int64) Value {
@@ -820,13 +829,6 @@ func FloatToValue(value float64) Value {
 	return Value{
 		Type:    ValueFloat64,
 		Float64: value,
-	}
-}
-
-func BoolToValue(value bool) Value {
-	return Value{
-		Type: ValueBool,
-		Bool: value,
 	}
 }
 

@@ -19,7 +19,7 @@ package memcore
 // the SelectMany method instead of Select. Although SelectMany works similarly
 // to Select, it differs in that the transform function returns a collection
 // that is then expanded by SelectMany before it is returned.
-func (q Query) Select(selector func(int, Record) Record) Query {
+func (q Query) Select(selector func(int, Record) (Record, error)) Query {
 	return Query{
 		Iterate: func() Iterator {
 			next := q.Iterate()
@@ -28,8 +28,10 @@ func (q Query) Select(selector func(int, Record) Record) Query {
 			return func(ctx Context) (item Record, err error) {
 				item, err = next(ctx)
 				if err == nil {
-					item = selector(index, item)
-					index++
+					item, err = selector(index, item)
+					if err == nil {
+						index++
+					}
 				}
 				return
 			}

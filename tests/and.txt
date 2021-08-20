@@ -1,0 +1,36 @@
+-- abc --
+f1,f2,f3,f4
+a1,b1,1,true
+a1,b1,1,false
+a2,b2,2,true
+a2,b2,2,false
+a3,b3,3,true
+a3,b3,3,false
+
+-- fooselect1.sql --
+select f4,f2, f1 from abc where f1 = 'a1' and f4 = true
+-- fooselect1.result --
+true,"b1","a1"
+
+-- fooselect2.sql --
+select f4,f2, f1 from abc where f3 <= 2 and f4 = true
+-- fooselect2.result --
+true,"b1","a1"
+true,"b2","a2"
+
+-- fooselect3.sql --
+select f4,f2, f1 from abc where f1 = 'a1' or f4 = true
+-- fooselect3.result --
+true,"b1","a1"
+false,"b1","a1"
+true,"b2","a2"
+true,"b3","a3"
+
+-- fooselect4.sql --
+select f4,f2, f1 from abc where f3 <= 2 or f4 = true
+-- fooselect4.result --
+true,"b1","a1"
+false,"b1","a1"
+true,"b2","a2"
+false,"b2","a2"
+true,"b3","a3"

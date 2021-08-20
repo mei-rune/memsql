@@ -1,11 +1,49 @@
 -- abc --
-f1,f2
-a,b
+f1,f2,f3
+a1,b1,1
+a2,b2,2
+a3,b3,3
 -- foo.sql --
 select * from abc
 -- foo.sort.result --
-"a","b"
--- fooselect.sql --
+"a1","b1",1
+"a2","b2",2
+"a3","b3",3
+-- fooselect1.sql --
 select f1, f2 from abc
--- fooselect.result --
-"a","b"
+-- fooselect1.result --
+"a1","b1"
+"a2","b2"
+"a3","b3"
+-- fooselect2.sql --
+select f2, f1 from abc
+-- fooselect2.result --
+"b1","a1"
+"b2","a2"
+"b3","a3"
+-- fooselect3.sql --
+select f2, f1 from abc where f1 = 'a1'
+-- fooselect3.result --
+"b1","a1"
+-- fooselect4.sql --
+select f3, f2, f1 from abc where f3 = 1
+-- fooselect4.result --
+1,"b1","a1"
+-- fooselect5.sql --
+select f3, f2, f1 from abc where f3 > 2
+-- fooselect5.result --
+3,"b3","a3"
+-- fooselect6.sql --
+select f3, f2, f1 from abc where f3 >= 2
+-- fooselect6.result --
+2,"b2","a2"
+3,"b3","a3"
+-- fooselect7.sql --
+select f3, f2, f1 from abc where f3 < 2
+-- fooselect7.result --
+1,"b1","a1"
+-- fooselect7.sql --
+select f3, f2, f1 from abc where f3 <= 2
+-- fooselect7.result --
+1,"b1","a1"
+2,"b2","a2"

@@ -13,6 +13,8 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
+type Value = memcore.Value
+type Column = memcore.Column
 type Table = memcore.Table
 type Record = memcore.Record
 type RecordSet = memcore.RecordSet
@@ -107,26 +109,6 @@ func ExecuteUnion(ec *Context, stmt *sqlparser.Union) (memcore.Query, error) {
 			return memcore.Query{}, err
 		}
 	}
-	// if 	len(stmt.OrderBy) > 0 {
-	// 	for idx := range stmt.OrderBy {
-	// 		// Order represents an ordering expression.
-	// 		type Order struct {
-	// 			Expr      Expr
-	// 			Direction string
-	// 		}
-
-	// 		// Order.Direction
-	// 		const (
-	// 			AscScr  = "asc"
-	// 			DescScr = "desc"
-	// 		)
-	// 	}
-	// }
-
-	// if stmt.Limit != nil {
-	// 	Offset,
-	// 	Rowcount Expr
-	// }
 
 	return query, nil
 }
@@ -186,6 +168,12 @@ func ExecuteSelect(ec *Context, stmt *sqlparser.Select) (memcore.Query, error) {
 		}
 	}
 
+	if stmt.SelectExprs != nil {
+		query, err = ExecuteSelectExprs(ec, query, stmt.SelectExprs)
+		if err != nil {
+			return memcore.Query{}, err
+		}
+	}
 	return query, nil
 }
 
@@ -415,4 +403,57 @@ func ExecuteLimit(ec *Context, query memcore.Query, limit *sqlparser.Limit) (mem
 	}
 
 	return query, nil
+}
+
+
+func ExecuteSelectExprs(ec *Context, query memcore.Query, selectExprs sqlparser.SelectExprs) (memcore.Query, error) {
+	switch len(selectExprs) {
+	case 0:
+		return query, nil
+	case 1:
+		_, ok := selectExprs[0].(*sqlparser.StarExpr)
+		if ok {
+			return query, nil
+		}
+	}
+
+	var selectFuncs []func(filter.Context, Record) (Record, error)
+	for idx := range selectExprs {
+		subexpr := selectExprs[idx]
+		switch v := subexpr.(type) {
+		case *sqlparser.StarExpr:
+			return query, fmt.Errorf("invalid expression %T %+v", subexpr, subexpr)
+		case *sqlparser.AliasedExpr:
+			f, err := parser.ToGetValue(ec, v.Expr)
+			if err != nil {
+				return query, err
+			}
+			selectFuncs = append(selectFuncs, toSelectFunc(v.As.String(), f))
+		case sqlparser.Nextval:
+			return query, fmt.Errorf("invalid expression %T %+v", subexpr, subexpr)
+		default:
+			return query, fmt.Errorf("invalid expression %T %+v", subexpr, subexpr)
+		}
+	}
+
+	selector := func(index int, r Record) (result Record, err error){
+		valuer := memcore.ToRecordValuer(&r)
+		for _, f := range selectFuncs {
+			result, err = f(valuer, result)
+		}
+		return result, nil
+	}
+	return query.Select(selector), nil 
+}
+
+func toSelectFunc(as string, f func(filter.Context) (Value, error)) func(ctx filter.Context, result Record) (Record, error)  {
+	return func(ctx filter.Context, result Record) (Record, error) {
+				value, err := f(ctx)
+				if err != nil {
+					return Record{}, err
+				}
+				result.Columns = append(result.Columns, Column{Name: as})
+				result.Values = append(result.Values, value)
+				return result, nil 
+		}
 }

@@ -8,8 +8,10 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aryann/difflib"
 	"github.com/runner-mei/errors"
@@ -24,6 +26,7 @@ type TestTable struct {
 }
 
 type TestSelect struct {
+	Name    string   `json:"name"`
 	SQL     string   `json:"sql"`
 	Sort    bool     `json:"sort"`
 	Results []string `json:"results"`
@@ -76,12 +79,11 @@ func RecordToLines(t *testing.T, results RecordSet, sort bool) []string {
 
 func assertResults(t *testing.T, records RecordSet, sort bool, excepted []string) {
 	actual := RecordToLines(t, records, sort)
-
 	results := difflib.Diff(excepted, actual)
 
 	isOk := true
 	for _, result := range results {
-		if result.Delta != difflib.Common	{
+		if result.Delta != difflib.Common {
 			isOk = false
 			break
 		}
@@ -98,6 +100,47 @@ func newTestApp(t *testing.T) *TestApp {
 	return &TestApp{
 		s: memcore.NewStorage(),
 	}
+}
+
+func readValue(s string) Value {
+	if strings.HasPrefix(s, "\"") {
+		return memcore.StringToValue(s)
+	}
+	switch strings.ToLower(s) {
+	case "true":
+		return memcore.BoolToValue(true)
+	case "false":
+		return memcore.BoolToValue(false)
+	}
+	i64, err := strconv.ParseInt(s, 10, 64)
+	if err == nil {
+		return memcore.IntToValue(i64)
+	}
+
+	u64, err := strconv.ParseUint(s, 10, 64)
+	if err == nil {
+		return memcore.UintToValue(u64)
+	}
+
+	f64, err := strconv.ParseFloat(s, 64)
+	if err == nil {
+		return memcore.FloatToValue(f64)
+	}
+
+	for _, fmtstr := range []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02 15:04:05Z07:00",
+		"2006-01-02 15:04:05",
+		"2006/01/02 15:04:05Z07:00",
+		"2006/01/02 15:04:05",
+	} {
+		t, err := time.Parse(fmtstr, s)
+		if err == nil {
+			return memcore.DatetimeToValue(t)
+		}
+	}
+	return memcore.StringToValue(s)
 }
 
 func readTable(data []byte) (TestTable, error) {
@@ -148,7 +191,7 @@ func readTable(data []byte) (TestTable, error) {
 
 		var values = map[string]interface{}{}
 		for idx := range record {
-			values[headers[idx]] = record[idx]
+			values[headers[idx]] = readValue(record[idx])
 		}
 		records = append(records, values)
 	}
@@ -174,18 +217,27 @@ func readText(txt []byte) (TestCase, error) {
 		switch {
 		case strings.HasSuffix(file.Name, ".sql"):
 			name := strings.TrimSuffix(file.Name, ".sql")
-			stmts[name] = string(file.Data)
+			stmts[name] = string(bytes.TrimSpace(file.Data))
 		case strings.HasSuffix(file.Name, ".result"):
 			name := strings.TrimSuffix(file.Name, ".result")
 			name = strings.TrimSuffix(name, ".sort")
 			lines := bytes.Split(file.Data, []byte("\n"))
+
 			var ss = make([]string, 0, len(lines))
 			for idx := range lines {
 				bs := bytes.TrimSuffix(lines[idx], []byte("\r"))
-				if idx == len(lines)-1 && len(bs) == 0 {
-					continue
-				}
 				ss = append(ss, string(bs))
+			}
+
+			for idx := len(ss)-1; ; idx -- {
+				if idx < 0 {
+					ss = ss[:0]
+					break
+				}
+				if ss[idx] != "" {
+					ss = ss[:idx+1]
+					break
+				}
 			}
 
 			results[name] = ss
@@ -226,6 +278,7 @@ func readText(txt []byte) (TestCase, error) {
 	}
 	for key, stmt := range stmts {
 		sel := TestSelect{
+			Name:    key,
 			SQL:     stmt,
 			Sort:    false,
 			Results: results[key],
@@ -274,7 +327,9 @@ func runTests(t *testing.T, allTests []TestCase) {
 			}
 
 			for _, stmt := range test.Selects {
-				t.Run(stmt.SQL, func(t *testing.T) {
+				t.Run(stmt.Name, func(t *testing.T) {
+					t.Log(stmt.SQL)
+
 					results, err := app.Execute(t, stmt.SQL)
 					if err != nil {
 						t.Error(err)
