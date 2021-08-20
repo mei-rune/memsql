@@ -45,7 +45,7 @@ func MapToTags(tags map[string]string) []KeyValue {
 
 	for key, value := range tags {
 		results = append(results, KeyValue{
-			Key: key,
+			Key:   key,
 			Value: value,
 		})
 	}

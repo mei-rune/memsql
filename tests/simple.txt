@@ -1,0 +1,11 @@
+-- abc --
+f1,f2
+a,b
+-- foo.sql --
+select * from abc
+-- foo.sort.result --
+"a","b"
+-- fooselect.sql --
+select f1, f2 from abc
+-- fooselect.result --
+"a","b"

@@ -258,18 +258,19 @@ func ExecuteAliasedTableExpression(ec *Context, expr *sqlparser.AliasedTableExpr
 }
 
 func ExecuteTable(ec *Context, ds Datasource, expr sqlparser.Expr) (memcore.Query, error) {
-	_, tableExpr, err := parser.SplitByColumnName(expr, parser.ByTag())
-	if err != nil {
-		return memcore.Query{}, errors.Wrap(err, "couldn't resolve where '"+sqlparser.String(expr)+"'")
-	}
-
 	var f = func(filter.Context) (bool, error) {
 		return true, nil
 	}
-	if tableExpr != nil {
-		f, err = parser.ToFilter(nil, tableExpr)
+	if expr != nil {
+		_, tableExpr, err := parser.SplitByColumnName(expr, parser.ByTag())
 		if err != nil {
-			return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
+			return memcore.Query{}, errors.Wrap(err, "couldn't resolve where '"+sqlparser.String(expr)+"'")
+		}
+		if tableExpr != nil {
+			f, err = parser.ToFilter(nil, tableExpr)
+			if err != nil {
+				return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
+			}
 		}
 	}
 
