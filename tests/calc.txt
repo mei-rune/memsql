@@ -12,3 +12,10 @@ select f1,f3 + 2, f4 from abc where f3+2 > 4
 -- fooselect1.result --
 "a3",5,true
 "a3",5,false
+
+
+-- fooselect2.sql --
+select f1,f3 - 2, f4 from abc where f3 - 2 > 0
+-- fooselect2.result --
+"a3",1,true
+"a3",1,false

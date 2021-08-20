@@ -285,8 +285,8 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (m
 		// case sqlparser.BitXorStr:
 		case sqlparser.PlusStr:
 			return filter.Plus(leftValue, rightValue), nil
-		// case sqlparser.MinusStr:
-		// 	return filter.Minus(leftValue, rightValue), nil
+		case sqlparser.MinusStr:
+			return filter.Minus(leftValue, rightValue), nil
 		// case sqlparser.MultStr:
 		// 	return filter.Mult(leftValue, rightValue), nil
 		// case sqlparser.DivStr:
