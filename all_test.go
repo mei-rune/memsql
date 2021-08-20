@@ -106,6 +106,11 @@ func readValue(s string) Value {
 	if strings.HasPrefix(s, "\"") {
 		return memcore.StringToValue(s)
 	}
+
+	s = strings.ToLower(s)
+	if s == "null" {
+		return memcore.Null()
+	}
 	switch strings.ToLower(s) {
 	case "true":
 		return memcore.BoolToValue(true)
@@ -229,7 +234,7 @@ func readText(txt []byte) (TestCase, error) {
 				ss = append(ss, string(bs))
 			}
 
-			for idx := len(ss)-1; ; idx -- {
+			for idx := len(ss) - 1; ; idx-- {
 				if idx < 0 {
 					ss = ss[:0]
 					break

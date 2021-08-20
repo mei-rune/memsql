@@ -1,0 +1,14 @@
+-- abc --
+f1,f2,f3,f4
+a1,b1,1,true
+a1,b1,1,false
+a2,b2,2,true
+a2,b2,2,false
+a3,b3,3,true
+a3,b3,3,false
+
+-- fooselect1.sql --
+select f1,f3 + 2, f4 from abc where f3+2 > 4
+-- fooselect1.result --
+"a3",5,true
+"a3",5,false

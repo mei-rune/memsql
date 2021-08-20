@@ -262,6 +262,67 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (m
 		return func(ctx filter.Context) (memcore.Value, error) {
 			return ctx.GetValue("", name)
 		}, nil
+
+	case sqlparser.ValTuple:
+		return nil, ErrUnsupportedExpr("ValTuple")
+	case *sqlparser.Subquery:
+		return nil, ErrUnsupportedExpr("Subquery")
+	case sqlparser.ListArg:
+		return nil, ErrUnsupportedExpr("ListArg")
+	case *sqlparser.BinaryExpr:
+		leftValue, err := ToGetValue(ctx, v.Left)
+		if err != nil {
+			return nil, err
+		}
+		rightValue, err := ToGetValue(ctx, v.Right)
+		if err != nil {
+			return nil, err
+		}
+
+		switch v.Operator{
+		// case sqlparser.BitAndStr:
+		// case sqlparser.BitOrStr:
+		// case sqlparser.BitXorStr:
+		case sqlparser.PlusStr:
+			return filter.Plus(leftValue, rightValue), nil
+		// case sqlparser.MinusStr:
+		// 	return filter.Minus(leftValue, rightValue), nil
+		// case sqlparser.MultStr:
+		// 	return filter.Mult(leftValue, rightValue), nil
+		// case sqlparser.DivStr:
+		// 	return filter.Div(leftValue, rightValue), nil
+		// case sqlparser.IntDivStr:
+		// 	return filter.IntDiv(leftValue, rightValue), nil
+		// case sqlparser.ModStr:
+		// 	return filter.Mod(leftValue, rightValue), nil
+		// case sqlparser.ShiftLeftStr:
+		// case sqlparser.ShiftRightStr:
+		default:
+			return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)
+		}
+	case *sqlparser.UnaryExpr:
+		return nil, ErrUnsupportedExpr("UnaryExpr")
+	case *sqlparser.IntervalExpr:
+		return nil, ErrUnsupportedExpr("IntervalExpr")
+	case *sqlparser.CollateExpr:
+		return nil, ErrUnsupportedExpr("CollateExpr")
+	case *sqlparser.FuncExpr:
+		return nil, ErrUnsupportedExpr("FuncExpr")
+	case *sqlparser.CaseExpr:
+		return nil, ErrUnsupportedExpr("CaseExpr")
+	case *sqlparser.ValuesFuncExpr:
+		return nil, ErrUnsupportedExpr("ValuesFuncExpr")
+	case *sqlparser.ConvertExpr:
+		return nil, ErrUnsupportedExpr("ConvertExpr")
+	case *sqlparser.SubstrExpr:
+		return nil, ErrUnsupportedExpr("SubstrExpr")
+	case *sqlparser.ConvertUsingExpr:
+		return nil, ErrUnsupportedExpr("ConvertUsingExpr")
+	case *sqlparser.MatchExpr:
+		return nil, ErrUnsupportedExpr("MatchExpr")
+	case *sqlparser.GroupConcatExpr:
+		return nil, ErrUnsupportedExpr("GroupConcatExpr")
+
 	default:
 		return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)
 	}

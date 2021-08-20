@@ -23,6 +23,7 @@ const (
 	ValueUint64
 	ValueFloat64
 	ValueDatetime
+	ValueInterval
 )
 
 func (v ValueType) String() string {
@@ -41,6 +42,8 @@ func (v ValueType) String() string {
 		return "float"
 	case ValueDatetime:
 		return "datetime"
+	case ValueInterval:
+		return "interval"
 	default:
 		return "unknown_" + strconv.FormatInt(int64(v), 10)
 	}
@@ -92,12 +95,28 @@ func ToDatetime(s string) (time.Time, error) {
 	return time.Time{}, errors.New("invalid time: " + s)
 }
 
-func datetimeToInt(t time.Time) int64 {
+func DatetimeToInt(t time.Time) int64 {
 	return t.Unix()
 }
 
-func intToDatetime(t int64) time.Time {
+func IntToDatetime(t int64) time.Time {
 	return time.Unix(t, 0)
+}
+
+func DurationToInt(t time.Duration) int64 {
+	return int64(t)
+}
+
+func IntToDuration(t int64) time.Duration {
+	return time.Duration(t)
+}
+
+func IntervalToInt(t time.Duration) int64 {
+	return int64(t)
+}
+
+func IntToInterval(t int64) time.Duration {
+	return time.Duration(t)
 }
 
 type Value struct {
@@ -127,7 +146,9 @@ func (v *Value) String() string {
 	case ValueFloat64:
 		return strconv.FormatFloat(v.Float64, 'g', -1, 64)
 	case ValueDatetime:
-		return intToDatetime(v.Int64).Format(time.RFC3339)
+		return IntToDatetime(v.Int64).Format(time.RFC3339)
+	case ValueInterval:
+		return "interval " + time.Duration(v.Int64).String()
 	default:
 		return "unknown_value_" + strconv.FormatInt(int64(v.Type), 10)
 	}
@@ -160,6 +181,8 @@ func (r *Value) EqualTo(to Value, opt CompareOption) (bool, error) {
 		return r.EqualToFloat64(to.Float64, opt)
 	case ValueDatetime:
 		return r.EqualToDatetime(to.Int64, opt)
+	case ValueInterval:
+		return r.EqualToInterval(time.Duration(to.Int64), opt)
 	default:
 		return false, NewTypeMismatch(r.Type.String(), "unknown")
 	}
@@ -308,6 +331,13 @@ func (r *Value) EqualToDatetime(to int64, opt CompareOption) (bool, error) {
 	return false, NewTypeMismatch(r.Type.String(), "datetime")
 }
 
+func (r *Value) EqualToInterval(to time.Duration, opt CompareOption) (bool, error) {
+	if r.Type == ValueInterval {
+		return time.Duration(r.Int64) == to, nil
+	}
+	return false, NewTypeMismatch(r.Type.String(), "interval")
+}
+
 func (r *Value) CompareTo(to Value, opt CompareOption) (int, error) {
 	switch to.Type {
 	case ValueNull:
@@ -327,6 +357,8 @@ func (r *Value) CompareTo(to Value, opt CompareOption) (int, error) {
 		return r.CompareToFloat64(to.Float64, opt)
 	case ValueDatetime:
 		return r.CompareToDatetime(to.Int64, opt)
+	case ValueInterval:
+		return r.CompareToInterval(time.Duration(to.Int64), opt)
 	default:
 		return 0, ErrUnknownValueType
 	}
@@ -620,7 +652,7 @@ func (r *Value) CompareToDatetime(to int64, opt CompareOption) (int, error) {
 		if err != nil {
 			return 0, NewTypeError(r, r.Type.String(), "datetime")
 		}
-		value = datetimeToInt(t)
+		value = DatetimeToInt(t)
 	case ValueInt64:
 		if !opt.Weak {
 			return 0, NewTypeError(r, r.Type.String(), "datetime")
@@ -649,6 +681,51 @@ func (r *Value) CompareToDatetime(to int64, opt CompareOption) (int, error) {
 	return 0, nil
 }
 
+
+func (r *Value) CompareToInterval(to time.Duration, opt CompareOption) (int, error) {
+
+	var value time.Duration
+	switch r.Type {
+	case ValueInterval:
+		value = time.Duration(r.Int64)
+	case ValueString:
+		if !opt.Weak {
+			return 0, NewTypeError(r, r.Type.String(), "interval")
+		}
+		t, err := time.ParseDuration(r.Str)
+		if err != nil {
+			return 0, NewTypeError(r, r.Type.String(), "interval")
+		}
+		value = t
+	// case ValueInt64:
+	// 	if !opt.Weak {
+	// 		return 0, NewTypeError(r, r.Type.String(), "interval")
+	// 	}
+	// 	value = r.Int64
+	// case ValueUint64:
+	// 	if !opt.Weak {
+	// 		return 0, NewTypeError(r, r.Type.String(), "interval")
+	// 	}
+	// 	value = int64(r.Uint64)
+	// case ValueFloat64:
+	// 	if !opt.Weak {
+	// 		return 0, NewTypeError(r, r.Type.String(), "interval")
+	// 	}
+	// 	value = int64(r.Float64)
+	default:
+		return 0, NewTypeError(r, r.Type.String(), "interval")
+	}
+
+	if value > to {
+		return 1, nil
+	}
+	if value < to {
+		return -1, nil
+	}
+	return 0, nil
+}
+
+
 func (v *Value) marshalText() ([]byte, error) {
 	switch v.Type {
 	case ValueNull:
@@ -667,7 +744,9 @@ func (v *Value) marshalText() ([]byte, error) {
 	case ValueFloat64:
 		return []byte(strconv.FormatFloat(v.Float64, 'g', -1, 64)), nil
 	case ValueDatetime:
-		return []byte("\"" + intToDatetime(v.Int64).Format(time.RFC3339) + "\""), nil
+		return []byte("\"" + IntToDatetime(v.Int64).Format(time.RFC3339) + "\""), nil
+	case ValueInterval:
+		return []byte(strconv.FormatInt(v.Int64, 10)), nil
 	default:
 		return nil, ErrUnknownValueType
 	}
@@ -788,7 +867,12 @@ func ToValue(value interface{}) (Value, error) {
 	case time.Time:
 		return Value{
 			Type:  ValueDatetime,
-			Int64: datetimeToInt(v),
+			Int64: DatetimeToInt(v),
+		}, nil
+	case time.Duration:
+		return Value{
+			Type:  ValueInterval,
+			Int64: int64(v),
 		}, nil
 	case Value:
 		return v, nil
@@ -858,7 +942,14 @@ func StringAsNumber(s string) (Value, error) {
 func DatetimeToValue(value time.Time) Value {
 	return Value{
 		Type:  ValueDatetime,
-		Int64: datetimeToInt(value),
+		Int64: DatetimeToInt(value),
+	}
+}
+
+func IntervalToValue(value time.Duration) Value {
+	return Value{
+		Type:  ValueInterval,
+		Int64: int64(value),
 	}
 }
 
@@ -912,8 +1003,10 @@ func (r *Record) ToLine(w io.Writer, sep string) {
 			io.WriteString(w, strconv.FormatFloat(v.Float64, 'g', -1, 64))
 		case ValueDatetime:
 			io.WriteString(w, "\"")
-			io.WriteString(w, intToDatetime(v.Int64).Format(time.RFC3339))
+			io.WriteString(w, IntToDatetime(v.Int64).Format(time.RFC3339))
 			io.WriteString(w, "\"")
+		case ValueInterval:
+			io.WriteString(w, strconv.FormatInt(v.Int64, 10))
 		default:
 			io.WriteString(w, "\"")
 			io.WriteString(w, "unknown_value_"+strconv.FormatInt(int64(v.Type), 10))
