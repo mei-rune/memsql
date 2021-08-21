@@ -1,6 +1,9 @@
 package memcore
 
-import "sort"
+import (
+ "sort"
+ 	"github.com/runner-mei/memsql/vm"
+)
 
 type comparer func(Value, Value) int
 
@@ -294,7 +297,7 @@ func (q Query) sort(ctx Context, orders []order) (r []Record, err error) {
 			continue
 		}
 		orders[i].compare = func(a Value, b Value) int {
-			ret, err := a.CompareTo(b, emptyCompareOption)
+			ret, err := a.CompareTo(b, vm.EmptyCompareOption())
 			if err != nil {
 				panic(err)
 			}

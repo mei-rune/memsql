@@ -16,6 +16,7 @@ import (
 	"github.com/aryann/difflib"
 	"github.com/runner-mei/errors"
 	"github.com/runner-mei/memsql/memcore"
+	"github.com/runner-mei/memsql/vm"
 	"golang.org/x/tools/txtar"
 )
 
@@ -104,48 +105,54 @@ func newTestApp(t *testing.T) *TestApp {
 
 func readValue(s string) Value {
 	if strings.HasPrefix(s, "\"") {
-		return memcore.StringToValue(s)
+		return vm.StringToValue(s)
 	}
 
 	s = strings.ToLower(s)
 	if s == "null" {
-		return memcore.Null()
+		return vm.Null()
 	}
 	switch strings.ToLower(s) {
 	case "true":
-		return memcore.BoolToValue(true)
+		return vm.BoolToValue(true)
 	case "false":
-		return memcore.BoolToValue(false)
+		return vm.BoolToValue(false)
 	}
 	if strings.HasPrefix(s, "u") {
 		u64, err := strconv.ParseUint(strings.TrimPrefix(s, "u"), 10, 64)
 		if err == nil {
-			return memcore.UintToValue(u64)
+			return vm.UintToValue(u64)
 		}
-		return memcore.StringToValue(s)
+		return vm.StringToValue(s)
 	}
-
+	if strings.HasPrefix(s, "i") {
+		i64, err := strconv.ParseInt(strings.TrimPrefix(s, "i"), 10, 64)
+		if err == nil {
+			return vm.IntToValue(i64)
+		}
+		return vm.StringToValue(s)
+	}
 	if strings.HasPrefix(s, "interval ") {
 		s=strings.TrimPrefix(s, "interval ")
 		interval, err := time.ParseDuration(s)
 		if err == nil {
-			return memcore.IntervalToValue(interval)
+			return vm.IntervalToValue(interval)
 		}
-		return memcore.StringToValue(s)
+		return vm.StringToValue(s)
 	}
 	i64, err := strconv.ParseInt(s, 10, 64)
 	if err == nil {
-		return memcore.IntToValue(i64)
+		return vm.IntToValue(i64)
 	}
 
 	u64, err := strconv.ParseUint(s, 10, 64)
 	if err == nil {
-		return memcore.UintToValue(u64)
+		return vm.UintToValue(u64)
 	}
 
 	f64, err := strconv.ParseFloat(s, 64)
 	if err == nil {
-		return memcore.FloatToValue(f64)
+		return vm.FloatToValue(f64)
 	}
 
 	for _, fmtstr := range []string{
@@ -158,10 +165,10 @@ func readValue(s string) Value {
 	} {
 		t, err := time.Parse(fmtstr, s)
 		if err == nil {
-			return memcore.DatetimeToValue(t)
+			return vm.DatetimeToValue(t)
 		}
 	}
-	return memcore.StringToValue(s)
+	return vm.StringToValue(s)
 }
 
 func readTable(data []byte) (TestTable, error) {

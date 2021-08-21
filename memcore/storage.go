@@ -6,29 +6,23 @@ import (
 	"sync"
 
 	"github.com/runner-mei/errors"
+	"github.com/runner-mei/memsql/vm"
 )
 
-var ErrNotFound = errors.ErrNotFound
+var ErrNotFound = vm.ErrNotFound
 
 func TableNotExists(table string) error {
 	return errors.WithTitle(errors.ErrTableNotExists, "table '"+table+"' isnot exists")
 }
 
 func ColumnNotFound(columnName string) error {
-	return errors.WithTitle(errors.ErrNotFound, "column '"+columnName+"' isnot found")
+	return errors.WithTitle(ErrNotFound, "column '"+columnName+"' isnot found")
 }
 
 type Context interface{}
 
-type GetValuer interface {
-	GetValue(tableName, name string) (Value, error)
-}
-
-type GetValueFunc func(tableName, name string) (Value, error)
-
-func (f GetValueFunc) GetValue(tableName, name string) (Value, error) {
-	return f(tableName, name)
-}
+type GetValuer = vm.GetValuer
+type GetValueFunc = vm.GetValueFunc
 
 type Storage interface {
 	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, error)
@@ -125,10 +119,10 @@ func toGetValuer(tags KeyValues) GetValuer {
 	return GetValueFunc(func(tableName, name string) (Value, error) {
 		value, ok := tags.Get(name)
 		if ok {
-			return StringToValue(value), nil
+			return vm.StringToValue(value), nil
 		}
 
-		return Null(), ErrNotFound
+		return vm.Null(), ErrNotFound
 	})
 }
 

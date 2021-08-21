@@ -1,17 +1,28 @@
-package memcore
+package vm
 
 import (
 	"encoding"
 	"encoding/json"
 	"fmt"
-	"io"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"io"
 
 	"github.com/runner-mei/errors"
 )
+
+var ErrNotFound = errors.ErrNotFound
+
+type GetValuer interface {
+	GetValue(tableName, name string) (Value, error)
+}
+
+type GetValueFunc func(tableName, name string) (Value, error)
+
+func (f GetValueFunc) GetValue(tableName, name string) (Value, error) {
+	return f(tableName, name)
+}
 
 type ValueType int
 
@@ -154,6 +165,74 @@ func (v *Value) String() string {
 	}
 }
 
+func (v *Value) ToString(w io.Writer) {
+		switch v.Type {
+		case ValueNull:
+			io.WriteString(w, "null")
+		case ValueBool:
+			if v.Bool {
+				io.WriteString(w, "true")
+			} else {
+				io.WriteString(w, "false")
+			}
+		case ValueString:
+			bs, err := json.Marshal(v.Str)
+			if err != nil {
+				panic(err)
+			}
+			w.Write(bs)
+		case ValueInt64:
+			io.WriteString(w, strconv.FormatInt(v.Int64, 10))
+		case ValueUint64:
+			io.WriteString(w, strconv.FormatUint(v.Uint64, 10))
+		case ValueFloat64:
+			io.WriteString(w, strconv.FormatFloat(v.Float64, 'g', -1, 64))
+		case ValueDatetime:
+			io.WriteString(w, "\"")
+			io.WriteString(w, IntToDatetime(v.Int64).Format(time.RFC3339))
+			io.WriteString(w, "\"")
+		case ValueInterval:
+			io.WriteString(w, "\"interval ")
+			io.WriteString(w,  IntToDuration(v.Int64).String())
+			io.WriteString(w, "\"")
+		default:
+			io.WriteString(w, "\"")
+			io.WriteString(w, "unknown_value_"+strconv.FormatInt(int64(v.Type), 10))
+			io.WriteString(w, "\"")
+		}
+}
+
+func (v *Value) AsInt(weak bool) (int64, error) {
+	switch v.Type {
+	case ValueString:
+		if weak {
+			return strconv.ParseInt(v.Str, 10, 64)
+		}
+	case ValueInt64:
+		return v.Int64, nil
+	case ValueUint64:
+		return int64(v.Uint64), nil
+	}
+	return 0, NewTypeMismatch(v.Type.String(), "unknown")
+}
+
+func (v *Value) AsUint(weak bool) (uint64, error) {
+	switch v.Type {
+	case ValueString:
+		if weak {
+			return strconv.ParseUint(v.Str, 10, 64)
+		}
+	case ValueInt64:
+		if v.Int64 < 0 {
+			return 0, nil
+		}
+		return uint64(v.Int64), nil
+	case ValueUint64:
+		return v.Uint64, nil
+	}
+	return 0, NewTypeMismatch(v.Type.String(), "unknown")
+}
+
 func (v *Value) IsNil() bool {
 	return v.Type == ValueNull
 }
@@ -164,6 +243,10 @@ type CompareOption struct {
 }
 
 var emptyCompareOption = CompareOption{}
+
+func EmptyCompareOption() CompareOption {
+	return emptyCompareOption
+}
 
 func (r *Value) EqualTo(to Value, opt CompareOption) (bool, error) {
 	switch to.Type {
@@ -681,7 +764,6 @@ func (r *Value) CompareToDatetime(to int64, opt CompareOption) (int, error) {
 	return 0, nil
 }
 
-
 func (r *Value) CompareToInterval(to time.Duration, opt CompareOption) (int, error) {
 
 	var value time.Duration
@@ -724,7 +806,6 @@ func (r *Value) CompareToInterval(to time.Duration, opt CompareOption) (int, err
 	}
 	return 0, nil
 }
-
 
 func (v *Value) marshalText() ([]byte, error) {
 	switch v.Type {
@@ -890,7 +971,7 @@ func MustToValue(value interface{}) Value {
 
 func BoolToValue(value bool) Value {
 	return Value{
-		Type:  ValueBool,
+		Type: ValueBool,
 		Bool: value,
 	}
 }
@@ -951,302 +1032,4 @@ func IntervalToValue(value time.Duration) Value {
 		Type:  ValueInterval,
 		Int64: int64(value),
 	}
-}
-
-type Column struct {
-	Name string
-}
-
-func columnSearch(columns []Column, column Column) int {
-	return columnSearchByName(columns, column.Name)
-}
-
-func columnSearchByName(columns []Column, column string) int {
-	for idx := range columns {
-		if columns[idx].Name == column {
-			return idx
-		}
-	}
-	return -1
-}
-
-type Record struct {
-	Columns []Column
-	Values  []Value
-}
-
-func (r *Record) ToLine(w io.Writer, sep string) {
-	for idx, v := range r.Values {
-		if idx != 0 {
-			io.WriteString(w, sep)
-		}
-		switch v.Type {
-		case ValueNull:
-			io.WriteString(w, "null")
-		case ValueBool:
-			if v.Bool {
-				io.WriteString(w, "true")
-			} else {
-				io.WriteString(w, "false")
-			}
-		case ValueString:
-			bs, err := json.Marshal(v.Str)
-			if err != nil {
-				panic(err)
-			}
-			w.Write(bs)
-		case ValueInt64:
-			io.WriteString(w, strconv.FormatInt(v.Int64, 10))
-		case ValueUint64:
-			io.WriteString(w, strconv.FormatUint(v.Uint64, 10))
-		case ValueFloat64:
-			io.WriteString(w, strconv.FormatFloat(v.Float64, 'g', -1, 64))
-		case ValueDatetime:
-			io.WriteString(w, "\"")
-			io.WriteString(w, IntToDatetime(v.Int64).Format(time.RFC3339))
-			io.WriteString(w, "\"")
-		case ValueInterval:
-			io.WriteString(w, strconv.FormatInt(v.Int64, 10))
-		default:
-			io.WriteString(w, "\"")
-			io.WriteString(w, "unknown_value_"+strconv.FormatInt(int64(v.Type), 10))
-			io.WriteString(w, "\"")
-		}
-	}
-}
-
-type colunmSorter Record
-
-func (s colunmSorter) Len() int {
-	return len(s.Columns)
-}
-
-func (s colunmSorter) Swap(i, j int) {
-	s.Columns[i], s.Columns[j] = s.Columns[j], s.Columns[i]
-	if len(s.Values) != len(s.Columns) {
-		for i := 0; i < len(s.Columns)-len(s.Values); i++ {
-			s.Values = append(s.Values, Null())
-		}
-	}
-
-	s.Values[i], s.Values[j] = s.Values[j], s.Values[i]
-}
-
-func (s colunmSorter) Less(i, j int) bool {
-	return s.Columns[i].Name < s.Columns[j].Name
-}
-
-func SortByColumnName(r Record) Record {
-	r = r.Clone()
-	sort.Sort(colunmSorter(r))
-	return r
-}
-
-func (r *Record) Clone() Record {
-	columns := make([]Column, len(r.Columns))
-	copy(columns, r.Columns)
-	values := make([]Value, len(r.Values))
-	copy(values, r.Values)
-
-	return Record{
-		Columns: columns,
-		Values:  values,
-	}
-}
-
-func (r *Record) Search(name string) int {
-	return columnSearchByName(r.Columns, name)
-}
-
-func (r *Record) At(idx int) Value {
-	if len(r.Values) >= idx {
-		// Columns 和 Values 的长度不一定一致, 看下面的 ToTable
-		return Null()
-	}
-
-	return r.Values[idx]
-}
-
-func (r *Record) Get(name string) (Value, bool) {
-	idx := columnSearchByName(r.Columns, name)
-	if idx < 0 {
-		return Value{}, false
-	}
-	return r.Values[idx], true
-}
-
-func (r *Record) IsEmpty() bool {
-	return len(r.Values) == 0
-}
-
-func (r *Record) EqualTo(to Record, opt CompareOption) (bool, error) {
-	if len(r.Columns) != len(to.Columns) {
-		return false, nil
-	}
-	for idx := range r.Columns {
-		var toIdx = idx
-		if r.Columns[idx].Name != to.Columns[idx].Name {
-			toIdx = columnSearch(to.Columns, r.Columns[idx])
-			if toIdx < 0 {
-				return false, nil
-			}
-		}
-
-		result, err := r.Values[idx].EqualTo(to.Values[toIdx], opt)
-		if err != nil {
-			return false, errors.Wrap(err, "column '"+r.Columns[idx].Name+"' is type mismatch")
-		}
-		if !result {
-			return false, nil
-		}
-	}
-
-	return true, nil
-}
-
-func (r *Record) marshalText() ([]byte, error) {
-	var buf = make([]byte, 0, 256)
-	buf = append(buf, '{')
-	isFirst := true
-	for idx := range r.Columns {
-		if r.Values[idx].IsNil() {
-			continue
-		}
-
-		if isFirst {
-			isFirst = false
-		} else {
-			buf = append(buf, ',')
-		}
-		buf = append(buf, '"')
-		buf = append(buf, r.Columns[idx].Name...)
-		buf = append(buf, '"')
-		buf = append(buf, ':')
-
-		bs, err := r.Values[idx].MarshalText()
-		if err != nil {
-			return nil, err
-		}
-		buf = append(buf, bs...)
-	}
-
-	buf = append(buf, '}')
-	return buf, nil
-}
-
-func (r Record) MarshalText() ([]byte, error) {
-	return r.marshalText()
-}
-
-var _ encoding.TextMarshaler = &Record{}
-
-type recordValuer Record
-
-func (r *recordValuer) GetValue(tableName, name string) (Value, error) {
-	value, ok := (*Record)(r).Get(name)
-	if ok {
-		return value, nil
-	}
-	if tableName == "" {
-		return Value{}, ColumnNotFound(name)
-	}
-	return Value{}, ColumnNotFound(tableName + "." + name)
-}
-
-var _ GetValuer = (*recordValuer)(nil)
-
-func ToRecordValuer(r *Record) GetValuer {
-	return (*recordValuer)(r)
-}
-
-// func (r *Record) MarshalText() ( []byte,  error) {
-// 	return r.marshalText()
-// }
-
-type RecordSet []Record
-
-func (set *RecordSet) Add(r Record) {
-	if set.Has(r) {
-		return
-	}
-	*set = append(*set, r)
-}
-
-func (set *RecordSet) Delete(idx int) {
-	tmp := []Record(*set)
-	copy(tmp[idx:], tmp[idx+1:])
-	*set = tmp[:len(tmp)-1]
-}
-
-func (set *RecordSet) Search(r Record) int {
-	for idx := range *set {
-		ok, _ := (*set)[idx].EqualTo(r, emptyCompareOption)
-		if ok {
-			return idx
-		}
-	}
-	return -1
-}
-
-func (set *RecordSet) Has(r Record) bool {
-	for _, a := range *set {
-		ok, _ := a.EqualTo(r, emptyCompareOption)
-		if ok {
-			return true
-		}
-	}
-	return false
-}
-
-type Table struct {
-	Columns []Column
-	Records [][]Value
-}
-
-func (table *Table) Length() int {
-	return len(table.Records)
-}
-
-func (table *Table) At(idx int) Record {
-	return Record{
-		Columns: table.Columns,
-		Values:  table.Records[idx],
-	}
-}
-
-func ToTable(values []map[string]interface{}) (Table, error) {
-	if len(values) == 0 {
-		return Table{}, nil
-	}
-	var table = Table{}
-	var record []Value
-	for key, value := range values[0] {
-		table.Columns = append(table.Columns, Column{Name: key})
-		v, err := ToValue(value)
-		if err != nil {
-			return table, errors.Wrap(err, "value '"+fmt.Sprint(value)+"' with index is '0' and column is '"+key+"' is invalid ")
-		}
-		record = append(record, v)
-	}
-	table.Records = append(table.Records, record)
-
-	for i := 1; i < len(values); i++ {
-		record = make([]Value, len(table.Columns))
-		for key, value := range values[i] {
-			v, err := ToValue(value)
-			if err != nil {
-				return table, errors.Wrap(err, "value '"+fmt.Sprint(value)+"' with index is '"+strconv.Itoa(i)+"' and column is '"+key+"' is invalid ")
-			}
-			foundIndex := columnSearchByName(table.Columns, key)
-			if foundIndex < 0 {
-				// 这里添加了一列，那么前几行的列值的数目会少于 Columns
-				table.Columns = append(table.Columns, Column{Name: key})
-				record = append(record, v)
-			} else {
-				record[foundIndex] = v
-			}
-		}
-		table.Records = append(table.Records, record)
-	}
-	return table, nil
 }

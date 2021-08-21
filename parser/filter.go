@@ -5,15 +5,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/runner-mei/memsql/memcore"
-  "github.com/runner-mei/memsql/filter"
+  "github.com/runner-mei/memsql/vm"
   "github.com/runner-mei/errors"
 	"github.com/xwb1989/sqlparser"
 )
 
 type filterContext interface {}
 
-func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (bool, error), error) {
+func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (bool, error), error) {
 	switch v := expr.(type) {
 	case *sqlparser.AndExpr:
 		leftFilter, err := ToFilter(ctx, v.Left)
@@ -24,7 +23,7 @@ func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (boo
 		if err != nil {
 			return nil, err
 		}
-		return filter.And(leftFilter, rightFilter), nil
+		return vm.And(leftFilter, rightFilter), nil
 	case *sqlparser.OrExpr:
 		leftFilter, err := ToFilter(ctx, v.Left)
 		if err != nil {
@@ -34,13 +33,13 @@ func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (boo
 		if err != nil {
 			return nil, err
 		}
-		return filter.Or(leftFilter, rightFilter), nil
+		return vm.Or(leftFilter, rightFilter), nil
 	case *sqlparser.NotExpr:
 		f, err := ToFilter(ctx, v.Expr)
 		if err != nil {
 			return nil, err
 		}
-		return filter.Not(f), nil
+		return vm.Not(f), nil
 	case *sqlparser.ParenExpr:
 		return ToFilter(ctx, v.Expr)
 	case *sqlparser.ComparisonExpr:
@@ -53,14 +52,14 @@ func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (boo
 			if err != nil {
 				return nil, err
 			}
-			return filter.In(leftValue, rightValues), nil
+			return vm.In(leftValue, rightValues), nil
 		}
 		if v.Operator == sqlparser.NotInStr {
 			rightValues, err := ToGetValues(ctx, v.Right)
 			if err != nil {
 				return nil, err
 			}
-			return filter.NotIn(leftValue, rightValues), nil
+			return vm.NotIn(leftValue, rightValues), nil
 		}
 
 		rightValue, err := ToGetValue(ctx, v.Right)
@@ -69,29 +68,29 @@ func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (boo
 		}
 		switch v.Operator {
 		case sqlparser.EqualStr:
-			return filter.Equal(leftValue, rightValue), nil
+			return vm.Equal(leftValue, rightValue), nil
 		case sqlparser.LessThanStr:
-			return filter.LessThan(leftValue, rightValue), nil
+			return vm.LessThan(leftValue, rightValue), nil
 		case sqlparser.GreaterThanStr:
-			return filter.GreaterThan(leftValue, rightValue), nil
+			return vm.GreaterThan(leftValue, rightValue), nil
 		case sqlparser.LessEqualStr:
-			return filter.LessEqual(leftValue, rightValue), nil
+			return vm.LessEqual(leftValue, rightValue), nil
 		case sqlparser.GreaterEqualStr:
-			return filter.GreaterEqual(leftValue, rightValue), nil
+			return vm.GreaterEqual(leftValue, rightValue), nil
 		case sqlparser.NotEqualStr:
-			return filter.NotEqual(leftValue, rightValue), nil
+			return vm.NotEqual(leftValue, rightValue), nil
 		// case sqlparser.InStr:
 		// case sqlparser.NotInStr:
 		case sqlparser.NullSafeEqualStr:
 			return nil, errUnknownOperator(v.Operator)
 		case sqlparser.LikeStr:
-			return filter.Like(leftValue, rightValue), nil
+			return vm.Like(leftValue, rightValue), nil
 		case sqlparser.NotLikeStr:
-			return filter.NotLike(leftValue, rightValue), nil
+			return vm.NotLike(leftValue, rightValue), nil
 		case sqlparser.RegexpStr:
-			return filter.Regexp(leftValue, rightValue), nil
+			return vm.Regexp(leftValue, rightValue), nil
 		case sqlparser.NotRegexpStr:
-			return filter.NotRegexp(leftValue, rightValue), nil
+			return vm.NotRegexp(leftValue, rightValue), nil
 		case sqlparser.JSONExtractOp:
 			return nil, errUnknownOperator(v.Operator)
 		case sqlparser.JSONUnquoteExtractOp:
@@ -114,10 +113,10 @@ func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (boo
 		}
 
 		if v.Operator == sqlparser.BetweenStr {
-			return filter.Between(leftValue, fromValue, toValue), nil
+			return vm.Between(leftValue, fromValue, toValue), nil
 		}
 		if v.Operator == sqlparser.NotBetweenStr {
-			return filter.NotBetween(leftValue, fromValue, toValue), nil
+			return vm.NotBetween(leftValue, fromValue, toValue), nil
 		}
 		return nil, errUnknownOperator(v.Operator)
 	case *sqlparser.IsExpr:
@@ -127,17 +126,17 @@ func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (boo
 		}
 		switch v.Operator {
 		case sqlparser.IsNullStr:
-			return filter.IsNull(value), nil
+			return vm.IsNull(value), nil
 		case sqlparser.IsNotNullStr:
-			return filter.IsNotNull(value), nil
+			return vm.IsNotNull(value), nil
 		case sqlparser.IsTrueStr:
-			return filter.IsTrue(value), nil
+			return vm.IsTrue(value), nil
 		case sqlparser.IsNotTrueStr:
-			return filter.IsNotTrue(value), nil
+			return vm.IsNotTrue(value), nil
 		case sqlparser.IsFalseStr:
-			return filter.IsFalse(value), nil
+			return vm.IsFalse(value), nil
 		case sqlparser.IsNotFalseStr:
-			return filter.IsNotFalse(value), nil
+			return vm.IsNotFalse(value), nil
 		}
 		return nil, errUnknownOperator(v.Operator)
 	case *sqlparser.ExistsExpr:
@@ -187,27 +186,27 @@ func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (boo
 	}
 }
 
-func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (memcore.Value, error), error) {
+func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Value, error), error) {
 	switch v := expr.(type) {
 	case *sqlparser.SQLVal:
 		switch v.Type {
 		case sqlparser.StrVal:
 			s := string(v.Val)
-			return func(filter.Context) (memcore.Value, error) {
-				return memcore.StringToValue(s), nil
+			return func(vm.Context) (vm.Value, error) {
+				return vm.StringToValue(s), nil
 			}, nil
 		case sqlparser.IntVal:
 			s := string(v.Val)
 			i64, err := strconv.ParseInt(s, 10, 64)
 			if err == nil {
-				return func(filter.Context) (memcore.Value, error) {
-					return memcore.IntToValue(i64), nil
+				return func(vm.Context) (vm.Value, error) {
+					return vm.IntToValue(i64), nil
 				}, nil
 			}
 			u64, err := strconv.ParseUint(s, 10, 64)
 			if err == nil {
-				return func(filter.Context) (memcore.Value, error) {
-					return memcore.UintToValue(u64), nil
+				return func(vm.Context) (vm.Value, error) {
+					return vm.UintToValue(u64), nil
 				}, nil
 			}
 			return nil, newTypeError(s, "int")
@@ -215,8 +214,8 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (m
 			s := string(v.Val)
 			f64, err := strconv.ParseFloat(s, 64)
 			if err == nil {
-				return func(filter.Context) (memcore.Value, error) {
-					return memcore.FloatToValue(f64), nil
+				return func(vm.Context) (vm.Value, error) {
+					return vm.FloatToValue(f64), nil
 				}, nil
 			}
 			return nil, newTypeError(s, "float")
@@ -236,13 +235,13 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (m
 			return nil, fmt.Errorf("invalid expression %+v", expr)
 		}
 	case *sqlparser.NullVal:
-		return func(filter.Context) (memcore.Value, error) {
-			return memcore.Null(), nil
+		return func(vm.Context) (vm.Value, error) {
+			return vm.Null(), nil
 		}, nil
 	case sqlparser.BoolVal:
 		bValue := bool(v)
-		return func(filter.Context) (memcore.Value, error) {
-			return memcore.BoolToValue(bValue), nil
+		return func(vm.Context) (vm.Value, error) {
+			return vm.BoolToValue(bValue), nil
 		}, nil
 
 	case *sqlparser.ColName:
@@ -250,16 +249,16 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (m
 		var tableName = strings.ToLower(v.Qualifier.Name.String())
 		var tableQualifier = strings.ToLower(v.Qualifier.Qualifier.String())
 		if tableName == "" {
-			return func(ctx filter.Context) (memcore.Value, error) {
+			return func(ctx vm.Context) (vm.Value, error) {
 				return ctx.GetValue(tableName, name)
 			}, nil
 		}
 		if tableQualifier == "" {
-			return func(ctx filter.Context) (memcore.Value, error) {
+			return func(ctx vm.Context) (vm.Value, error) {
 				return ctx.GetValue(tableQualifier, name)
 			}, nil
 		}
-		return func(ctx filter.Context) (memcore.Value, error) {
+		return func(ctx vm.Context) (vm.Value, error) {
 			return ctx.GetValue("", name)
 		}, nil
 
@@ -284,17 +283,17 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (m
 		// case sqlparser.BitOrStr:
 		// case sqlparser.BitXorStr:
 		case sqlparser.PlusStr:
-			return filter.Plus(leftValue, rightValue), nil
+			return vm.Plus(leftValue, rightValue), nil
 		case sqlparser.MinusStr:
-			return filter.Minus(leftValue, rightValue), nil
+			return vm.Minus(leftValue, rightValue), nil
 		// case sqlparser.MultStr:
-		// 	return filter.Mult(leftValue, rightValue), nil
+		// 	return vm.Mult(leftValue, rightValue), nil
 		// case sqlparser.DivStr:
-		// 	return filter.Div(leftValue, rightValue), nil
+		// 	return vm.Div(leftValue, rightValue), nil
 		// case sqlparser.IntDivStr:
-		// 	return filter.IntDiv(leftValue, rightValue), nil
+		// 	return vm.IntDiv(leftValue, rightValue), nil
 		// case sqlparser.ModStr:
-		// 	return filter.Mod(leftValue, rightValue), nil
+		// 	return vm.Mod(leftValue, rightValue), nil
 		// case sqlparser.ShiftLeftStr:
 		// case sqlparser.ShiftRightStr:
 		default:
@@ -328,10 +327,10 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(filter.Context) (m
 	}
 }
 
-func ToGetValues(ctx filterContext, expr sqlparser.SQLNode) (func(filter.Context) ([]memcore.Value, error), error) {
+func ToGetValues(ctx filterContext, expr sqlparser.SQLNode) (func(vm.Context) ([]vm.Value, error), error) {
 	switch v := expr.(type) {
 	case sqlparser.SelectExprs:
-		var funcs []func(filter.Context) (memcore.Value, error)
+		var funcs []func(vm.Context) (vm.Value, error)
 		for idx := range v {
 			switch subexpr := v[idx].(type) {
 			case *sqlparser.StarExpr:
@@ -348,8 +347,8 @@ func ToGetValues(ctx filterContext, expr sqlparser.SQLNode) (func(filter.Context
 					return nil, fmt.Errorf("invalid expression %T %+v", subexpr, subexpr)
 			}
 		}
-		return func(ctx filter.Context) ([]memcore.Value, error) {
-				values := make([]memcore.Value, len(funcs))
+		return func(ctx vm.Context) ([]vm.Value, error) {
+				values := make([]vm.Value, len(funcs))
 				for idx, read := range funcs {
 					value, err := read(ctx)
 					if err != nil {

@@ -1,5 +1,7 @@
 package memcore
 
+import "github.com/runner-mei/memsql/vm"
+
 // All determines whether all elements of a collection satisfy a condition.
 func (q Query) All(ctx Context, predicate func(Record) bool) (bool, error) {
 	next := q.Iterate()
@@ -245,7 +247,7 @@ func (q Query) SequenceEqual(ctx Context, q2 Query) (bool, error) {
 			return false, e
 		}
 
-		ok3, err := item1.EqualTo(item2, emptyCompareOption)
+		ok3, err := item1.EqualTo(item2, vm.EmptyCompareOption())
 		if err != nil {
 			return false, err
 		}

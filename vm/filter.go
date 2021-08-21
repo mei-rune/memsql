@@ -1,14 +1,13 @@
-package filter
+package vm
 
 import (
 	"regexp"
 	"strings"
 
 	"github.com/runner-mei/errors"
-	"github.com/runner-mei/memsql/memcore"
 )
 
-type Context = memcore.GetValuer
+type Context = GetValuer
 
 func And(left, right func(Context) (bool, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
@@ -47,7 +46,7 @@ func Not(f func(Context) (bool, error)) func(Context) (bool, error) {
 	}
 }
 
-func Equal(left, right func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func Equal(left, right func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -57,11 +56,11 @@ func Equal(left, right func(Context) (memcore.Value, error)) func(Context) (bool
 		if err != nil {
 			return false, err
 		}
-		return leftValue.EqualTo(rightValue, memcore.CompareOption{})
+		return leftValue.EqualTo(rightValue, CompareOption{})
 	}
 }
 
-func LessThan(left, right func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func LessThan(left, right func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -71,7 +70,7 @@ func LessThan(left, right func(Context) (memcore.Value, error)) func(Context) (b
 		if err != nil {
 			return false, err
 		}
-		result, err := leftValue.CompareTo(rightValue, memcore.CompareOption{})
+		result, err := leftValue.CompareTo(rightValue, CompareOption{})
 		if err != nil {
 			return false, err
 		}
@@ -79,7 +78,7 @@ func LessThan(left, right func(Context) (memcore.Value, error)) func(Context) (b
 	}
 }
 
-func GreaterThan(left, right func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func GreaterThan(left, right func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -90,7 +89,7 @@ func GreaterThan(left, right func(Context) (memcore.Value, error)) func(Context)
 			return false, err
 		}
 
-		result, err := leftValue.CompareTo(rightValue, memcore.CompareOption{})
+		result, err := leftValue.CompareTo(rightValue, CompareOption{})
 		if err != nil {
 			return false, err
 		}
@@ -98,7 +97,7 @@ func GreaterThan(left, right func(Context) (memcore.Value, error)) func(Context)
 	}
 }
 
-func LessEqual(left, right func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func LessEqual(left, right func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -109,7 +108,7 @@ func LessEqual(left, right func(Context) (memcore.Value, error)) func(Context) (
 			return false, err
 		}
 
-		result, err := leftValue.CompareTo(rightValue, memcore.CompareOption{})
+		result, err := leftValue.CompareTo(rightValue, CompareOption{})
 		if err != nil {
 			return false, err
 		}
@@ -117,7 +116,7 @@ func LessEqual(left, right func(Context) (memcore.Value, error)) func(Context) (
 	}
 }
 
-func GreaterEqual(left, right func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func GreaterEqual(left, right func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -128,7 +127,7 @@ func GreaterEqual(left, right func(Context) (memcore.Value, error)) func(Context
 			return false, err
 		}
 
-		result, err := leftValue.CompareTo(rightValue, memcore.CompareOption{})
+		result, err := leftValue.CompareTo(rightValue, CompareOption{})
 		if err != nil {
 			return false, err
 		}
@@ -136,7 +135,7 @@ func GreaterEqual(left, right func(Context) (memcore.Value, error)) func(Context
 	}
 }
 
-func NotEqual(left, right func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func NotEqual(left, right func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -147,7 +146,7 @@ func NotEqual(left, right func(Context) (memcore.Value, error)) func(Context) (b
 			return false, err
 		}
 
-		result, err := leftValue.EqualTo(rightValue, memcore.CompareOption{})
+		result, err := leftValue.EqualTo(rightValue, CompareOption{})
 		if err != nil {
 			return false, err
 		}
@@ -156,7 +155,7 @@ func NotEqual(left, right func(Context) (memcore.Value, error)) func(Context) (b
 	}
 }
 
-func In(left func(Context) (memcore.Value, error), right func(Context) ([]memcore.Value, error)) func(Context) (bool, error) {
+func In(left func(Context) (Value, error), right func(Context) ([]Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -167,7 +166,7 @@ func In(left func(Context) (memcore.Value, error), right func(Context) ([]memcor
 			return false, err
 		}
 		for _, value := range rightValues {
-			result, err := value.EqualTo(leftValue, memcore.CompareOption{})
+			result, err := value.EqualTo(leftValue, CompareOption{})
 			if err != nil {
 				return false, err
 			}
@@ -179,7 +178,7 @@ func In(left func(Context) (memcore.Value, error), right func(Context) ([]memcor
 	}
 }
 
-func NotIn(left func(Context) (memcore.Value, error), right func(Context) ([]memcore.Value, error)) func(Context) (bool, error) {
+func NotIn(left func(Context) (Value, error), right func(Context) ([]Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -190,7 +189,7 @@ func NotIn(left func(Context) (memcore.Value, error), right func(Context) ([]mem
 			return false, err
 		}
 		for _, value := range rightValues {
-			result, err := value.EqualTo(leftValue, memcore.CompareOption{})
+			result, err := value.EqualTo(leftValue, CompareOption{})
 			if err != nil {
 				return false, err
 			}
@@ -202,7 +201,7 @@ func NotIn(left func(Context) (memcore.Value, error), right func(Context) ([]mem
 	}
 }
 
-func Like(left, right func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func Like(left, right func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -212,12 +211,12 @@ func Like(left, right func(Context) (memcore.Value, error)) func(Context) (bool,
 		if err != nil {
 			return false, err
 		}
-		if leftValue.Type != memcore.ValueString {
+		if leftValue.Type != ValueString {
 			return false, errors.Wrap(err, "left operant isnot string")
 		}
 		leftStr := leftValue.Str
 
-		if rightValue.Type != memcore.ValueString {
+		if rightValue.Type != ValueString {
 			return false, errors.Wrap(err, "right operant isnot string")
 		}
 		rightStr := rightValue.Str
@@ -237,11 +236,11 @@ func Like(left, right func(Context) (memcore.Value, error)) func(Context) (bool,
 	}
 }
 
-func NotLike(left, right func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func NotLike(left, right func(Context) (Value, error)) func(Context) (bool, error) {
 	return Not(Like(left, right))
 }
 
-func Regexp(left, right func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func Regexp(left, right func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -251,12 +250,12 @@ func Regexp(left, right func(Context) (memcore.Value, error)) func(Context) (boo
 		if err != nil {
 			return false, err
 		}
-		if leftValue.Type != memcore.ValueString {
+		if leftValue.Type != ValueString {
 			return false, errors.Wrap(err, "left operant isnot string")
 		}
 		leftStr := leftValue.Str
 
-		if rightValue.Type != memcore.ValueString {
+		if rightValue.Type != ValueString {
 			return false, errors.Wrap(err, "right operant isnot string")
 		}
 		rightStr := rightValue.Str
@@ -265,11 +264,11 @@ func Regexp(left, right func(Context) (memcore.Value, error)) func(Context) (boo
 	}
 }
 
-func NotRegexp(left, right func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func NotRegexp(left, right func(Context) (Value, error)) func(Context) (bool, error) {
 	return Not(Regexp(left, right))
 }
 
-func Between(left, from, to func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func Between(left, from, to func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		leftValue, err := left(ctx)
 		if err != nil {
@@ -284,14 +283,14 @@ func Between(left, from, to func(Context) (memcore.Value, error)) func(Context) 
 			return false, err
 		}
 
-		result, err := leftValue.CompareTo(fromValue, memcore.CompareOption{})
+		result, err := leftValue.CompareTo(fromValue, CompareOption{})
 		if err != nil {
 			return false, err
 		}
 		if result < 0 {
 			return false, nil
 		}
-		result, err = leftValue.CompareTo(toValue, memcore.CompareOption{})
+		result, err = leftValue.CompareTo(toValue, CompareOption{})
 		if err != nil {
 			return false, err
 		}
@@ -299,15 +298,15 @@ func Between(left, from, to func(Context) (memcore.Value, error)) func(Context) 
 	}
 }
 
-func NotBetween(left, from, to func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func NotBetween(left, from, to func(Context) (Value, error)) func(Context) (bool, error) {
 	return Not(Between(left, from, to))
 }
 
-func IsNull(value func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func IsNull(value func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		v, err := value(ctx)
 		if err != nil {
-			if errors.Is(err, memcore.ErrNotFound) {
+			if errors.Is(err, ErrNotFound) {
 				return true, nil
 			}
 
@@ -317,7 +316,7 @@ func IsNull(value func(Context) (memcore.Value, error)) func(Context) (bool, err
 	}
 }
 
-func IsNotNull(value func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func IsNotNull(value func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		v, err := value(ctx)
 		if err != nil {
@@ -327,57 +326,57 @@ func IsNotNull(value func(Context) (memcore.Value, error)) func(Context) (bool, 
 	}
 }
 
-func IsTrue(value func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func IsTrue(value func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		v, err := value(ctx)
 		if err != nil {
 			return false, err
 		}
 
-		if v.Type != memcore.ValueBool {
-			return false, memcore.NewTypeError(v.String(), v.Type.String(), "boolean")
+		if v.Type != ValueBool {
+			return false, NewTypeError(v.String(), v.Type.String(), "boolean")
 		}
 		return v.Bool, nil
 	}
 }
 
-func IsNotTrue(value func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func IsNotTrue(value func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		v, err := value(ctx)
 		if err != nil {
 			return false, err
 		}
 
-		if v.Type != memcore.ValueBool {
-			return false, memcore.NewTypeError(v.String(), v.Type.String(), "boolean")
+		if v.Type != ValueBool {
+			return false, NewTypeError(v.String(), v.Type.String(), "boolean")
 		}
 		return !v.Bool, nil
 	}
 }
 
-func IsFalse(value func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func IsFalse(value func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		v, err := value(ctx)
 		if err != nil {
 			return false, err
 		}
 
-		if v.Type != memcore.ValueBool {
-			return false, memcore.NewTypeError(v.String(), v.Type.String(), "boolean")
+		if v.Type != ValueBool {
+			return false, NewTypeError(v.String(), v.Type.String(), "boolean")
 		}
 		return !v.Bool, nil
 	}
 }
 
-func IsNotFalse(value func(Context) (memcore.Value, error)) func(Context) (bool, error) {
+func IsNotFalse(value func(Context) (Value, error)) func(Context) (bool, error) {
 	return func(ctx Context) (bool, error) {
 		v, err := value(ctx)
 		if err != nil {
 			return false, err
 		}
 
-		if v.Type != memcore.ValueBool {
-			return false, memcore.NewTypeError(v.String(), v.Type.String(), "boolean")
+		if v.Type != ValueBool {
+			return false, NewTypeError(v.String(), v.Type.String(), "boolean")
 		}
 		return v.Bool, nil
 	}

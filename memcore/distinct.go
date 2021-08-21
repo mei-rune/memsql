@@ -1,5 +1,7 @@
 package memcore
 
+import 	"github.com/runner-mei/memsql/vm"
+
 // Distinct method returns distinct elements from a collection. The result is an
 // unordered collection that contains no duplicate values.
 func (q Query) Distinct() Query {
@@ -57,7 +59,7 @@ func (oq OrderedQuery) Distinct() OrderedQuery {
 							return
 						}
 
-						ok, err = item.EqualTo(prev, emptyCompareOption)
+						ok, err = item.EqualTo(prev, vm.EmptyCompareOption())
 						if err != nil {
 							return
 						}

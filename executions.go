@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strconv"
 
 	"github.com/runner-mei/errors"
-	"github.com/runner-mei/memsql/filter"
+	"github.com/runner-mei/memsql/vm"
 	"github.com/runner-mei/memsql/memcore"
 	"github.com/runner-mei/memsql/parser"
 	"github.com/xwb1989/sqlparser"
@@ -246,7 +245,7 @@ func ExecuteAliasedTableExpression(ec *Context, expr *sqlparser.AliasedTableExpr
 }
 
 func ExecuteTable(ec *Context, ds Datasource, expr sqlparser.Expr) (memcore.Query, error) {
-	var f = func(filter.Context) (bool, error) {
+	var f = func(vm.Context) (bool, error) {
 		return true, nil
 	}
 	if expr != nil {
@@ -346,21 +345,6 @@ func ExecuteOrderBy(ec *Context, query memcore.Query, orderBy sqlparser.OrderBy)
 	return orderedQuery.Query, nil
 }
 
-func asUint(value memcore.Value) (uint64, error) {
-	switch value.Type {
-	case memcore.ValueString:
-		return strconv.ParseUint(value.Str, 10, 64)
-	case memcore.ValueInt64:
-		if value.Int64 < 0 {
-			return 0, nil
-		}
-		return uint64(value.Int64), nil
-	case memcore.ValueUint64:
-		return value.Uint64, nil
-	default:
-		return 0, memcore.NewTypeMismatch(value.Type.String(), "unknown")
-	}
-}
 func ExecuteLimit(ec *Context, query memcore.Query, limit *sqlparser.Limit) (memcore.Query, error) {
 	if limit == nil {
 		return query, nil
@@ -377,7 +361,7 @@ func ExecuteLimit(ec *Context, query memcore.Query, limit *sqlparser.Limit) (mem
 			return query, err
 		}
 
-		i64, err := asUint(offset)
+		i64, err := offset.AsUint(true)
 		if err != nil {
 			return query, err
 		}
@@ -395,7 +379,7 @@ func ExecuteLimit(ec *Context, query memcore.Query, limit *sqlparser.Limit) (mem
 			return query, err
 		}
 
-		i64, err := asUint(rowCount)
+		i64, err := rowCount.AsUint(true)
 		if err != nil {
 			return query, err
 		}
@@ -417,7 +401,7 @@ func ExecuteSelectExprs(ec *Context, query memcore.Query, selectExprs sqlparser.
 		}
 	}
 
-	var selectFuncs []func(filter.Context, Record) (Record, error)
+	var selectFuncs []func(vm.Context, Record) (Record, error)
 	for idx := range selectExprs {
 		subexpr := selectExprs[idx]
 		switch v := subexpr.(type) {
@@ -446,8 +430,8 @@ func ExecuteSelectExprs(ec *Context, query memcore.Query, selectExprs sqlparser.
 	return query.Select(selector), nil 
 }
 
-func toSelectFunc(as string, f func(filter.Context) (Value, error)) func(ctx filter.Context, result Record) (Record, error)  {
-	return func(ctx filter.Context, result Record) (Record, error) {
+func toSelectFunc(as string, f func(vm.Context) (Value, error)) func(ctx vm.Context, result Record) (Record, error)  {
+	return func(ctx vm.Context, result Record) (Record, error) {
 				value, err := f(ctx)
 				if err != nil {
 					return Record{}, err
