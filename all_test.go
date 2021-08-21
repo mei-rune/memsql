@@ -8,10 +8,8 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aryann/difflib"
 	"github.com/runner-mei/errors"
@@ -104,71 +102,7 @@ func newTestApp(t *testing.T) *TestApp {
 }
 
 func readValue(s string) Value {
-	if strings.HasPrefix(s, "\"") {
-		return vm.StringToValue(s)
-	}
-
-	s = strings.ToLower(s)
-	if s == "null" {
-		return vm.Null()
-	}
-	switch strings.ToLower(s) {
-	case "true":
-		return vm.BoolToValue(true)
-	case "false":
-		return vm.BoolToValue(false)
-	}
-	if strings.HasPrefix(s, "u") {
-		u64, err := strconv.ParseUint(strings.TrimPrefix(s, "u"), 10, 64)
-		if err == nil {
-			return vm.UintToValue(u64)
-		}
-		return vm.StringToValue(s)
-	}
-	if strings.HasPrefix(s, "i") {
-		i64, err := strconv.ParseInt(strings.TrimPrefix(s, "i"), 10, 64)
-		if err == nil {
-			return vm.IntToValue(i64)
-		}
-		return vm.StringToValue(s)
-	}
-	if strings.HasPrefix(s, "interval ") {
-		s=strings.TrimPrefix(s, "interval ")
-		interval, err := time.ParseDuration(s)
-		if err == nil {
-			return vm.IntervalToValue(interval)
-		}
-		return vm.StringToValue(s)
-	}
-	i64, err := strconv.ParseInt(s, 10, 64)
-	if err == nil {
-		return vm.IntToValue(i64)
-	}
-
-	u64, err := strconv.ParseUint(s, 10, 64)
-	if err == nil {
-		return vm.UintToValue(u64)
-	}
-
-	f64, err := strconv.ParseFloat(s, 64)
-	if err == nil {
-		return vm.FloatToValue(f64)
-	}
-
-	for _, fmtstr := range []string{
-		time.RFC3339,
-		time.RFC3339Nano,
-		"2006-01-02 15:04:05Z07:00",
-		"2006-01-02 15:04:05",
-		"2006/01/02 15:04:05Z07:00",
-		"2006/01/02 15:04:05",
-	} {
-		t, err := time.Parse(fmtstr, s)
-		if err == nil {
-			return vm.DatetimeToValue(t)
-		}
-	}
-	return vm.StringToValue(s)
+	return vm.ReadValueFromString(s)
 }
 
 func readTable(data []byte) (TestTable, error) {

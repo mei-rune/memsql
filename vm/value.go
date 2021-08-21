@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/runner-mei/errors"
@@ -472,4 +473,72 @@ func IntervalToValue(value time.Duration) Value {
 		Type:  ValueInterval,
 		Int64: int64(value),
 	}
+}
+
+func ReadValueFromString(s string) Value {
+	if strings.HasPrefix(s, "\"") {
+		return StringToValue(s)
+	}
+
+	s = strings.ToLower(s)
+	if s == "null" {
+		return Null()
+	}
+	switch strings.ToLower(s) {
+	case "true":
+		return BoolToValue(true)
+	case "false":
+		return BoolToValue(false)
+	}
+	if strings.HasPrefix(s, "u") {
+		u64, err := strconv.ParseUint(strings.TrimPrefix(s, "u"), 10, 64)
+		if err == nil {
+			return UintToValue(u64)
+		}
+		return StringToValue(s)
+	}
+	if strings.HasPrefix(s, "i") {
+		i64, err := strconv.ParseInt(strings.TrimPrefix(s, "i"), 10, 64)
+		if err == nil {
+			return IntToValue(i64)
+		}
+		return StringToValue(s)
+	}
+	if strings.HasPrefix(s, "interval ") {
+		s = strings.TrimPrefix(s, "interval ")
+		interval, err := time.ParseDuration(s)
+		if err == nil {
+			return IntervalToValue(interval)
+		}
+		return StringToValue(s)
+	}
+	i64, err := strconv.ParseInt(s, 10, 64)
+	if err == nil {
+		return IntToValue(i64)
+	}
+
+	u64, err := strconv.ParseUint(s, 10, 64)
+	if err == nil {
+		return UintToValue(u64)
+	}
+
+	f64, err := strconv.ParseFloat(s, 64)
+	if err == nil {
+		return FloatToValue(f64)
+	}
+
+	for _, fmtstr := range []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02 15:04:05Z07:00",
+		"2006-01-02 15:04:05",
+		"2006/01/02 15:04:05Z07:00",
+		"2006/01/02 15:04:05",
+	} {
+		t, err := time.Parse(fmtstr, s)
+		if err == nil {
+			return DatetimeToValue(t)
+		}
+	}
+	return StringToValue(s)
 }
