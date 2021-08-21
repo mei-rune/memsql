@@ -292,8 +292,8 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 		 	return vm.Div(leftValue, rightValue), nil
 		// case sqlparser.IntDivStr:
 		// 	return vm.IntDiv(leftValue, rightValue), nil
-		// case sqlparser.ModStr:
-		// 	return vm.Mod(leftValue, rightValue), nil
+		case sqlparser.ModStr:
+		 	return vm.Mod(leftValue, rightValue), nil
 		// case sqlparser.ShiftLeftStr:
 		// case sqlparser.ShiftRightStr:
 		default:
