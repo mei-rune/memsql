@@ -286,10 +286,10 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 			return vm.Plus(leftValue, rightValue), nil
 		case sqlparser.MinusStr:
 			return vm.Minus(leftValue, rightValue), nil
-		// case sqlparser.MultStr:
-		// 	return vm.Mult(leftValue, rightValue), nil
-		// case sqlparser.DivStr:
-		// 	return vm.Div(leftValue, rightValue), nil
+		case sqlparser.MultStr:
+		 	return vm.Mult(leftValue, rightValue), nil
+		case sqlparser.DivStr:
+		 	return vm.Div(leftValue, rightValue), nil
 		// case sqlparser.IntDivStr:
 		// 	return vm.IntDiv(leftValue, rightValue), nil
 		// case sqlparser.ModStr:
