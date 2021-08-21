@@ -513,6 +513,13 @@ func IntervalToValue(value time.Duration) Value {
 	}
 }
 
+func AnyToValue(value interface{}) Value {
+	return Value{
+		Type:  ValueAny,
+		Any: value,
+	}
+}
+
 func ReadValueFromString(s string) Value {
 	if strings.HasPrefix(s, "\"") {
 		return StringToValue(s)
