@@ -14,7 +14,7 @@ func (r *Value) CompareTo(to Value, opt CompareOption) (int, error) {
 		}
 		return 1, nil
 	case ValueBool:
-		return r.CompareToBool(to.Bool, opt)
+		return r.CompareToBool(to.BoolValue(), opt)
 	case ValueString:
 		return r.CompareToString(to.Str, opt)
 	case ValueInt64:
@@ -34,10 +34,11 @@ func (r *Value) CompareTo(to Value, opt CompareOption) (int, error) {
 
 func (r *Value) CompareToBool(to bool, opt CompareOption) (int, error) {
 	if r.Type == ValueBool {
-		if r.Bool == to {
+		b := r.BoolValue()
+		if b == to {
 			return 0, nil
 		}
-		if r.Bool {
+		if b {
 			return 1, nil
 		}
 		return -1, nil

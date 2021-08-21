@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/aryann/difflib"
 	"github.com/runner-mei/errors"
@@ -165,7 +166,8 @@ func readTable(data []byte) (TestTable, error) {
 }
 
 func readText(txt []byte) (TestCase, error) {
-	ar := txtar.Parse(txt)
+	ar := txtar.Parse(bytes.Replace(txt, []byte("\r\n"), []byte("\n"), -1))
+
 	// if err != nil {
 	// 	return TestCase{}, err
 	// }
@@ -253,6 +255,12 @@ func readText(txt []byte) (TestCase, error) {
 	return testCase, nil
 }
 
+func TestSize(t *testing.T) {
+	if unsafe.Sizeof(vm.Value{}) != 64 {
+		t.Error("size")
+	}
+}
+
 func TestAll(t *testing.T) {
 	var allTests = []TestCase{}
 	list, err := ioutil.ReadDir("./tests")
@@ -270,7 +278,7 @@ func TestAll(t *testing.T) {
 
 		tc, err := readText(bs)
 		if err != nil {
-			t.Error(err)
+			t.Error(file.Name(), err)
 			return
 		}
 		tc.Name = file.Name()

@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"bytes"
 	"encoding"
 	"encoding/json"
 	"fmt"
@@ -35,6 +36,7 @@ const (
 	ValueFloat64
 	ValueDatetime
 	ValueInterval
+	ValueAny
 )
 
 func (v ValueType) String() string {
@@ -55,6 +57,8 @@ func (v ValueType) String() string {
 		return "datetime"
 	case ValueInterval:
 		return "interval"
+	case ValueAny:
+		return "any"
 	default:
 		return "unknown_" + strconv.FormatInt(int64(v), 10)
 	}
@@ -132,11 +136,16 @@ func IntToInterval(t int64) time.Duration {
 
 type Value struct {
 	Type    ValueType
-	Bool    bool
+	// Bool    bool
 	Str     string
 	Int64   int64
 	Uint64  uint64
 	Float64 float64
+	Any interface{}
+}
+
+func (v *Value) BoolValue() bool {
+	return v.Int64 != 0
 }
 
 func (v *Value) String() string {
@@ -144,7 +153,7 @@ func (v *Value) String() string {
 	case ValueNull:
 		return "null"
 	case ValueBool:
-		if v.Bool {
+		if v.BoolValue() {
 			return "true"
 		}
 		return "false"
@@ -160,6 +169,12 @@ func (v *Value) String() string {
 		return IntToDatetime(v.Int64).Format(time.RFC3339)
 	case ValueInterval:
 		return "interval " + time.Duration(v.Int64).String()
+	case ValueAny:
+		bs, err := json.Marshal(v.Any)
+		if err != nil {
+			return "error_" +err.Error()
+		}
+		return string(bs)
 	default:
 		return "unknown_value_" + strconv.FormatInt(int64(v.Type), 10)
 	}
@@ -170,7 +185,7 @@ func (v *Value) ToString(w io.Writer) {
 	case ValueNull:
 		io.WriteString(w, "null")
 	case ValueBool:
-		if v.Bool {
+		if v.BoolValue() {
 			io.WriteString(w, "true")
 		} else {
 			io.WriteString(w, "false")
@@ -195,6 +210,13 @@ func (v *Value) ToString(w io.Writer) {
 		io.WriteString(w, "\"interval ")
 		io.WriteString(w, IntToDuration(v.Int64).String())
 		io.WriteString(w, "\"")
+	case ValueAny:
+		err := json.NewEncoder(w).Encode(v.Any)
+		if err != nil {
+			io.WriteString(w, "\"error: ")
+			io.WriteString(w, err.Error())
+			io.WriteString(w, "\"")
+		}
 	default:
 		io.WriteString(w, "\"")
 		io.WriteString(w, "unknown_value_"+strconv.FormatInt(int64(v.Type), 10))
@@ -253,7 +275,7 @@ func (v *Value) marshalText() ([]byte, error) {
 	case ValueNull:
 		return []byte("null"), nil
 	case ValueBool:
-		if v.Bool {
+		if v.BoolValue() {
 			return []byte("true"), nil
 		}
 		return []byte("false"), nil
@@ -269,6 +291,10 @@ func (v *Value) marshalText() ([]byte, error) {
 		return []byte("\"" + IntToDatetime(v.Int64).Format(time.RFC3339) + "\""), nil
 	case ValueInterval:
 		return []byte(strconv.FormatInt(v.Int64, 10)), nil
+	case ValueAny:
+		var buf bytes.Buffer
+		err := json.NewEncoder(&buf).Encode(v.Any)
+		return buf.Bytes(), err
 	default:
 		return nil, ErrUnknownValueType
 	}
@@ -322,9 +348,15 @@ func ToValue(value interface{}) (Value, error) {
 			Str:  v,
 		}, nil
 	case bool:
+		if v {
 		return Value{
 			Type: ValueBool,
-			Bool: v,
+			Int64: 1,
+		}, nil
+		}
+		return Value{
+			Type: ValueBool,
+			Int64: 0,
 		}, nil
 	case int8:
 		return Value{
@@ -411,9 +443,15 @@ func MustToValue(value interface{}) Value {
 }
 
 func BoolToValue(value bool) Value {
+	if value {
 	return Value{
 		Type: ValueBool,
-		Bool: value,
+		Int64: 1,
+	}
+	}
+	return Value{
+		Type: ValueBool,
+		Int64: 0,
 	}
 }
 

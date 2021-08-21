@@ -11,7 +11,7 @@ func (r *Value) EqualTo(to Value, opt CompareOption) (bool, error) {
 	case ValueNull:
 		return r.IsNil(), nil
 	case ValueBool:
-		return r.EqualToBool(to.Bool, opt)
+		return r.EqualToBool(to.BoolValue(), opt)
 	case ValueString:
 		return r.EqualToString(to.Str, opt)
 	case ValueInt64:
@@ -34,7 +34,7 @@ func (r *Value) EqualToBool(to bool, opt CompareOption) (bool, error) {
 	case ValueNull:
 		return false, nil
 	case ValueBool:
-		return r.Bool == to, nil
+		return r.BoolValue() == to, nil
 	case ValueString:
 		if opt.Weak {
 			switch r.Str {
@@ -65,9 +65,9 @@ func (r *Value) EqualToString(to string, opt CompareOption) (bool, error) {
 		if opt.Weak {
 			switch r.Str {
 			case "1", "t", "T", "true", "TRUE", "True":
-				return r.Bool == true, nil
+				return r.BoolValue() == true, nil
 			case "0", "f", "F", "false", "FALSE", "False":
-				return r.Bool == false, nil
+				return r.BoolValue() == false, nil
 			}
 		}
 		return false, NewTypeMismatch(r.Type.String(), "string")
@@ -105,7 +105,7 @@ func (r *Value) EqualToInt64(to int64, opt CompareOption) (bool, error) {
 		return false, NewTypeMismatch(r.Type.String(), "int")
 	case ValueBool:
 		if opt.Weak {
-			return (to != 0) == r.Bool, nil
+			return (to != 0) == r.BoolValue(), nil
 		}
 		return false, NewTypeMismatch(r.Type.String(), "int")
 	case ValueString:
@@ -136,7 +136,7 @@ func (r *Value) EqualToUint64(to uint64, opt CompareOption) (bool, error) {
 		return false, NewTypeMismatch(r.Type.String(), "uint")
 	case ValueBool:
 		if opt.Weak {
-			return (to != 0) == r.Bool, nil
+			return (to != 0) == r.BoolValue(), nil
 		}
 		return false, NewTypeMismatch(r.Type.String(), "uint")
 	case ValueString:

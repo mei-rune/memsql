@@ -336,7 +336,7 @@ func IsTrue(value func(Context) (Value, error)) func(Context) (bool, error) {
 		if v.Type != ValueBool {
 			return false, NewTypeError(v.String(), v.Type.String(), "boolean")
 		}
-		return v.Bool, nil
+		return v.BoolValue(), nil
 	}
 }
 
@@ -350,7 +350,7 @@ func IsNotTrue(value func(Context) (Value, error)) func(Context) (bool, error) {
 		if v.Type != ValueBool {
 			return false, NewTypeError(v.String(), v.Type.String(), "boolean")
 		}
-		return !v.Bool, nil
+		return !v.BoolValue(), nil
 	}
 }
 
@@ -364,7 +364,7 @@ func IsFalse(value func(Context) (Value, error)) func(Context) (bool, error) {
 		if v.Type != ValueBool {
 			return false, NewTypeError(v.String(), v.Type.String(), "boolean")
 		}
-		return !v.Bool, nil
+		return !v.BoolValue(), nil
 	}
 }
 
@@ -378,6 +378,6 @@ func IsNotFalse(value func(Context) (Value, error)) func(Context) (bool, error) 
 		if v.Type != ValueBool {
 			return false, NewTypeError(v.String(), v.Type.String(), "boolean")
 		}
-		return v.Bool, nil
+		return v.BoolValue(), nil
 	}
 }
