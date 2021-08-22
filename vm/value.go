@@ -258,6 +258,9 @@ func (v *Value) AsUint(weak bool) (uint64, error) {
 func (v *Value) IsNil() bool {
 	return v.Type == ValueNull
 }
+func (v *Value) IsNull() bool {
+	return v.Type == ValueNull
+}
 
 type CompareOption struct {
 	Weak       bool

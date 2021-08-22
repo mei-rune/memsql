@@ -1,6 +1,6 @@
 package vm
 
-func Mult(left, right func(Context) (Value, error)) func(Context) (Value, error) {
+func MultFunc(left, right func(Context) (Value, error)) func(Context) (Value, error) {
   return func(ctx Context) (Value, error) {
     leftValue, err := left(ctx)
     if err != nil {

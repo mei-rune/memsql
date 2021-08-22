@@ -36,3 +36,14 @@ select f1,f3 / 5, f4 from abc where f3/5 > 0.4
 -- fooselect5.result --
 "a3",0.6,true
 "a3",0.6,false
+
+-- fooselect6.sql --
+select f1,f3 % 5, f4 from abc where f3%5 > 2
+-- fooselect6.result --
+"a3",3,true
+"a3",3,false
+
+-- fooselect7.sql --
+select sum(f3) from abc
+-- fooselect7.result --
+12

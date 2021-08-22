@@ -1,6 +1,6 @@
 package vm
 
-func Mod(left, right func(Context) (Value, error)) func(Context) (Value, error) {
+func ModFunc(left, right func(Context) (Value, error)) func(Context) (Value, error) {
   return func(ctx Context) (Value, error) {
     leftValue, err := left(ctx)
     if err != nil {

@@ -15,7 +15,7 @@ func TestAggregate(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r, err := fromStrings(test.input...).Aggregate(mkCtx(), func(r Record, i Record) (Record, error) {
+		r, err := fromStrings(test.input...).Aggregate(mkCtx(), func(c Context, r Record, i Record) (Record, error) {
 			if len(r.Values[0].Str) > len(i.Values[0].Str) {
 				return r, nil
 			}
@@ -41,7 +41,7 @@ func TestAggregateWithSeed(t *testing.T) {
 	want := "passionfruit"
 
 	r, err := fromStrings(input...).AggregateWithSeed(mkCtx(), makeRecordWithStr(want),
-		func(r Record, i Record) (Record, error) {
+		func(c Context, r Record, i Record) (Record, error) {
 			if len(r.Values[0].Str) > len(i.Values[0].Str) {
 				return r, nil
 			}
@@ -62,7 +62,7 @@ func TestAggregateWithSeedBy(t *testing.T) {
 	want := "PASSIONFRUIT"
 
 	r, err := fromStrings(input...).AggregateWithSeedBy(mkCtx(),makeRecordWithStr("banana"),
-		func(r Record, i Record) (Record, error) {
+		func(c Context, r Record, i Record) (Record, error) {
 			if len(r.Values[0].Str) > len(i.Values[0].Str) {
 				return r, nil
 			}

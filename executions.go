@@ -401,6 +401,8 @@ func ExecuteSelectExprs(ec *Context, query memcore.Query, selectExprs sqlparser.
 		}
 	}
 
+	var aggAsNames []string
+	var aggFuncs []memcore.AggregatorFactory
 	var selectFuncs []func(vm.Context, Record) (Record, error)
 	for idx := range selectExprs {
 		subexpr := selectExprs[idx]
@@ -408,6 +410,66 @@ func ExecuteSelectExprs(ec *Context, query memcore.Query, selectExprs sqlparser.
 		case *sqlparser.StarExpr:
 			return query, fmt.Errorf("invalid expression %T %+v", subexpr, subexpr)
 		case *sqlparser.AliasedExpr:
+			if subexpr, ok := v.Expr.(*sqlparser.FuncExpr); ok {
+				aggFunc, ok := vm.AggFuncs[subexpr.Name.String()]
+				if ok {
+					if len(subexpr.Exprs) == 0 {
+						return query, fmt.Errorf("invalid expression %T %+v", subexpr, subexpr)
+					}
+					if len(subexpr.Exprs) == 1 {
+						var readValue func(vm.Context) (vm.Value, error)
+						if _, ok := subexpr.Exprs[0].(*sqlparser.StarExpr); ok {
+							readValue = func(vm.Context) (vm.Value, error) {
+								return vm.Null(), nil
+							}
+						} else {
+							var err error
+							readValue, err = parser.ToGetSelectValue(ec, subexpr.Exprs[0])
+							if err != nil {
+								return query, err
+							}
+						}
+						if v.As.IsEmpty() {
+							aggAsNames = append(aggAsNames, sqlparser.String(v))
+						} else {
+							aggAsNames = append(aggAsNames, v.As.String())
+						}
+
+						aggFunc, err := toSelectAggOneFunc(idx, v.As.String(), subexpr.Name.String(), aggFunc, readValue)
+						if err != nil {
+							return query, err
+						}
+
+						aggFuncs = append(aggFuncs, aggFunc)
+						break
+					}
+
+					readValues, err := parser.ToGetValues(ec, subexpr.Exprs)
+					if err != nil {
+						return query, err
+					}
+
+					if v.As.IsEmpty() {
+						aggAsNames = append(aggAsNames, sqlparser.String(v))
+					} else {
+						aggAsNames = append(aggAsNames, v.As.String())
+					}
+
+					aggFunc, err := toSelectAggFunc(idx, v.As.String(), subexpr.Name.String(), aggFunc, readValues)
+					if err != nil {
+						return query, err
+					}
+					aggFuncs = append(aggFuncs, aggFunc)
+					break
+				}
+				f, err := parser.ToFuncGetValue(ec, subexpr)
+				if err != nil {
+					return query, err
+				}
+				selectFuncs = append(selectFuncs, toSelectFunc(v.As.String(), f))
+				break
+			}
+
 			f, err := parser.ToGetValue(ec, v.Expr)
 			if err != nil {
 				return query, err
@@ -420,14 +482,25 @@ func ExecuteSelectExprs(ec *Context, query memcore.Query, selectExprs sqlparser.
 		}
 	}
 
-	selector := func(index int, r Record) (result Record, err error){
-		valuer := memcore.ToRecordValuer(&r)
-		for _, f := range selectFuncs {
-			result, err = f(valuer, result)
+	if len(selectFuncs) > 0 {
+		if len(aggFuncs) > 0 {
+			return query, errors.New("agg function and nonagg function exist simultaneously")
 		}
-		return result, nil
+		selector := func(index int, r Record) (result Record, err error){
+			valuer := memcore.ToRecordValuer(&r)
+			for _, f := range selectFuncs {
+				result, err = f(valuer, result)
+			}
+			return result, nil
+		}
+		return query.Select(selector), nil 
 	}
-	return query.Select(selector), nil 
+
+	if len(aggFuncs) > 0 {
+		return query.AggregateWith(aggAsNames, aggFuncs), nil 
+	}
+
+	return query, nil
 }
 
 func toSelectFunc(as string, f func(vm.Context) (Value, error)) func(ctx vm.Context, result Record) (Record, error)  {
@@ -440,4 +513,18 @@ func toSelectFunc(as string, f func(vm.Context) (Value, error)) func(ctx vm.Cont
 				result.Values = append(result.Values, value)
 				return result, nil 
 		}
+}
+
+func toSelectAggFunc(idx int, as string, funcName string,
+	f func() vm.Aggregator, 
+	readValues func(vm.Context) ([]Value, error)) (memcore.AggregatorFactoryFunc, error) {
+	return nil, errors.New(funcName+"'"+as+"' is unsupported")
+}
+
+func toSelectAggOneFunc(idx int, as string, funcName string,
+	f func() vm.Aggregator, 
+	readValue func(vm.Context) (Value, error)) (memcore.AggregatorFactoryFunc, error)  {
+	return memcore.AggregatorFunc(f, func(ctx memcore.Context, r memcore.Record) (vm.Value, error) {
+		 return readValue(memcore.ToRecordValuer(&r))
+	}), nil 
 }

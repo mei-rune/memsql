@@ -9,7 +9,7 @@ func NewArithmeticError(op, left, right string) error {
 	return errors.New("cloudn't '" + left + "' " + op + " '" + right + "'")
 }
 
-func Plus(left, right func(Context) (Value, error)) func(Context) (Value, error) {
+func PlusFunc(left, right func(Context) (Value, error)) func(Context) (Value, error) {
   return func(ctx Context) (Value, error) {
     leftValue, err := left(ctx)
     if err != nil {
@@ -20,6 +20,11 @@ func Plus(left, right func(Context) (Value, error)) func(Context) (Value, error)
       return Null(), err
     }
 
+    return Plus(leftValue , rightValue)
+  }
+}
+
+func Plus(leftValue , rightValue Value) (Value, error) {
     switch rightValue.Type {
     case ValueNull:
       return Null(), NewArithmeticError("+", leftValue.Type.String(), rightValue.Type.String())
@@ -40,7 +45,6 @@ func Plus(left, right func(Context) (Value, error)) func(Context) (Value, error)
     default:
       return Null(), NewArithmeticError("+", leftValue.Type.String(), rightValue.Type.String())
     }
-  }
 }
 
 func plusInt(left Value, right int64) (Value, error) {

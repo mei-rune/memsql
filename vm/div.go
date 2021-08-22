@@ -1,6 +1,6 @@
 package vm
 
-func Div(left, right func(Context) (Value, error)) func(Context) (Value, error) {
+func DivFunc(left, right func(Context) (Value, error)) func(Context) (Value, error) {
   return func(ctx Context) (Value, error) {
     leftValue, err := left(ctx)
     if err != nil {
@@ -11,6 +11,11 @@ func Div(left, right func(Context) (Value, error)) func(Context) (Value, error) 
       return Null(), err
     }
 
+    return Div(leftValue, rightValue)
+  }
+}
+
+func Div(leftValue, rightValue Value) (Value, error) {
     switch rightValue.Type {
     case ValueNull:
       return Null(), NewArithmeticError("/", leftValue.Type.String(), rightValue.Type.String())
@@ -31,7 +36,6 @@ func Div(left, right func(Context) (Value, error)) func(Context) (Value, error) 
     default:
       return Null(), NewArithmeticError("/", leftValue.Type.String(), rightValue.Type.String())
     }
-  }
 }
 
 func divInt(left Value, right int64) (Value, error) {

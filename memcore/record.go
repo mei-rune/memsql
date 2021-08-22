@@ -17,6 +17,10 @@ type Column struct {
 	Name string
 }
 
+func mkColumn(name string) Column {
+	return Column{Name: name}
+}
+
 func columnSearch(columns []Column, column Column) int {
 	return columnSearchByName(columns, column.Name)
 }

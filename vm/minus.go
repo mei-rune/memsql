@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-func Minus(left, right func(Context) (Value, error)) func(Context) (Value, error) {
+func MinusFunc(left, right func(Context) (Value, error)) func(Context) (Value, error) {
   return func(ctx Context) (Value, error) {
     leftValue, err := left(ctx)
     if err != nil {
