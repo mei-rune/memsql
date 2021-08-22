@@ -14,6 +14,7 @@ import (
 type Value = vm.Value
 
 type Column struct {
+	TableAs string
 	Name string
 }
 
