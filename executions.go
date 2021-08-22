@@ -420,7 +420,7 @@ func ExecuteSelectExprs(ec *Context, query memcore.Query, selectExprs sqlparser.
 						var readValue func(vm.Context) (vm.Value, error)
 						if _, ok := subexpr.Exprs[0].(*sqlparser.StarExpr); ok {
 							readValue = func(vm.Context) (vm.Value, error) {
-								return vm.Null(), nil
+								return vm.IntToValue(1), nil
 							}
 						} else {
 							var err error

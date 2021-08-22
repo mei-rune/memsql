@@ -44,6 +44,16 @@ select f1,f3 % 5, f4 from abc where f3%5 > 2
 "a3",3,false
 
 -- fooselect7.sql --
-select sum(f3) from abc
+select count(*) from abc
 -- fooselect7.result --
+6
+
+-- fooselect8.sql --
+select avg(f3) from abc
+-- fooselect8.result --
+2
+
+-- fooselect9.sql --
+select sum(f3) from abc
+-- fooselect9.result --
 12
