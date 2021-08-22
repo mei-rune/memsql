@@ -178,6 +178,10 @@ func (s *storage) Set(name string, tags []KeyValue, table Table) {
 		s.measurements[name] = byKey
 	}
 
+	for idx := range table.Columns {
+		table.Columns[idx].TableAs = name
+	}
+
 	copyed := KeyValues(CloneKeyValues(tags))
 	sort.Sort(copyed)
 	key := KeyValues(copyed).ToKey()
