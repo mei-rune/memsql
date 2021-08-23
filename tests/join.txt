@@ -9,14 +9,14 @@ t1a3,t1b3,3,false
 
 -- t2 --
 f1,f2,f3,f4
-t2a1,t2b1,1,true
-t2a1,t2b1,1,false
-t2a2,t2b2,2,true
-t2a2,b2,2,false
-t2a3,t2b3,3,true
-t2a3,t2b3,3,false
+t1a1,t2b1,1,true
+t1a1,t2b1,1,false
+t1a2,t2b2,2,true
+t1a2,b2,2,false
+t1a3,t2b3,3,true
+t1a3,t2b3,3,false
 
 -- fooselect1.sql --
-select t1.f4,t1.f2, t1.f1, t2.f4,t2.f2, t2.f1 from t1 join t1 on t1.f1 = t2.f2 where t1.f1 = 'a1' and t1.f4 = true
+select t1.f4,t1.f2, t1.f1, t2.f4,t2.f2, t2.f1 from t1 join t1 on t1.f1 = t2.f2 where t1.f1 = 't1a1' and t1.f4 = true
 -- fooselect1.result --
 true,"b1","a1"
