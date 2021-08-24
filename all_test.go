@@ -53,11 +53,17 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 	return nil
 }
 
-func (app *TestApp) Execute(t *testing.T, sqlstmt string) (RecordSet, error) {
-	return Execute(&Context{
-		Ctx:     context.Background(),
-		Storage: app.s,
-	}, sqlstmt)
+func (app *TestApp) Execute(t *testing.T, ctx *Context, sqlstmt string) (RecordSet, error) {
+	if ctx == nil {
+		ctx = &Context{}
+	}
+	if ctx.Ctx == nil {
+		ctx.Ctx = context.Background()
+	}
+	if ctx.Storage == nil {
+		ctx.Storage = app.s
+	}
+	return Execute(ctx, sqlstmt)
 }
 
 func RecordToLine(t *testing.T, record Record, sort bool) string {
@@ -300,12 +306,16 @@ func runTests(t *testing.T, allTests []TestCase) {
 				t.Run(stmt.Name, func(t *testing.T) {
 					t.Log(stmt.SQL)
 
-					results, err := app.Execute(t, stmt.SQL)
+					ctx := &Context{}
+					results, err := app.Execute(t, ctx, stmt.SQL)
 					if err != nil {
 						t.Error(err)
 						return
 					}
 					assertResults(t, results, stmt.Sort, stmt.Results)
+					if t.Failed() {
+						t.Log(ctx.Debuger.String())
+					}
 				})
 			}
 		})

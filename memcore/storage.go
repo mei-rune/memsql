@@ -24,8 +24,14 @@ type Context interface{}
 type GetValuer = vm.GetValuer
 type GetValueFunc = vm.GetValueFunc
 
+
+type TableName struct {
+	Tags  KeyValues
+	Table string
+}
+
 type Storage interface {
-	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, error)
+	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, []TableName, error)
 	Set(name string, tags []KeyValue, table Table)
 }
 
@@ -137,35 +143,40 @@ func NewStorage() Storage {
 	}
 }
 
-func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, error) {
+func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, []TableName, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	byKey := s.measurements[tablename]
 	if len(byKey) == 0 {
-		return Query{}, TableNotExists(tablename)
+		return Query{}, nil, TableNotExists(tablename)
 	}
 
 	var list []measurement
+	var tableNames []TableName
 	for _, m := range byKey {
 		values := toGetValuer(m.tags)
 		ok, err := filter(values)
 		if err != nil {
-			return Query{}, err
+			return Query{}, nil, err
 		}
 
 		if ok {
+			tableNames = append(tableNames, TableName{
+				Table: tablename,
+				Tags: m.tags,
+			})
 			list = append(list, m)
 		}
 	}
 	if len(list) == 0 {
-		return Query{}, TableNotExists(tablename)
+		return Query{}, nil, TableNotExists(tablename)
 	}
 	query := From(list[0].table)
 	for i := 1; i < len(list); i++ {
 		query = query.UnionAll(From(list[i].table))
 	}
-	return query, nil
+	return query, tableNames, nil
 }
 
 func (s *storage) Set(name string, tags []KeyValue, table Table) {
