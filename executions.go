@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"encoding/json"
 
 	"github.com/runner-mei/errors"
 	"github.com/runner-mei/memsql/vm"
@@ -19,8 +20,51 @@ type Record = memcore.Record
 type RecordSet = memcore.RecordSet
 type Storage = memcore.Storage
 
+
+type ExecuteDebuger struct {
+	tables  []TableDebuger
+}
+
+func (d *ExecuteDebuger) String() string {
+	bs, err := json.Marshal(d.tables)
+	if err != nil {
+		return "ExecuteDebuger:"+ err.Error()
+	}
+	return string(bs)
+}
+
+func (d *ExecuteDebuger) Table(table, as string, expr sqlparser.Expr) *TableDebuger {
+	d.tables = append(d.tables, TableDebuger{})
+	t := &d.tables[len(d.tables)-1]
+	t.Table = table
+	t.As = as
+	if expr != nil {
+		t.TableFilter = sqlparser.String(expr)
+	}
+	return t
+}
+
+type TableDebuger struct {
+	Table string
+	As string
+	TableFilter string
+	TableNames []memcore.TableName
+	Where string
+}
+
+func (d *TableDebuger) SetTableNames(tableNames []memcore.TableName) {
+	d.TableNames = tableNames
+}
+
+func (d *TableDebuger) SetWhere(expr sqlparser.Expr) {
+	if expr != nil {
+		d.Where = sqlparser.String(expr)
+	}
+}
+
 type Context struct {
 	Ctx     context.Context
+	Debuger ExecuteDebuger
 	Storage Storage
 }
 
@@ -239,7 +283,9 @@ func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, wher
   }
 }
 
-func ParseJoinOn(ctx *Context, on sqlparser.Expr) (left, right func(memcore.Record) (memcore.Value, error), err error) {
+func ParseJoinOn(ctx *Context, on sqlparser.Expr) (
+	leftAs  string, left func(memcore.Record) (memcore.Value, error), 
+  rightAs string, right func(memcore.Record) (memcore.Value, error), err error) {
 	cmp, ok := on.(*sqlparser.ComparisonExpr)
 	if !ok {
 		return nil, nil, fmt.Errorf("invalid On expression %+v", on)
@@ -256,9 +302,9 @@ func ParseJoinOn(ctx *Context, on sqlparser.Expr) (left, right func(memcore.Reco
 	if cmp.Operator != sqlparser.EqualStr {
 		return nil, nil, fmt.Errorf("invalid On expression %+v", on)
 	}
-	return func(r memcore.Record) (memcore.Value, error) {
+	return leftAs, func(r memcore.Record) (memcore.Value, error) {
 		return leftValue(memcore.ToRecordValuer(&r))
-	}, func(r memcore.Record) (memcore.Value, error) {
+	}, rightAs, func(r memcore.Record) (memcore.Value, error) {
 		return rightValue(memcore.ToRecordValuer(&r))
 	}, nil
 }
@@ -321,8 +367,9 @@ func ExecuteTable(ec *Context, ds Datasource, expr sqlparser.Expr, hasJoin bool)
 	var f = func(vm.Context) (bool, error) {
 		return true, nil
 	}
+	
+	var tableExpr sqlparser.Expr
 	if expr != nil {
-		var tableExpr sqlparser.Expr
 		var err error
 		if hasJoin {
 			_, tableExpr, err = parser.SplitByColumnName(expr, parser.ByTableTag(ds.As))
@@ -340,12 +387,16 @@ func ExecuteTable(ec *Context, ds Datasource, expr sqlparser.Expr, hasJoin bool)
 		}
 	}
 
-	query, err := ec.Storage.From(ec, ds.Table, f)
+	debuger := ec.Debuger.Table(ds.Table, ds.As, tableExpr)
+
+	query, tableNames, err := ec.Storage.From(ec, ds.Table, f)
 	if err != nil {
 		return memcore.Query{}, err
 	}
+	debuger.SetTableNames(tableNames)
 
 	if !hasJoin {
+		debuger.SetWhere(expr)
 		return ExecuteWhere(ec, query, expr)
 	}
 
@@ -353,6 +404,7 @@ func ExecuteTable(ec *Context, ds Datasource, expr sqlparser.Expr, hasJoin bool)
 	if err != nil {
 		return memcore.Query{}, err
 	}
+	debuger.SetWhere(expr)
 	return ExecuteWhere(ec, query, whereExpr)
 }
 
