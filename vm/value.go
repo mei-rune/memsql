@@ -143,15 +143,12 @@ type Value struct {
 	Float64 float64
 	Any interface{}
 }
-
 func (v *Value) BoolValue() bool {
 	return v.Int64 != 0
 }
-
 func (v Value) GoString() string {
 	return v.String()
 }
-
 func (v *Value) String() string {
 	switch v.Type {
 	case ValueNull:
@@ -264,6 +261,30 @@ func (v *Value) IsNil() bool {
 }
 func (v *Value) IsNull() bool {
 	return v.Type == ValueNull
+}
+func (v *Value) SetInt64(i64 int64) {
+	v.Type = ValueInt64
+	v.Int64 = i64
+}
+func (v *Value) SetUint64(u64 uint64) {
+	v.Type = ValueUint64
+	v.Uint64 = u64
+}
+func (v *Value) SetString(s string) {
+	v.Type = ValueString
+	v.Str = s
+}
+func (v *Value) SetBool(b bool) {
+	v.Type = ValueBool
+	if b {
+		v.Int64 = 1
+	} else {
+		v.Int64 = 0
+	}
+}
+func (v *Value) SetFloat64(f float64) {
+	v.Type = ValueFloat64
+	v.Float64 = f
 }
 
 type CompareOption struct {

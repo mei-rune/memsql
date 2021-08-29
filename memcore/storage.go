@@ -33,6 +33,7 @@ type TableName struct {
 type Storage interface {
 	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, []TableName, error)
 	Set(name string, tags []KeyValue, table Table)
+	Exists(name string, tags []KeyValue) bool
 }
 
 type KeyValue struct {
@@ -200,4 +201,18 @@ func (s *storage) Set(name string, tags []KeyValue, table Table) {
 		tags:  copyed,
 		table: table,
 	}
+}
+
+func (s *storage) Exists(tablename string, tags []KeyValue) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	byKey := s.measurements[tablename]
+	if len(byKey) == 0 {
+		return false
+	}
+
+	key := KeyValues(tags).ToKey()
+	_, ok := byKey[key]
+	return ok
 }
