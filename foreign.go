@@ -9,11 +9,11 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-type foreign struct {
-	db *sql.DB
+type Foreign struct {
+	Conn *sql.DB
 }
 
-func (f *foreign) From(ec *Context, tableName, tableAs string, where *sqlparser.Where) (io.Closer, memcore.Query, error) {
+func (f *Foreign) From(ec *Context, tableName, tableAs string, where *sqlparser.Where) (io.Closer, memcore.Query, error) {
 	sqlstr := "SELECT * FROM" + tableName
 	if tableAs == "" {
 		sqlstr = sqlstr + " AS " + tableAs
@@ -23,7 +23,7 @@ func (f *foreign) From(ec *Context, tableName, tableAs string, where *sqlparser.
 		sqlstr = sqlstr + " " + sqlparser.String(where)
 	}
 
-	rows, err := f.db.QueryContext(ec.Ctx, sqlstr)
+	rows, err := f.Conn.QueryContext(ec.Ctx, sqlstr)
 	if err != nil {
 		return nil, memcore.Query{}, err
 	}

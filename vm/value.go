@@ -181,6 +181,35 @@ func (v *Value) String() string {
 	}
 }
 
+func (v *Value) ToSQLTypeLiteral() string {
+	switch v.Type {
+	case ValueNull:
+		return "TEXT"
+	case ValueBool:
+		return "BOOLEAN"
+	case ValueString:
+		return "TEXT"
+	case ValueInt64:
+		return "INTEGER"
+	case ValueUint64:
+		return "INTEGER"
+	case ValueFloat64:
+		return "REAL"
+	case ValueDatetime:
+		return "Datetime"
+	case ValueInterval:
+		return "INTEGER"
+	case ValueAny:
+		return "TEXT"
+	default:
+		return "TEXT"
+	}
+}
+func (v *Value) ToSQLLiteral() string {
+	var sb strings.Builder
+	v.ToString(&sb)
+	return sb.String()
+}
 func (v *Value) ToString(w io.Writer) {
 	switch v.Type {
 	case ValueNull:
@@ -204,24 +233,24 @@ func (v *Value) ToString(w io.Writer) {
 	case ValueFloat64:
 		io.WriteString(w, strconv.FormatFloat(v.Float64, 'g', -1, 64))
 	case ValueDatetime:
-		io.WriteString(w, "\"")
+		io.WriteString(w, "'")
 		io.WriteString(w, IntToDatetime(v.Int64).Format(time.RFC3339))
-		io.WriteString(w, "\"")
+		io.WriteString(w, "'")
 	case ValueInterval:
-		io.WriteString(w, "\"interval ")
+		io.WriteString(w, "'interval ")
 		io.WriteString(w, IntToDuration(v.Int64).String())
-		io.WriteString(w, "\"")
+		io.WriteString(w, "'")
 	case ValueAny:
 		err := json.NewEncoder(w).Encode(v.Any)
 		if err != nil {
-			io.WriteString(w, "\"error: ")
+			io.WriteString(w, "'error: ")
 			io.WriteString(w, err.Error())
-			io.WriteString(w, "\"")
+			io.WriteString(w, "'")
 		}
 	default:
-		io.WriteString(w, "\"")
+		io.WriteString(w, "'")
 		io.WriteString(w, "unknown_value_"+strconv.FormatInt(int64(v.Type), 10))
-		io.WriteString(w, "\"")
+		io.WriteString(w, "'")
 	}
 }
 
@@ -550,7 +579,10 @@ func AnyToValue(value interface{}) Value {
 
 func ReadValueFromString(s string) Value {
 	if strings.HasPrefix(s, "\"") {
-		return StringToValue(s)
+		return StringToValue(strings.Trim(s, "\""))
+	}
+	if strings.HasPrefix(s, "'") {
+		return StringToValue(strings.Trim(s, "'"))
 	}
 
 	s = strings.ToLower(s)

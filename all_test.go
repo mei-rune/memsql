@@ -3,6 +3,7 @@ package memsql
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/csv"
 	"encoding/json"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"github.com/runner-mei/memsql/memcore"
 	"github.com/runner-mei/memsql/vm"
 	"golang.org/x/tools/txtar"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type TestTable struct {
@@ -39,7 +41,8 @@ type TestCase struct {
 }
 
 type TestApp struct {
-	s Storage
+	conn *sql.DB
+	s    Storage
 }
 
 func (app *TestApp) Add(t *testing.T, table *TestTable) error {
@@ -49,7 +52,62 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 		return err
 	}
 
-	app.s.Set(table.Name, memcore.MapToTags(table.Tags), innerTable)
+	if strings.HasPrefix(table.Name, "db.") {
+		tableName := strings.TrimPrefix(table.Name, "db.")
+		create := "Create TABLE " + tableName + "("
+		for idx, column := range innerTable.Columns {
+			if idx != 0 {
+				create = create + "\r\n"
+			}
+			isLast := false
+			if idx == len(innerTable.Columns)-1 {
+				isLast = true
+			}
+
+			create = create + " " + column.Name + "\t\t"
+			if len(innerTable.Records) == 0 {
+				create = create + " varchar(10)"
+				if !isLast {
+					create = create + ","
+				}
+				continue
+			}
+			create = create + " " + innerTable.Records[0][idx].ToSQLTypeLiteral()
+			if !isLast {
+				create = create + ","
+			}
+		}
+
+		for _, record := range innerTable.Records {
+			insert := "INSERT INTO " + tableName + "("
+			values := "VALUES("
+
+			for idx := range record {
+				if idx == 0 {
+					insert = insert + innerTable.Columns[idx].Name
+					values = values + record[idx].ToSQLLiteral()
+				} else {
+					insert = insert + "," + innerTable.Columns[idx].Name
+					values = values + "," + record[idx].ToSQLLiteral()
+				}
+			}
+
+			insert = insert + ")"
+			values = values + ")"
+			_, err = app.conn.Exec(insert + " " + values)
+			if err != nil {
+				t.Error(err)
+				return err
+			}
+		}
+	}
+
+	tableName := table.Name
+	index := strings.Index(tableName, "$")
+	if index > 0 {
+		tableName = tableName[:index]
+	}
+	app.s.Set(tableName, memcore.MapToTags(table.Tags), innerTable)
 	return nil
 }
 
@@ -103,8 +161,14 @@ func assertResults(t *testing.T, records RecordSet, sort bool, excepted []string
 }
 
 func newTestApp(t *testing.T) *TestApp {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	return &TestApp{
 		s: memcore.NewStorage(),
+		conn: db,
 	}
 }
 

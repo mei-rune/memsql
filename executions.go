@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"encoding/json"
 
 	"github.com/runner-mei/errors"
@@ -66,6 +67,7 @@ type Context struct {
 	Ctx     context.Context
 	Debuger ExecuteDebuger
 	Storage Storage
+	Foreign Foreign
 }
 
 func Execute(ctx *Context, sqlstmt string) (RecordSet, error) {
@@ -352,7 +354,7 @@ func ExecuteAliasedTableExpression(ec *Context, expr *sqlparser.AliasedTableExpr
 			query, err := ExecuteTable(ec, ds, nil, hasJoin)
 			return ds.As, query, err
 		}
-		query, err := ExecuteTable(ec, ds, where.Expr, hasJoin)
+		query, err := ExecuteTable(ec, ds, where, hasJoin)
 		return ds.As, query, err
 	case *sqlparser.Subquery:
 		query, err := ExecuteSelectStatement(ec, subExpr.Select, hasJoin)
@@ -362,11 +364,30 @@ func ExecuteAliasedTableExpression(ec *Context, expr *sqlparser.AliasedTableExpr
 	}
 }
 
-func ExecuteTable(ec *Context, ds Datasource, expr sqlparser.Expr, hasJoin bool) (memcore.Query, error) {
+func ExecuteTable(ec *Context, ds Datasource, where *sqlparser.Where, hasJoin bool) (memcore.Query, error) {
+	if strings.HasPrefix(ds.Table, "db.") {
+		if where == nil || !hasJoin {
+			_, q, err := ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, where)
+			return q, err
+		}
+
+		whereExpr, err := parser.SplitByTableName(where.Expr, ds.As)
+		if err != nil {
+			return memcore.Query{}, err
+		}
+
+		_, q, err := ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, &sqlparser.Where{Expr: whereExpr})
+		return q, err
+	}
+
 	var f = func(vm.Context) (bool, error) {
 		return true, nil
 	}
 	
+	var expr sqlparser.Expr
+	if where != nil {
+		expr = where.Expr
+	}
 	var tableExpr sqlparser.Expr
 	if expr != nil {
 		var err error
@@ -526,7 +547,6 @@ func ExecuteLimit(ec *Context, query memcore.Query, limit *sqlparser.Limit) (mem
 
 	return query, nil
 }
-
 
 func ExecuteSelectExprs(ec *Context, query memcore.Query, selectExprs sqlparser.SelectExprs) (memcore.Query, error) {
 	switch len(selectExprs) {
