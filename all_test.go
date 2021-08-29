@@ -52,6 +52,7 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 		return err
 	}
 
+	t.Log(table.Name)
 	if strings.HasPrefix(table.Name, "db.") {
 		tableName := strings.TrimPrefix(table.Name, "db.")
 		create := "Create TABLE " + tableName + "("
@@ -77,6 +78,15 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 				create = create + ","
 			}
 		}
+		create = create + ")"
+
+		create = strings.Replace(create, "BOOLEAN", "INTEGER", -1)
+		t.Log(create)
+		_, err = app.conn.Exec(create)
+		if err != nil {
+			t.Error(err)
+			return err
+		}
 
 		for _, record := range innerTable.Records {
 			insert := "INSERT INTO " + tableName + "("
@@ -100,6 +110,7 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 				return err
 			}
 		}
+		return nil
 	}
 
 	tableName := table.Name
