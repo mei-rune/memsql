@@ -248,12 +248,12 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 		var name = strings.ToLower(v.Name.String())
 		var tableName = strings.ToLower(v.Qualifier.Name.String())
 		var tableQualifier = strings.ToLower(v.Qualifier.Qualifier.String())
-		if tableName == "" {
+		if tableName != "" {
 			return func(ctx vm.Context) (vm.Value, error) {
 				return ctx.GetValue(tableName, name)
 			}, nil
 		}
-		if tableQualifier == "" {
+		if tableQualifier != "" {
 			return func(ctx vm.Context) (vm.Value, error) {
 				return ctx.GetValue(tableQualifier, name)
 			}, nil

@@ -234,7 +234,6 @@ func ExecuteTableExpression(ec *Context, expr sqlparser.TableExpr, where *sqlpar
 	}
 }
 
-
 func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, where *sqlparser.Where) (string, memcore.Query, error) {
   leftAs, query1, err := ExecuteTableExpression(ec, expr.LeftExpr, where, true)
   if err != nil {
@@ -247,7 +246,7 @@ func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, wher
 
   switch expr.Join {
   case sqlparser.JoinStr:
-  	left, right, err := ParseJoinOn(ec, expr.Condition.On)
+  	 left,  right, err := ParseJoinOn(ec, expr.Condition.On)
 	  if err != nil {
 	  	return "", memcore.Query{}, err
 	  }
@@ -258,7 +257,7 @@ func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, wher
 
 	// case sqlparser.StraightJoinStr:
 	case sqlparser.LeftJoinStr:
-  	left, right, err := ParseJoinOn(ec, expr.Condition.On)
+  	 left,  right, err := ParseJoinOn(ec, expr.Condition.On)
 	  if err != nil {
 	  	return "", memcore.Query{}, err
 	  }
@@ -267,7 +266,7 @@ func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, wher
 	  }
 	  return "", query1.Join(true, query2, left, right, resultSelector), nil
 	case sqlparser.RightJoinStr:
-  	left, right, err := ParseJoinOn(ec, expr.Condition.On)
+  	 left, right, err := ParseJoinOn(ec, expr.Condition.On)
 	  if err != nil {
 	  	return "", memcore.Query{}, err
 	  }
@@ -284,8 +283,8 @@ func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, wher
 }
 
 func ParseJoinOn(ctx *Context, on sqlparser.Expr) (
-	leftAs  string, left func(memcore.Record) (memcore.Value, error), 
-  rightAs string, right func(memcore.Record) (memcore.Value, error), err error) {
+	left func(memcore.Record) (memcore.Value, error), 
+  right func(memcore.Record) (memcore.Value, error), err error) {
 	cmp, ok := on.(*sqlparser.ComparisonExpr)
 	if !ok {
 		return nil, nil, fmt.Errorf("invalid On expression %+v", on)
@@ -302,10 +301,10 @@ func ParseJoinOn(ctx *Context, on sqlparser.Expr) (
 	if cmp.Operator != sqlparser.EqualStr {
 		return nil, nil, fmt.Errorf("invalid On expression %+v", on)
 	}
-	return leftAs, func(r memcore.Record) (memcore.Value, error) {
-		return leftValue(memcore.ToRecordValuer(&r))
-	}, rightAs, func(r memcore.Record) (memcore.Value, error) {
-		return rightValue(memcore.ToRecordValuer(&r))
+	return func(r memcore.Record) (memcore.Value, error) {
+		return leftValue(memcore.ToRecordValuer(&r, true))
+	}, func(r memcore.Record) (memcore.Value, error) {
+		return rightValue(memcore.ToRecordValuer(&r, true))
 	}, nil
 }
 
@@ -418,7 +417,7 @@ func ExecuteWhere(ec *Context, query memcore.Query, expr sqlparser.Expr) (memcor
 		return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
 	}
 	query = query.Where(func(idx int, r memcore.Record) (bool, error) {
-		return f(memcore.ToRecordValuer(&r))
+		return f(memcore.ToRecordValuer(&r, false))
 	})
 
 	// type Where Expr
@@ -453,11 +452,11 @@ func ExecuteOrderBy(ec *Context, query memcore.Query, orderBy sqlparser.OrderBy)
 	switch orderBy[0].Direction {
 	case sqlparser.AscScr, "":
 		orderedQuery = query.OrderByAscending(func(r memcore.Record) (memcore.Value, error) {
-			return read(memcore.ToRecordValuer(&r))
+			return read(memcore.ToRecordValuer(&r, false))
 		})
 	case sqlparser.DescScr:
 		orderedQuery = query.OrderByDescending(func(r memcore.Record) (memcore.Value, error) {
-			return read(memcore.ToRecordValuer(&r))
+			return read(memcore.ToRecordValuer(&r, false))
 		})
 	default:
 		return memcore.Query{}, errors.New("invalid order by " + sqlparser.String(orderBy[0]))
@@ -471,11 +470,11 @@ func ExecuteOrderBy(ec *Context, query memcore.Query, orderBy sqlparser.OrderBy)
 		switch orderBy[idx].Direction {
 		case sqlparser.AscScr, "":
 			orderedQuery = orderedQuery.ThenByAscending(func(r memcore.Record) (memcore.Value, error) {
-				return read(memcore.ToRecordValuer(&r))
+				return read(memcore.ToRecordValuer(&r, false))
 			})
 		case sqlparser.DescScr:
 			orderedQuery = orderedQuery.ThenByDescending(func(r memcore.Record) (memcore.Value, error) {
-				return read(memcore.ToRecordValuer(&r))
+				return read(memcore.ToRecordValuer(&r, false))
 			})
 		default:
 			return memcore.Query{}, errors.New("invalid order by " + sqlparser.String(orderBy[0]))
@@ -626,7 +625,7 @@ func ExecuteSelectExprs(ec *Context, query memcore.Query, selectExprs sqlparser.
 			return query, errors.New("agg function and nonagg function exist simultaneously")
 		}
 		selector := func(index int, r Record) (result Record, err error){
-			valuer := memcore.ToRecordValuer(&r)
+			valuer := memcore.ToRecordValuer(&r, true)
 			for _, f := range selectFuncs {
 				result, err = f(valuer, result)
 			}
@@ -664,7 +663,7 @@ func toSelectAggOneFunc(idx int, as string, funcName string,
 	f func() vm.Aggregator, 
 	readValue func(vm.Context) (Value, error)) (memcore.AggregatorFactoryFunc, error)  {
 	return memcore.AggregatorFunc(f, func(ctx memcore.Context, r memcore.Record) (vm.Value, error) {
-		 return readValue(memcore.ToRecordValuer(&r))
+		 return readValue(memcore.ToRecordValuer(&r, false))
 	}), nil 
 }
 

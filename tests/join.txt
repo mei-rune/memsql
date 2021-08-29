@@ -17,6 +17,21 @@ t1a3,t2b3,3,true
 t1a3,t2b3,3,false
 
 -- fooselect1.sql --
-select t1.f4,t1.f2, t1.f1, t2.f4,t2.f2, t2.f1 from t1 join t2 on t1.f1 = t2.f2 where t1.f1 = 't1a1' and t1.f4 = true
+select t1.f4, t1.f2, t1.f1, t2.f4, t2.f2, t2.f1 from t1 join t2 on t1.f1 = t2.f1 where t1.f1 = 't1a1'
 -- fooselect1.result --
-true,"b1","a1"
+true,"t1b1","t1a1",true,"t2b1","t1a1"
+true,"t1b1","t1a1",false,"t2b1","t1a1"
+false,"t1b1","t1a1",true,"t2b1","t1a1"
+false,"t1b1","t1a1",false,"t2b1","t1a1"
+
+-- fooselect2.sql --
+select t1.f4, t1.f2, t1.f1, t2.f4, t2.f2, t2.f1 from t1 join t2 on t1.f1 = t2.f1 where t1.f1 = 't1a1' and t1.f4 = true
+-- fooselect2.result --
+true,"t1b1","t1a1",true,"t2b1","t1a1"
+true,"t1b1","t1a1",false,"t2b1","t1a1"
+
+
+-- fooselect3.sql --
+select t1.f4, t1.f2, t1.f1, t2.f4, t2.f2, t2.f1 from t1 join t2 on t1.f1 = t2.f1 where t1.f1 = 't1a1' and t1.f4 = true and t2.f4=true
+-- fooselect3.result --
+true,"t1b1","t1a1",true,"t2b1","t1a1"

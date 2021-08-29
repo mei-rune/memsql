@@ -148,6 +148,10 @@ func (v *Value) BoolValue() bool {
 	return v.Int64 != 0
 }
 
+func (v Value) GoString() string {
+	return v.String()
+}
+
 func (v *Value) String() string {
 	switch v.Type {
 	case ValueNull:

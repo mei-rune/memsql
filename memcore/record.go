@@ -14,8 +14,9 @@ import (
 type Value = vm.Value
 
 type Column struct {
+	TableName string
 	TableAs string
-	Name string
+	Name    string
 }
 
 func mkColumn(name string) Column {
@@ -23,7 +24,36 @@ func mkColumn(name string) Column {
 }
 
 func columnSearch(columns []Column, column Column) int {
-	return columnSearchByName(columns, column.Name)
+	if column.TableName == "" && column.TableAs == "" {
+		return columnSearchByName(columns, column.Name)
+	}
+	for idx := range columns {
+		if columns[idx].TableName != column.TableName && columns[idx].TableAs != column.TableAs {
+			continue
+		}
+		if columns[idx].Name == column.Name {
+			return idx
+		}
+	}
+	return -1
+
+}
+
+func columnSearchByQualifierName(columns []Column, tableAs, column string) int {
+	if tableAs == "" {
+		return columnSearchByName(columns, column)
+	}
+
+	for idx := range columns {
+		if columns[idx].TableName != tableAs && columns[idx].TableAs != tableAs {
+			continue
+		}
+
+		if columns[idx].Name == column {
+			return idx
+		}
+	}
+	return -1
 }
 
 func columnSearchByName(columns []Column, column string) int {
@@ -38,6 +68,11 @@ func columnSearchByName(columns []Column, column string) int {
 type Record struct {
 	Columns []Column
 	Values  []Value
+}
+
+func (r Record) GoString() string {
+	bs, _ := r.MarshalText()
+	return string(bs)
 }
 
 func (r *Record) ToLine(w io.Writer, sep string) {
@@ -108,6 +143,16 @@ func (r *Record) Get(name string) (Value, bool) {
 	}
 	return r.Values[idx], true
 }
+
+func (r *Record) GetByQualifierName(tableAs, name string) (Value, bool) {
+	idx := columnSearchByQualifierName(r.Columns, tableAs, name)
+	if idx < 0 {
+		return Value{}, false
+	}
+	return r.Values[idx], true
+}
+
+
 
 func (r *Record) IsEmpty() bool {
 	return len(r.Values) == 0
@@ -182,16 +227,32 @@ func (r *recordValuer) GetValue(tableName, name string) (Value, error) {
 		return value, nil
 	}
 	if tableName == "" {
-		return Value{}, ColumnNotFound(name)
+		return vm.Null(), ColumnNotFound(name)
 	}
-	return Value{}, ColumnNotFound(tableName + "." + name)
+	return vm.Null(), ColumnNotFound(tableName + "." + name)
 }
 
-var _ GetValuer = (*recordValuer)(nil)
+type recordValuerByQualifierName Record
 
-func ToRecordValuer(r *Record) GetValuer {
+func (r *recordValuerByQualifierName) GetValue(tableName, name string) (Value, error) {
+	value, ok := (*Record)(r).GetByQualifierName(tableName, name)
+	if ok {
+		return value, nil
+	}
+	if tableName == "" {
+		return vm.Null(), ColumnNotFound(name)
+	}
+	return vm.Null(), ColumnNotFound(tableName + "." + name)
+}
+
+
+func ToRecordValuer(r *Record, withQualifier bool) GetValuer {
+	if withQualifier {
+		return (*recordValuerByQualifierName)(r)
+	}
 	return (*recordValuer)(r)
 }
+
 
 // func (r *Record) MarshalText() ( []byte,  error) {
 //  return r.marshalText()

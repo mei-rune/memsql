@@ -190,7 +190,7 @@ func (s *storage) Set(name string, tags []KeyValue, table Table) {
 	}
 
 	for idx := range table.Columns {
-		table.Columns[idx].TableAs = name
+		table.Columns[idx].TableName = name
 	}
 
 	copyed := KeyValues(CloneKeyValues(tags))
