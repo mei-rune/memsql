@@ -45,8 +45,13 @@ select t1.f4, t1.f2, t1.f1, t2.f4, t2.f2, t2.f1 from t1 join t2 on t1.f1 = t2.f1
 -- fooselect3.result --
 true,"t1b1","t1a1",true,"t2b1","t1a1"
 
-
 -- fooselect4.sql --
 select t1.f4, t1.f2, t1.f1, t2.f4, t2.f2, t2.f1 from t1 join db.t3 as t2 on t1.f1 = t2.f1 where t1.f1 = 't1a1' and t1.f4 = true and t2.f4=true
 -- fooselect4.result --
+true,"t1b1","t1a1",true,"t2b1","t1a1"
+
+
+-- fooselect5.sql --
+select t1.f4, t1.f2, t1.f1, t2.f4, t2.f2, t2.f1 from t1 join db.t3 as t2 on t2.f1 = t1.f1 where t1.f1 = 't1a1' and t1.f4 = true and t2.f4=true
+-- fooselect5.result --
 true,"t1b1","t1a1",true,"t2b1","t1a1"

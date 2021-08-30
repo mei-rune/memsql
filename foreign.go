@@ -4,23 +4,32 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/runner-mei/memsql/memcore"
 	"github.com/xwb1989/sqlparser"
 )
 
 type Foreign struct {
+	Drv string
 	Conn *sql.DB
 }
 
 func (f *Foreign) From(ec *Context, tableName, tableAs string, where *sqlparser.Where) (io.Closer, memcore.Query, error) {
-	sqlstr := "SELECT * FROM" + tableName
-	if tableAs == "" {
+	sqlstr := "SELECT * FROM " + tableName
+	if tableAs != "" {
 		sqlstr = sqlstr + " AS " + tableAs
 	}
 
+	debuger := ec.Debuger.Table(tableName, tableAs, nil)
 	if where != nil {
-		sqlstr = sqlstr + " " + sqlparser.String(where)
+		sqlstr = sqlstr + " WHERE " + sqlparser.String(where)
+		debuger.SetWhere(where.Expr)
+
+		if f.Drv == "sqlite3" {
+			sqlstr = strings.Replace(sqlstr, "true", "1", -1)
+			sqlstr = strings.Replace(sqlstr, "false", "0", -1)
+		}
 	}
 
 	rows, err := f.Conn.QueryContext(ec.Ctx, sqlstr)
@@ -62,9 +71,14 @@ func (f *Foreign) From(ec *Context, tableName, tableAs string, where *sqlparser.
 					return
 				}
 				if !rows.Next() {
-					rows.Close()
+					err = rows.Close()
 					done = true
-					lastErr = memcore.ErrNoRows
+					if err != nil {
+						lastErr = err
+					} else {
+						lastErr = memcore.ErrNoRows
+						err = memcore.ErrNoRows
+					}
 					return
 				}
 				destValues := make([]memcore.Value, len(columns))
@@ -77,6 +91,7 @@ func (f *Foreign) From(ec *Context, tableName, tableAs string, where *sqlparser.
 					rows.Close()
 					done = true
 					lastErr = err
+					return
 				}
 
 				item.Columns = columns
@@ -125,6 +140,8 @@ func (sv scanValue) Scan(value interface{}) error {
 		sv.value.SetString(v)
 	case bool:
 		sv.value.SetBool(v)
+	case []byte:
+		sv.value.SetString(string(v))
 	default:
 		return fmt.Errorf("unsupported type %T", v)
 	}

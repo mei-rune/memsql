@@ -103,6 +103,7 @@ func parse(sqlstr string) (sqlparser.SelectStatement, error) {
 }
 
 type Datasource struct {
+	Qualifier string
 	Table string
 	As    string
 }
@@ -343,6 +344,7 @@ func ExecuteAliasedTableExpression(ec *Context, expr *sqlparser.AliasedTableExpr
 	switch subExpr := expr.Expr.(type) {
 	case sqlparser.TableName:
 		var ds Datasource
+		ds.Qualifier = subExpr.Qualifier.String()
 		ds.Table = subExpr.Name.String()
 		if expr.As.IsEmpty() {
 			ds.As = ds.Table
@@ -365,7 +367,7 @@ func ExecuteAliasedTableExpression(ec *Context, expr *sqlparser.AliasedTableExpr
 }
 
 func ExecuteTable(ec *Context, ds Datasource, where *sqlparser.Where, hasJoin bool) (memcore.Query, error) {
-	if strings.HasPrefix(ds.Table, "db.") {
+	if ds.Qualifier == "db" {
 		if where == nil || !hasJoin {
 			_, q, err := ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, where)
 			return q, err

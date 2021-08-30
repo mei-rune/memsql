@@ -8,17 +8,18 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"unsafe"
 
 	"github.com/aryann/difflib"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/runner-mei/errors"
 	"github.com/runner-mei/memsql/memcore"
 	"github.com/runner-mei/memsql/vm"
 	"golang.org/x/tools/txtar"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 type TestTable struct {
@@ -41,8 +42,18 @@ type TestCase struct {
 }
 
 type TestApp struct {
-	conn *sql.DB
-	s    Storage
+	filename string
+	driver string
+	conn     *sql.DB
+	s        Storage
+}
+
+func (app *TestApp) Close() error {
+	err := app.conn.Close()
+	if err == nil {
+		err = os.Remove(app.filename)
+	}
+	return err
 }
 
 func (app *TestApp) Add(t *testing.T, table *TestTable) error {
@@ -52,7 +63,6 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 		return err
 	}
 
-	t.Log(table.Name)
 	if strings.HasPrefix(table.Name, "db.") {
 		tableName := strings.TrimPrefix(table.Name, "db.")
 		create := "Create TABLE " + tableName + "("
@@ -80,8 +90,10 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 		}
 		create = create + ")"
 
-		create = strings.Replace(create, "BOOLEAN", "INTEGER", -1)
-		t.Log(create)
+		if app.driver == "sqlite3" { 
+			create = strings.Replace(create, "BOOLEAN", "INTEGER", -1)
+		}
+		
 		_, err = app.conn.Exec(create)
 		if err != nil {
 			t.Error(err)
@@ -93,12 +105,23 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 			values := "VALUES("
 
 			for idx := range record {
+
+				literal := record[idx].ToSQLLiteral()
+
+				if app.driver == "sqlite3" {
+					if literal == "true" {
+						literal = "1"
+					} else if literal == "false" {
+						literal = "0"
+					}
+				}
+
 				if idx == 0 {
 					insert = insert + innerTable.Columns[idx].Name
-					values = values + record[idx].ToSQLLiteral()
+					values = values + literal
 				} else {
 					insert = insert + "," + innerTable.Columns[idx].Name
-					values = values + "," + record[idx].ToSQLLiteral()
+					values = values + "," + literal
 				}
 			}
 
@@ -106,6 +129,7 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 			values = values + ")"
 			_, err = app.conn.Exec(insert + " " + values)
 			if err != nil {
+				t.Log(insert + " " + values)
 				t.Error(err)
 				return err
 			}
@@ -131,6 +155,10 @@ func (app *TestApp) Execute(t *testing.T, ctx *Context, sqlstmt string) (RecordS
 	}
 	if ctx.Storage == nil {
 		ctx.Storage = app.s
+	}
+	if ctx.Foreign.Conn == nil {
+		ctx.Foreign.Drv = app.driver
+		ctx.Foreign.Conn = app.conn
 	}
 	return Execute(ctx, sqlstmt)
 }
@@ -172,14 +200,17 @@ func assertResults(t *testing.T, records RecordSet, sort bool, excepted []string
 }
 
 func newTestApp(t *testing.T) *TestApp {
-	db, err := sql.Open("sqlite3", ":memory:")
+	filename := "./foo.db"
+	db, err := sql.Open("sqlite3", filename)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	return &TestApp{
-		s: memcore.NewStorage(),
-		conn: db,
+		filename: filename,
+		s:        memcore.NewStorage(),
+		driver:  "sqlite3",
+		conn:     db,
 	}
 }
 
@@ -373,6 +404,12 @@ func runTests(t *testing.T, allTests []TestCase) {
 	for _, test := range allTests {
 		t.Run(test.Name, func(t *testing.T) {
 			app := newTestApp(t)
+			defer func() {
+				err := app.Close()
+				if err != nil {
+					t.Error(err)
+				}
+			}()
 			for _, table := range test.Tables {
 				app.Add(t, &table)
 			}
@@ -384,6 +421,7 @@ func runTests(t *testing.T, allTests []TestCase) {
 					ctx := &Context{}
 					results, err := app.Execute(t, ctx, stmt.SQL)
 					if err != nil {
+						t.Log(ctx.Debuger.String())
 						t.Error(err)
 						return
 					}

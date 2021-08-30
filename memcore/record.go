@@ -2,8 +2,8 @@ package memcore
 
 import (
 	"encoding"
-	"fmt"
 	"io"
+	"fmt"
 	"sort"
 	"strconv"
 
@@ -244,7 +244,6 @@ func (r *recordValuerByQualifierName) GetValue(tableName, name string) (Value, e
 	}
 	return vm.Null(), ColumnNotFound(tableName + "." + name)
 }
-
 
 func ToRecordValuer(r *Record, withQualifier bool) GetValuer {
 	if withQualifier {
