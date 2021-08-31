@@ -110,6 +110,17 @@ func ToDatetime(s string) (time.Time, error) {
 	return time.Time{}, errors.New("invalid time: " + s)
 }
 
+func ToDatetimeValue(s string) (Value, error) {
+	for _, layout := range TimeFormats {
+		m, e := time.ParseInLocation(layout, s, TimeLocal)
+		if nil == e {
+			return DatetimeToValue(m), nil
+		}
+	}
+	return Null(), errors.New("invalid time: " + s)
+}
+
+
 func DatetimeToInt(t time.Time) int64 {
 	return t.Unix()
 }

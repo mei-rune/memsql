@@ -51,7 +51,9 @@ type TestApp struct {
 func (app *TestApp) Close() error {
 	err := app.conn.Close()
 	if err == nil {
-		err = os.Remove(app.filename)
+		if app.filename != "" {
+			err = os.Remove(app.filename)
+		}
 	}
 	return err
 }
@@ -93,7 +95,7 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 		if app.driver == "sqlite3" { 
 			create = strings.Replace(create, "BOOLEAN", "INTEGER", -1)
 		}
-		
+
 		_, err = app.conn.Exec(create)
 		if err != nil {
 			t.Error(err)
@@ -200,8 +202,8 @@ func assertResults(t *testing.T, records RecordSet, sort bool, excepted []string
 }
 
 func newTestApp(t *testing.T) *TestApp {
-	filename := "./foo.db"
-	db, err := sql.Open("sqlite3", filename)
+	filename := ""
+	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +217,7 @@ func newTestApp(t *testing.T) *TestApp {
 }
 
 func readValue(s string) Value {
-	return vm.ReadValueFromString(s)
+	return vm.ReadValueFromString(strings.TrimSpace(s))
 }
 
 func readTable(data []byte) (TestTable, error) {

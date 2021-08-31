@@ -249,7 +249,7 @@ func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, wher
 
   switch expr.Join {
   case sqlparser.JoinStr:
-  	 left,  right, err := ParseJoinOn(ec, expr.Condition.On)
+  	left,  right, err := ParseJoinOn(ec, expr.Condition.On)
 	  if err != nil {
 	  	return "", memcore.Query{}, err
 	  }
@@ -260,7 +260,7 @@ func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, wher
 
 	// case sqlparser.StraightJoinStr:
 	case sqlparser.LeftJoinStr:
-  	 left,  right, err := ParseJoinOn(ec, expr.Condition.On)
+  	left,  right, err := ParseJoinOn(ec, expr.Condition.On)
 	  if err != nil {
 	  	return "", memcore.Query{}, err
 	  }

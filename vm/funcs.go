@@ -1,6 +1,5 @@
 package vm
 
-
 var  Funcs = map[string]func(ctx Context, values []Value) (Value, error) {}
 
 func CallFunc(call func(Context, []Value) (Value, error), readValues func(Context) ([]Value, error)) func(ctx Context) (Value, error) {

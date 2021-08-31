@@ -319,7 +319,6 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 		}
 
 	case *sqlparser.IntervalExpr:
-
 		readValue, err := ToGetValue(ctx, v.Expr)
 		if err != nil {
 			return nil, err
@@ -369,7 +368,37 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 	case *sqlparser.ValuesFuncExpr:
 		return nil, ErrUnsupportedExpr("ValuesFuncExpr")
 	case *sqlparser.ConvertExpr:
-		return nil, ErrUnsupportedExpr("ConvertExpr")
+
+		readValue, err := ToGetValue(ctx, v.Expr)
+		if err != nil {
+			return nil, err
+		}
+
+		switch strings.ToLower(v.Type.Type) {
+		case "int", "integer", "signed", "signed integer":
+			return vm.ConvertToInt(readValue), nil
+		case "unsigned", "unsigned integer":
+			return vm.ConvertToUint(readValue), nil
+		case "bool", "boolean":
+			return vm.ConvertToBool(readValue), nil
+		// case "binary":
+		// 	return vm.ConvertToBinary(readValue, v.Type.Length), nil
+		// case "char":
+		// 	return vm.ConvertToChar(readValue, v.Type.Length, v.Type.Charset), nil
+		// case "date":
+		// 	return vm.ConvertToDate(readValue), nil
+		case "datetime":
+		 	return vm.ConvertToDatetime(readValue), nil
+		// case "time":
+		// 	return vm.ConvertToTime(readValue), nil
+		// case "decimal":
+		// 	return vm.ConvertToDecimal(readValue, v.Type.Length), nil
+		// case "json":
+		// 	return vm.ConvertToJSON(readValue), nil
+		// case "nchar":
+		// 	return vm.ConvertToNChar(readValue, v.Type.Length, v.Type.Charset), nil
+		}
+		return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)
 	case *sqlparser.SubstrExpr:
 		return nil, ErrUnsupportedExpr("SubstrExpr")
 	case *sqlparser.ConvertUsingExpr:
