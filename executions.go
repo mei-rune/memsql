@@ -247,32 +247,38 @@ func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, wher
   	return "", memcore.Query{}, err
   }
 
+	leftOnAs, left, rightOnAs, right, err := ParseJoinOn(ec, expr.Condition.On)
+  if err != nil {
+  	return "", memcore.Query{}, err
+  }
+
+  if leftAs == leftOnAs {
+  	if rightAs != rightOnAs {
+  		return "", memcore.Query{}, fmt.Errorf("invalid join table expression %+v: %s isnot exists", expr, rightOnAs)
+  	}
+  } else if leftAs == rightOnAs {
+  	if rightAs != leftOnAs {
+  		return "", memcore.Query{}, fmt.Errorf("invalid join table expression %+v: %s isnot exists", expr, leftOnAs)
+  	}
+
+  	left, right = right, left
+  } else {
+  		return "", memcore.Query{}, fmt.Errorf("invalid join table expression %+v: %s isnot exists", expr, leftAs)
+  }
+
   switch expr.Join {
   case sqlparser.JoinStr:
-  	left,  right, err := ParseJoinOn(ec, expr.Condition.On)
-	  if err != nil {
-	  	return "", memcore.Query{}, err
-	  }
 	  resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
 	  	return MergeRecord(leftAs, outer, rightAs, inner)
 	  }
 	  return "", query1.Join(false, query2, left, right, resultSelector), nil
-
 	// case sqlparser.StraightJoinStr:
 	case sqlparser.LeftJoinStr:
-  	left,  right, err := ParseJoinOn(ec, expr.Condition.On)
-	  if err != nil {
-	  	return "", memcore.Query{}, err
-	  }
 	  resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
 	  	return MergeRecord(leftAs, outer, rightAs, inner)
 	  }
 	  return "", query1.Join(true, query2, left, right, resultSelector), nil
 	case sqlparser.RightJoinStr:
-  	 left, right, err := ParseJoinOn(ec, expr.Condition.On)
-	  if err != nil {
-	  	return "", memcore.Query{}, err
-	  }
 	  resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
 	  	return MergeRecord(rightAs, inner, leftAs, outer)
 	  }
@@ -286,27 +292,35 @@ func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, wher
 }
 
 func ParseJoinOn(ctx *Context, on sqlparser.Expr) (
-	left func(memcore.Record) (memcore.Value, error), 
-  right func(memcore.Record) (memcore.Value, error), err error) {
+	leftAs string, left func(memcore.Record) (memcore.Value, error), 
+  rightAs string, right func(memcore.Record) (memcore.Value, error), err error) {
 	cmp, ok := on.(*sqlparser.ComparisonExpr)
 	if !ok {
-		return nil, nil, fmt.Errorf("invalid On expression %+v", on)
+		return "", nil, "", nil, fmt.Errorf("invalid On expression %+v", on)
+	}
+	leftCol, ok := cmp.Left.(*sqlparser.ColName)
+	if !ok {
+		return "", nil, "", nil, fmt.Errorf("invalid On expression %+v", on)
+	}
+	rightCol, ok := cmp.Right.(*sqlparser.ColName)
+	if !ok {
+		return "", nil, "", nil, fmt.Errorf("invalid On expression %+v", on)
 	}
 
-	leftValue, err := parser.ToGetValue(ctx, cmp.Left)
+	leftValue, err := parser.ToGetValue(ctx, leftCol)
 	if err != nil {
-		return nil, nil, err
+		return "", nil, "", nil, err
 	}
-	rightValue, err := parser.ToGetValue(ctx, cmp.Right)
+	rightValue, err := parser.ToGetValue(ctx, rightCol)
 	if err != nil {
-		return nil, nil, err
+		return "", nil, "", nil, err
 	}
 	if cmp.Operator != sqlparser.EqualStr {
-		return nil, nil, fmt.Errorf("invalid On expression %+v", on)
+		return "", nil, "", nil, fmt.Errorf("invalid On expression %+v", on)
 	}
-	return func(r memcore.Record) (memcore.Value, error) {
+	return sqlparser.String(leftCol.Qualifier), func(r memcore.Record) (memcore.Value, error) {
 		return leftValue(memcore.ToRecordValuer(&r, true))
-	}, func(r memcore.Record) (memcore.Value, error) {
+	}, sqlparser.String(rightCol.Qualifier), func(r memcore.Record) (memcore.Value, error) {
 		return rightValue(memcore.ToRecordValuer(&r, true))
 	}, nil
 }
