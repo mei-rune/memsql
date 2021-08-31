@@ -116,7 +116,6 @@ func ConvertToUint(readValue func(Context) (Value, error)) func(Context) (Value,
   }
 }
 
-
 func ConvertToDatetime(readValue func(Context) (Value, error)) func(Context) (Value, error) {
   return func(ctx Context) (Value, error) {
     value, err := readValue(ctx)
