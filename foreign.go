@@ -3,7 +3,6 @@ package memsql
 import (
 	"database/sql"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/runner-mei/memsql/memcore"
@@ -15,13 +14,13 @@ type Foreign struct {
 	Conn *sql.DB
 }
 
-func (f *Foreign) From(ec *Context, tableName, tableAs string, where *sqlparser.Where) (io.Closer, memcore.Query, error) {
+func (f *Foreign) From(ctx *SessionContext, tableName, tableAs string, where *sqlparser.Where) (memcore.Query, error) {
 	sqlstr := "SELECT * FROM " + tableName
 	if tableAs != "" {
 		sqlstr = sqlstr + " AS " + tableAs
 	}
 
-	debuger := ec.Debuger.Table(tableName, tableAs, nil)
+	debuger := ctx.Debuger.Table(tableName, tableAs, nil)
 	if where != nil {
 		sqlstr = sqlstr + " WHERE " + sqlparser.String(where)
 		debuger.SetWhere(where.Expr)
@@ -32,14 +31,15 @@ func (f *Foreign) From(ec *Context, tableName, tableAs string, where *sqlparser.
 		}
 	}
 
-	rows, err := f.Conn.QueryContext(ec.Ctx, sqlstr)
+	rows, err := f.Conn.QueryContext(ctx.Ctx, sqlstr)
 	if err != nil {
-		return nil, memcore.Query{}, err
+		return  memcore.Query{}, err
 	}
 
 	columnNames, err := rows.Columns()
 	if err != nil {
-		return nil, memcore.Query{}, err
+		rows.Close()
+		return memcore.Query{}, err
 	}
 
 	// columnTypes, err := rows.ColumnTypes()
@@ -60,7 +60,9 @@ func (f *Foreign) From(ec *Context, tableName, tableAs string, where *sqlparser.
 		}
 	}
 
-	return rows, memcore.Query{
+	ctx.OnClosing(rows)
+
+	return memcore.Query{
 		Iterate: func() memcore.Iterator {
 			var done = false
 			var lastErr error

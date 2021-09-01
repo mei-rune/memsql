@@ -3,6 +3,7 @@ package memsql
 import (
 	"context"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 	"encoding/json"
@@ -70,20 +71,58 @@ type Context struct {
 	Foreign Foreign
 }
 
-func Execute(ctx *Context, sqlstmt string) (RecordSet, error) {
-	stmt, err := parse(sqlstmt)
-	if err != nil {
-		return nil, err
+type SessionContext struct {
+	*Context
+
+	closers []io.Closer
+}
+
+func (sc *SessionContext) OnClosing(closers ...io.Closer) {
+	sc.closers = append(sc.closers, closers...)
+}
+
+func (session *SessionContext) Close() error {
+	var errList []error
+	for _, closer := range session.closers {
+		if e := closer.Close(); e != nil {
+			errList = append(errList, e)
+		}
+	}
+	if len(errList) == 0 {
+		return nil
+	}
+	if len(errList) == 1 {
+		return errList[0]
+	}
+	var sb strings.Builder
+	sb.WriteString("Multiple errors occur:")
+	for _, err := range errList {
+		sb.WriteString("\r\n\t")
+		sb.WriteString(err.Error())
+	}
+	return errors.New(sb.String())
+}
+
+func Execute(ctx *Context, sqlstmt string) (rset RecordSet, err error) {
+	stmt, e := parse(sqlstmt)
+	if e != nil {
+		return nil, e
+	}
+	sessctx := &SessionContext{Context: ctx}
+	defer func() {
+		if e := sessctx.Close(); e != nil {
+			err = e
+		}
+	}()
+
+	query, e := ExecuteSelectStatement(sessctx, stmt, false)
+	if e != nil {
+		return nil, e
 	}
 
-	query, err := ExecuteSelectStatement(ctx, stmt, false)
-	if err != nil {
-		return nil, err
-	}
-
-	results, err := query.Results(ctx)
-	if err != nil {
-		return nil, err
+	results, e := query.Results(sessctx)
+	if e != nil {
+		return nil, e
 	}
 
 	return RecordSet(results), nil
@@ -108,7 +147,7 @@ type Datasource struct {
 	As    string
 }
 
-func ExecuteSelectStatement(ec *Context, stmt sqlparser.SelectStatement, hasJoin bool) (memcore.Query, error) {
+func ExecuteSelectStatement(ec *SessionContext, stmt sqlparser.SelectStatement, hasJoin bool) (memcore.Query, error) {
 	switch expr := stmt.(type) {
 	case *sqlparser.Select:
 		return ExecuteSelect(ec, expr, hasJoin)
@@ -121,7 +160,7 @@ func ExecuteSelectStatement(ec *Context, stmt sqlparser.SelectStatement, hasJoin
 	}
 }
 
-func ExecuteUnion(ec *Context, stmt *sqlparser.Union, hasJoin bool) (memcore.Query, error) {
+func ExecuteUnion(ec *SessionContext, stmt *sqlparser.Union, hasJoin bool) (memcore.Query, error) {
 	left, err := ExecuteSelectStatement(ec, stmt.Left, hasJoin)
 	if err != nil {
 		return memcore.Query{}, err
@@ -159,7 +198,7 @@ func ExecuteUnion(ec *Context, stmt *sqlparser.Union, hasJoin bool) (memcore.Que
 	return query, nil
 }
 
-func ExecuteSelect(ec *Context, stmt *sqlparser.Select, hasJoin bool) (memcore.Query, error) {
+func ExecuteSelect(ec *SessionContext, stmt *sqlparser.Select, hasJoin bool) (memcore.Query, error) {
 	if len(stmt.From) != 1 {
 		return memcore.Query{}, fmt.Errorf("currently only one expression in from supported, got %v", len(stmt.From))
 	}
@@ -223,7 +262,7 @@ func ExecuteSelect(ec *Context, stmt *sqlparser.Select, hasJoin bool) (memcore.Q
 	return query, nil
 }
 
-func ExecuteTableExpression(ec *Context, expr sqlparser.TableExpr, where *sqlparser.Where, hasJoin bool) (string, memcore.Query, error) {
+func ExecuteTableExpression(ec *SessionContext, expr sqlparser.TableExpr, where *sqlparser.Where, hasJoin bool) (string, memcore.Query, error) {
 	switch expr := expr.(type) {
 	case *sqlparser.AliasedTableExpr:
 		return ExecuteAliasedTableExpression(ec, expr, where, hasJoin)
@@ -237,7 +276,7 @@ func ExecuteTableExpression(ec *Context, expr sqlparser.TableExpr, where *sqlpar
 	}
 }
 
-func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, where *sqlparser.Where) (string, memcore.Query, error) {
+func ExecuteJoinTableExpression(ec *SessionContext, expr *sqlparser.JoinTableExpr, where *sqlparser.Where) (string, memcore.Query, error) {
   leftAs, query1, err := ExecuteTableExpression(ec, expr.LeftExpr, where, true)
   if err != nil {
   	return "", memcore.Query{}, err
@@ -291,7 +330,7 @@ func ExecuteJoinTableExpression(ec *Context, expr *sqlparser.JoinTableExpr, wher
   }
 }
 
-func ParseJoinOn(ctx *Context, on sqlparser.Expr) (
+func ParseJoinOn(ctx *SessionContext, on sqlparser.Expr) (
 	leftAs string, left func(memcore.Record) (memcore.Value, error), 
   rightAs string, right func(memcore.Record) (memcore.Value, error), err error) {
 	cmp, ok := on.(*sqlparser.ComparisonExpr)
@@ -325,7 +364,7 @@ func ParseJoinOn(ctx *Context, on sqlparser.Expr) (
 	}, nil
 }
 
-func ParseParenTableExpression(ec *Context, expr *sqlparser.ParenTableExpr, where *sqlparser.Where) (memcore.Query, error) {
+func ParseParenTableExpression(ec *SessionContext, expr *sqlparser.ParenTableExpr, where *sqlparser.Where) (memcore.Query, error) {
 	tableAs, query, err := ExecuteTableExpression(ec, expr.Exprs[0], where, true)
 	if err != nil {
 		return memcore.Query{}, err
@@ -348,7 +387,7 @@ func ParseParenTableExpression(ec *Context, expr *sqlparser.ParenTableExpr, wher
 	return query, nil
 }
 
-func ExecuteAliasedTableExpression(ec *Context, expr *sqlparser.AliasedTableExpr, where *sqlparser.Where, hasJoin bool) (string, memcore.Query, error) {
+func ExecuteAliasedTableExpression(ec *SessionContext, expr *sqlparser.AliasedTableExpr, where *sqlparser.Where, hasJoin bool) (string, memcore.Query, error) {
 	if len(expr.Partitions) > 0 {
 		return "", memcore.Query{}, fmt.Errorf("invalid partitions in the table expression %+v", expr.Expr)
 	}
@@ -380,11 +419,10 @@ func ExecuteAliasedTableExpression(ec *Context, expr *sqlparser.AliasedTableExpr
 	}
 }
 
-func ExecuteTable(ec *Context, ds Datasource, where *sqlparser.Where, hasJoin bool) (memcore.Query, error) {
+func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, hasJoin bool) (memcore.Query, error) {
 	if ds.Qualifier == "db" {
 		if where == nil || !hasJoin {
-			_, q, err := ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, where)
-			return q, err
+			return ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, where)
 		}
 
 		whereExpr, err := parser.SplitByTableName(where.Expr, ds.As)
@@ -392,8 +430,7 @@ func ExecuteTable(ec *Context, ds Datasource, where *sqlparser.Where, hasJoin bo
 			return memcore.Query{}, err
 		}
 
-		_, q, err := ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, &sqlparser.Where{Expr: whereExpr})
-		return q, err
+		return ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, &sqlparser.Where{Expr: whereExpr})
 	}
 
 	var f = func(vm.Context) (bool, error) {
@@ -444,7 +481,7 @@ func ExecuteTable(ec *Context, ds Datasource, where *sqlparser.Where, hasJoin bo
 	return ExecuteWhere(ec, query, whereExpr)
 }
 
-func ExecuteWhere(ec *Context, query memcore.Query, expr sqlparser.Expr) (memcore.Query, error) {
+func ExecuteWhere(ec *SessionContext, query memcore.Query, expr sqlparser.Expr) (memcore.Query, error) {
 	if expr == nil {
 		return query, nil
 	}
@@ -461,21 +498,21 @@ func ExecuteWhere(ec *Context, query memcore.Query, expr sqlparser.Expr) (memcor
 	return query, nil
 }
 
-func ExecuteGroupBy(ec *Context, query memcore.Query, groupBy sqlparser.GroupBy) (memcore.Query, error) {
+func ExecuteGroupBy(ec *SessionContext, query memcore.Query, groupBy sqlparser.GroupBy) (memcore.Query, error) {
 	// type GroupBy []Expr
 
 	// TODO: XXX
 	return query, nil
 }
 
-func ExecuteHaving(ec *Context, query memcore.Query, having *sqlparser.Where) (memcore.Query, error) {
+func ExecuteHaving(ec *SessionContext, query memcore.Query, having *sqlparser.Where) (memcore.Query, error) {
 	if having == nil {
 		return query, nil
 	}
 	return ExecuteWhere(ec, query, having.Expr)
 }
 
-func ExecuteOrderBy(ec *Context, query memcore.Query, orderBy sqlparser.OrderBy) (memcore.Query, error) {
+func ExecuteOrderBy(ec *SessionContext, query memcore.Query, orderBy sqlparser.OrderBy) (memcore.Query, error) {
 	if len(orderBy) == 0 {
 		return query, nil
 	}
@@ -520,7 +557,7 @@ func ExecuteOrderBy(ec *Context, query memcore.Query, orderBy sqlparser.OrderBy)
 	return orderedQuery.Query, nil
 }
 
-func ExecuteLimit(ec *Context, query memcore.Query, limit *sqlparser.Limit) (memcore.Query, error) {
+func ExecuteLimit(ec *SessionContext, query memcore.Query, limit *sqlparser.Limit) (memcore.Query, error) {
 	if limit == nil {
 		return query, nil
 	}
@@ -564,7 +601,7 @@ func ExecuteLimit(ec *Context, query memcore.Query, limit *sqlparser.Limit) (mem
 	return query, nil
 }
 
-func ExecuteSelectExprs(ec *Context, query memcore.Query, selectExprs sqlparser.SelectExprs) (memcore.Query, error) {
+func ExecuteSelectExprs(ec *SessionContext, query memcore.Query, selectExprs sqlparser.SelectExprs) (memcore.Query, error) {
 	switch len(selectExprs) {
 	case 0:
 		return query, nil
