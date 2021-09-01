@@ -6,12 +6,11 @@ import (
 	"io"
 	"reflect"
 	"strings"
-	"encoding/json"
 
 	"github.com/runner-mei/errors"
-	"github.com/runner-mei/memsql/vm"
 	"github.com/runner-mei/memsql/memcore"
 	"github.com/runner-mei/memsql/parser"
+	"github.com/runner-mei/memsql/vm"
 	"github.com/xwb1989/sqlparser"
 )
 
@@ -21,48 +20,6 @@ type Table = memcore.Table
 type Record = memcore.Record
 type RecordSet = memcore.RecordSet
 type Storage = memcore.Storage
-
-
-type ExecuteDebuger struct {
-	tables  []TableDebuger
-}
-
-func (d *ExecuteDebuger) String() string {
-	bs, err := json.Marshal(d.tables)
-	if err != nil {
-		return "ExecuteDebuger:"+ err.Error()
-	}
-	return string(bs)
-}
-
-func (d *ExecuteDebuger) Table(table, as string, expr sqlparser.Expr) *TableDebuger {
-	d.tables = append(d.tables, TableDebuger{})
-	t := &d.tables[len(d.tables)-1]
-	t.Table = table
-	t.As = as
-	if expr != nil {
-		t.TableFilter = sqlparser.String(expr)
-	}
-	return t
-}
-
-type TableDebuger struct {
-	Table string
-	As string
-	TableFilter string
-	TableNames []memcore.TableName
-	Where string
-}
-
-func (d *TableDebuger) SetTableNames(tableNames []memcore.TableName) {
-	d.TableNames = tableNames
-}
-
-func (d *TableDebuger) SetWhere(expr sqlparser.Expr) {
-	if expr != nil {
-		d.Where = sqlparser.String(expr)
-	}
-}
 
 type Context struct {
 	Ctx     context.Context
@@ -143,8 +100,8 @@ func parse(sqlstr string) (sqlparser.SelectStatement, error) {
 
 type Datasource struct {
 	Qualifier string
-	Table string
-	As    string
+	Table     string
+	As        string
 }
 
 func ExecuteSelectStatement(ec *SessionContext, stmt sqlparser.SelectStatement, hasJoin bool) (memcore.Query, error) {
@@ -270,69 +227,69 @@ func ExecuteTableExpression(ec *SessionContext, expr sqlparser.TableExpr, where 
 		return ExecuteJoinTableExpression(ec, expr, where)
 	case *sqlparser.ParenTableExpr:
 		query, err := ParseParenTableExpression(ec, expr, where)
-	 	return "", query, err
+		return "", query, err
 	default:
 		return "", memcore.Query{}, fmt.Errorf("invalid table expression %+v of type %v", expr, reflect.TypeOf(expr))
 	}
 }
 
 func ExecuteJoinTableExpression(ec *SessionContext, expr *sqlparser.JoinTableExpr, where *sqlparser.Where) (string, memcore.Query, error) {
-  leftAs, query1, err := ExecuteTableExpression(ec, expr.LeftExpr, where, true)
-  if err != nil {
-  	return "", memcore.Query{}, err
-  }
-  rightAs, query2, err := ExecuteTableExpression(ec, expr.RightExpr, where, true)
-  if err != nil {
-  	return "", memcore.Query{}, err
-  }
+	leftAs, query1, err := ExecuteTableExpression(ec, expr.LeftExpr, where, true)
+	if err != nil {
+		return "", memcore.Query{}, err
+	}
+	rightAs, query2, err := ExecuteTableExpression(ec, expr.RightExpr, where, true)
+	if err != nil {
+		return "", memcore.Query{}, err
+	}
 
 	leftOnAs, left, rightOnAs, right, err := ParseJoinOn(ec, expr.Condition.On)
-  if err != nil {
-  	return "", memcore.Query{}, err
-  }
+	if err != nil {
+		return "", memcore.Query{}, err
+	}
 
-  if leftAs == leftOnAs {
-  	if rightAs != rightOnAs {
-  		return "", memcore.Query{}, fmt.Errorf("invalid join table expression %+v: %s isnot exists", expr, rightOnAs)
-  	}
-  } else if leftAs == rightOnAs {
-  	if rightAs != leftOnAs {
-  		return "", memcore.Query{}, fmt.Errorf("invalid join table expression %+v: %s isnot exists", expr, leftOnAs)
-  	}
+	if leftAs == leftOnAs {
+		if rightAs != rightOnAs {
+			return "", memcore.Query{}, fmt.Errorf("invalid join table expression %+v: %s isnot exists", expr, rightOnAs)
+		}
+	} else if leftAs == rightOnAs {
+		if rightAs != leftOnAs {
+			return "", memcore.Query{}, fmt.Errorf("invalid join table expression %+v: %s isnot exists", expr, leftOnAs)
+		}
 
-  	left, right = right, left
-  } else {
-  		return "", memcore.Query{}, fmt.Errorf("invalid join table expression %+v: %s isnot exists", expr, leftAs)
-  }
+		left, right = right, left
+	} else {
+		return "", memcore.Query{}, fmt.Errorf("invalid join table expression %+v: %s isnot exists", expr, leftAs)
+	}
 
-  switch expr.Join {
-  case sqlparser.JoinStr:
-	  resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
-	  	return MergeRecord(leftAs, outer, rightAs, inner)
-	  }
-	  return "", query1.Join(false, query2, left, right, resultSelector), nil
+	switch expr.Join {
+	case sqlparser.JoinStr:
+		resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
+			return MergeRecord(leftAs, outer, rightAs, inner)
+		}
+		return "", query1.Join(false, query2, left, right, resultSelector), nil
 	// case sqlparser.StraightJoinStr:
 	case sqlparser.LeftJoinStr:
-	  resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
-	  	return MergeRecord(leftAs, outer, rightAs, inner)
-	  }
-	  return "", query1.Join(true, query2, left, right, resultSelector), nil
+		resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
+			return MergeRecord(leftAs, outer, rightAs, inner)
+		}
+		return "", query1.Join(true, query2, left, right, resultSelector), nil
 	case sqlparser.RightJoinStr:
-	  resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
-	  	return MergeRecord(rightAs, inner, leftAs, outer)
-	  }
-	  return "", query2.Join(true, query1, right, left, resultSelector), nil
+		resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
+			return MergeRecord(rightAs, inner, leftAs, outer)
+		}
+		return "", query2.Join(true, query1, right, left, resultSelector), nil
 	// case sqlparser.NaturalJoinStr:
 	// case sqlparser.NaturalLeftJoinStr:
 	// case sqlparser.NaturalRightJoinStr:
-	default:		
+	default:
 		return "", memcore.Query{}, fmt.Errorf("invalid join table expression %+v of type %v", expr, reflect.TypeOf(expr))
-  }
+	}
 }
 
 func ParseJoinOn(ctx *SessionContext, on sqlparser.Expr) (
-	leftAs string, left func(memcore.Record) (memcore.Value, error), 
-  rightAs string, right func(memcore.Record) (memcore.Value, error), err error) {
+	leftAs string, left func(memcore.Record) (memcore.Value, error),
+	rightAs string, right func(memcore.Record) (memcore.Value, error), err error) {
 	cmp, ok := on.(*sqlparser.ComparisonExpr)
 	if !ok {
 		return "", nil, "", nil, fmt.Errorf("invalid On expression %+v", on)
@@ -358,10 +315,10 @@ func ParseJoinOn(ctx *SessionContext, on sqlparser.Expr) (
 		return "", nil, "", nil, fmt.Errorf("invalid On expression %+v", on)
 	}
 	return sqlparser.String(leftCol.Qualifier), func(r memcore.Record) (memcore.Value, error) {
-		return leftValue(memcore.ToRecordValuer(&r, true))
-	}, sqlparser.String(rightCol.Qualifier), func(r memcore.Record) (memcore.Value, error) {
-		return rightValue(memcore.ToRecordValuer(&r, true))
-	}, nil
+			return leftValue(memcore.ToRecordValuer(&r, true))
+		}, sqlparser.String(rightCol.Qualifier), func(r memcore.Record) (memcore.Value, error) {
+			return rightValue(memcore.ToRecordValuer(&r, true))
+		}, nil
 }
 
 func ParseParenTableExpression(ec *SessionContext, expr *sqlparser.ParenTableExpr, where *sqlparser.Where) (memcore.Query, error) {
@@ -370,18 +327,18 @@ func ParseParenTableExpression(ec *SessionContext, expr *sqlparser.ParenTableExp
 		return memcore.Query{}, err
 	}
 
-	for idx := 1; idx < len(expr.Exprs); idx ++ {
+	for idx := 1; idx < len(expr.Exprs); idx++ {
 		queryAs, query1, err := ExecuteTableExpression(ec, expr.Exprs[idx], where, true)
 		if err != nil {
 			return memcore.Query{}, err
 		}
 
-	  resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
-	  	if idx == 1 {
-	  		return MergeRecord(tableAs, outer, queryAs, inner)
-	  	}
-	  	return MergeRecord("", outer, queryAs, inner)
-	  }
+		resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
+			if idx == 1 {
+				return MergeRecord(tableAs, outer, queryAs, inner)
+			}
+			return MergeRecord("", outer, queryAs, inner)
+		}
 		query = query.FullJoin(query1, resultSelector)
 	}
 	return query, nil
@@ -436,7 +393,7 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 	var f = func(vm.Context) (bool, error) {
 		return true, nil
 	}
-	
+
 	var expr sqlparser.Expr
 	if where != nil {
 		expr = where.Expr
@@ -697,52 +654,52 @@ func ExecuteSelectExprs(ec *SessionContext, query memcore.Query, selectExprs sql
 		if len(aggFuncs) > 0 {
 			return query, errors.New("agg function and nonagg function exist simultaneously")
 		}
-		selector := func(index int, r Record) (result Record, err error){
+		selector := func(index int, r Record) (result Record, err error) {
 			valuer := memcore.ToRecordValuer(&r, true)
 			for _, f := range selectFuncs {
 				result, err = f(valuer, result)
 			}
 			return result, nil
 		}
-		return query.Select(selector), nil 
+		return query.Select(selector), nil
 	}
 
 	if len(aggFuncs) > 0 {
-		return query.AggregateWith(aggAsNames, aggFuncs), nil 
+		return query.AggregateWith(aggAsNames, aggFuncs), nil
 	}
 
 	return query, nil
 }
 
-func toSelectFunc(as string, f func(vm.Context) (Value, error)) func(ctx vm.Context, result Record) (Record, error)  {
+func toSelectFunc(as string, f func(vm.Context) (Value, error)) func(ctx vm.Context, result Record) (Record, error) {
 	return func(ctx vm.Context, result Record) (Record, error) {
-				value, err := f(ctx)
-				if err != nil {
-					return Record{}, err
-				}
-				result.Columns = append(result.Columns, Column{Name: as})
-				result.Values = append(result.Values, value)
-				return result, nil 
+		value, err := f(ctx)
+		if err != nil {
+			return Record{}, err
 		}
+		result.Columns = append(result.Columns, Column{Name: as})
+		result.Values = append(result.Values, value)
+		return result, nil
+	}
 }
 
 func toSelectAggFunc(idx int, as string, funcName string,
-	f func() vm.Aggregator, 
+	f func() vm.Aggregator,
 	readValues func(vm.Context) ([]Value, error)) (memcore.AggregatorFactoryFunc, error) {
-	return nil, errors.New(funcName+"'"+as+"' is unsupported")
+	return nil, errors.New(funcName + "'" + as + "' is unsupported")
 }
 
 func toSelectAggOneFunc(idx int, as string, funcName string,
-	f func() vm.Aggregator, 
-	readValue func(vm.Context) (Value, error)) (memcore.AggregatorFactoryFunc, error)  {
+	f func() vm.Aggregator,
+	readValue func(vm.Context) (Value, error)) (memcore.AggregatorFactoryFunc, error) {
 	return memcore.AggregatorFunc(f, func(ctx memcore.Context, r memcore.Record) (vm.Value, error) {
-		 return readValue(memcore.ToRecordValuer(&r, false))
-	}), nil 
+		return readValue(memcore.ToRecordValuer(&r, false))
+	}), nil
 }
 
 func MergeRecord(outerAs string, outer memcore.Record, innerAs string, inner Record) memcore.Record {
 	result := memcore.Record{}
-	result.Columns = make([]memcore.Column, len(outer.Columns) + len(inner.Columns))
+	result.Columns = make([]memcore.Column, len(outer.Columns)+len(inner.Columns))
 	copy(result.Columns, outer.Columns)
 	if outerAs != "" {
 		for idx := range outer.Columns {
@@ -752,11 +709,11 @@ func MergeRecord(outerAs string, outer memcore.Record, innerAs string, inner Rec
 	copy(result.Columns[len(outer.Columns):], inner.Columns)
 	if innerAs != "" {
 		for idx := range outer.Columns {
-			result.Columns[len(outer.Columns) + idx].TableAs = innerAs
+			result.Columns[len(outer.Columns)+idx].TableAs = innerAs
 		}
 	}
 
-	result.Values = make([]memcore.Value, len(outer.Values) + len(inner.Values))
+	result.Values = make([]memcore.Value, len(outer.Values)+len(inner.Values))
 	copy(result.Values, outer.Values)
 	copy(result.Values[len(outer.Values):], inner.Values)
 	return result
