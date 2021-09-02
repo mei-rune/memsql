@@ -9,8 +9,15 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
+func NewDbForeign(drv  string, conn *sql.DB) Foreign {
+	return &dbForeign{
+		Drv: drv,
+		Conn: conn,
+	}
+}
+
 type dbForeign struct {
-	Drv string
+	Drv  string
 	Conn *sql.DB
 }
 
@@ -33,7 +40,7 @@ func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *
 
 	rows, err := f.Conn.QueryContext(ctx.Ctx, sqlstr)
 	if err != nil {
-		return  memcore.Query{}, err
+		return memcore.Query{}, err
 	}
 
 	columnNames, err := rows.Columns()

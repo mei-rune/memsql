@@ -2,8 +2,8 @@ package memcore
 
 import (
 	"encoding"
-	"io"
 	"fmt"
+	"io"
 	"sort"
 	"strconv"
 
@@ -15,8 +15,8 @@ type Value = vm.Value
 
 type Column struct {
 	TableName string
-	TableAs string
-	Name    string
+	TableAs   string
+	Name      string
 }
 
 func mkColumn(name string) Column {
@@ -152,8 +152,6 @@ func (r *Record) GetByQualifierName(tableAs, name string) (Value, bool) {
 	return r.Values[idx], true
 }
 
-
-
 func (r *Record) IsEmpty() bool {
 	return len(r.Values) == 0
 }
@@ -251,7 +249,6 @@ func ToRecordValuer(r *Record, withQualifier bool) GetValuer {
 	}
 	return (*recordValuer)(r)
 }
-
 
 // func (r *Record) MarshalText() ( []byte,  error) {
 //  return r.marshalText()

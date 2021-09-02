@@ -1,6 +1,6 @@
 package memcore
 
-import 	"github.com/runner-mei/memsql/vm"
+import "github.com/runner-mei/memsql/vm"
 
 // Distinct method returns distinct elements from a collection. The result is an
 // unordered collection that contains no duplicate values.

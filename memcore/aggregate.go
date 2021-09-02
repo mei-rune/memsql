@@ -111,14 +111,13 @@ func (q Query) AggregateWithSeedBy(ctx Context, seed Record,
 	return resultSelector(ctx, result)
 }
 
-
 type AggregatorFactory interface {
 	Create() Aggregator
 }
 
 type AggregatorFactoryFunc func() Aggregator
 
-func (f AggregatorFactoryFunc)	Create() Aggregator {
+func (f AggregatorFactoryFunc) Create() Aggregator {
 	return f()
 }
 
@@ -130,7 +129,7 @@ type Aggregator interface {
 
 type aggregatorWraper struct {
 	Aggregator vm.Aggregator
-	ReadValue func(Context, Record) (Value, error)
+	ReadValue  func(Context, Record) (Value, error)
 }
 
 func (w aggregatorWraper) Agg(ctx Context, r Record) error {
@@ -145,13 +144,12 @@ func (w aggregatorWraper) Result(ctx Context) (Value, error) {
 	return w.Aggregator.Result()
 }
 
-
 func AggregatorFunc(create func() vm.Aggregator,
 	readValue func(Context, Record) (Value, error)) AggregatorFactoryFunc {
-	return AggregatorFactoryFunc(func() Aggregator{
+	return AggregatorFactoryFunc(func() Aggregator {
 		return aggregatorWraper{
 			Aggregator: create(),
-			ReadValue: readValue,
+			ReadValue:  readValue,
 		}
 	})
 }
@@ -187,7 +185,6 @@ func (q Query) AggregateWithFunc(ctx Context, names []string, aggregators []Aggr
 	}
 	return result, nil
 }
-
 
 func (q Query) AggregateWith(names []string, aggregatorFactories []AggregatorFactory) Query {
 	return Query{

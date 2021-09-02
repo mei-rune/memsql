@@ -43,7 +43,7 @@ type TestCase struct {
 
 type TestApp struct {
 	filename string
-	driver string
+	driver   string
 	conn     *sql.DB
 	s        Storage
 }
@@ -92,7 +92,7 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 		}
 		create = create + ")"
 
-		if app.driver == "sqlite3" { 
+		if app.driver == "sqlite3" {
 			create = strings.Replace(create, "BOOLEAN", "INTEGER", -1)
 		}
 
@@ -158,9 +158,8 @@ func (app *TestApp) Execute(t *testing.T, ctx *Context, sqlstmt string) (RecordS
 	if ctx.Storage == nil {
 		ctx.Storage = app.s
 	}
-	if ctx.Foreign.Conn == nil {
-		ctx.Foreign.Drv = app.driver
-		ctx.Foreign.Conn = app.conn
+	if ctx.Foreign == nil {
+		ctx.Foreign = NewDbForeign(app.driver, app.conn)
 	}
 	return Execute(ctx, sqlstmt)
 }
@@ -211,7 +210,7 @@ func newTestApp(t *testing.T) *TestApp {
 	return &TestApp{
 		filename: filename,
 		s:        memcore.NewStorage(),
-		driver:  "sqlite3",
+		driver:   "sqlite3",
 		conn:     db,
 	}
 }

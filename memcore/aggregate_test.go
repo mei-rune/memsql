@@ -61,7 +61,7 @@ func TestAggregateWithSeedBy(t *testing.T) {
 	input := []string{"apple", "mango", "orange", "passionfruit", "grape"}
 	want := "PASSIONFRUIT"
 
-	r, err := fromStrings(input...).AggregateWithSeedBy(mkCtx(),makeRecordWithStr("banana"),
+	r, err := fromStrings(input...).AggregateWithSeedBy(mkCtx(), makeRecordWithStr("banana"),
 		func(c Context, r Record, i Record) (Record, error) {
 			if len(r.Values[0].Str) > len(i.Values[0].Str) {
 				return r, nil

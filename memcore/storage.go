@@ -24,7 +24,6 @@ type Context interface{}
 type GetValuer = vm.GetValuer
 type GetValueFunc = vm.GetValueFunc
 
-
 type TableName struct {
 	Tags  KeyValues
 	Table string
@@ -165,7 +164,7 @@ func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer)
 		if ok {
 			tableNames = append(tableNames, TableName{
 				Table: tablename,
-				Tags: m.tags,
+				Tags:  m.tags,
 			})
 			list = append(list, m)
 		}

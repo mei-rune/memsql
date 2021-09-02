@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-  "github.com/runner-mei/memsql/vm"
-  "github.com/runner-mei/errors"
+	"github.com/runner-mei/errors"
+	"github.com/runner-mei/memsql/vm"
 	"github.com/xwb1989/sqlparser"
 )
 
-type filterContext interface {}
+type filterContext interface{}
 
 func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (bool, error), error) {
 	switch v := expr.(type) {
@@ -278,7 +278,7 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 			return nil, err
 		}
 
-		switch v.Operator{
+		switch v.Operator {
 		// case sqlparser.BitAndStr:
 		// case sqlparser.BitOrStr:
 		// case sqlparser.BitXorStr:
@@ -287,13 +287,13 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 		case sqlparser.MinusStr:
 			return vm.MinusFunc(leftValue, rightValue), nil
 		case sqlparser.MultStr:
-		 	return vm.MultFunc(leftValue, rightValue), nil
+			return vm.MultFunc(leftValue, rightValue), nil
 		case sqlparser.DivStr:
-		 	return vm.DivFunc(leftValue, rightValue), nil
+			return vm.DivFunc(leftValue, rightValue), nil
 		// case sqlparser.IntDivStr:
 		// 	return vm.IntDiv(leftValue, rightValue), nil
 		case sqlparser.ModStr:
-		 	return vm.ModFunc(leftValue, rightValue), nil
+			return vm.ModFunc(leftValue, rightValue), nil
 		// case sqlparser.ShiftLeftStr:
 		// case sqlparser.ShiftRightStr:
 		default:
@@ -305,7 +305,7 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 			return nil, err
 		}
 
-		switch v.Operator{
+		switch v.Operator {
 		// case sqlparser.UPlusStr:
 		case sqlparser.UMinusStr:
 			return vm.UminusFunc(readValue), nil
@@ -331,27 +331,27 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 		}
 
 		return func(ctx vm.Context) (vm.Value, error) {
-		    value, err := readValue(ctx)
-		    if err != nil {
-		      return vm.Null(), err
-		    }
-		    i64, err := value.AsInt(false)
-		    if err != nil {
-		      return vm.Null(), err
-		    }
+			value, err := readValue(ctx)
+			if err != nil {
+				return vm.Null(), err
+			}
+			i64, err := value.AsInt(false)
+			if err != nil {
+				return vm.Null(), err
+			}
 
 			switch unit {
 			case "years", "year":
 				return vm.IntervalToValue(time.Duration(i64) * 365 * 24 * 60 * 60 * time.Second), nil
-			case "months", "month": 
+			case "months", "month":
 				return vm.IntervalToValue(time.Duration(i64) * 30 * 24 * 60 * 60 * time.Second), nil
-			case "weeks", "week": 
+			case "weeks", "week":
 				return vm.IntervalToValue(time.Duration(i64) * 7 * 24 * 60 * 60 * time.Second), nil
-			case "days", "day": 
+			case "days", "day":
 				return vm.IntervalToValue(time.Duration(i64) * 24 * 60 * 60 * time.Second), nil
-			case "hours", "hour": 
+			case "hours", "hour":
 				return vm.IntervalToValue(time.Duration(i64) * 60 * 60 * time.Second), nil
-			case "minutes", "minute": 
+			case "minutes", "minute":
 				return vm.IntervalToValue(time.Duration(i64) * 60 * time.Second), nil
 			case "seconds", "second":
 				return vm.IntervalToValue(time.Duration(i64) * time.Second), nil
@@ -388,15 +388,15 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 		// case "date":
 		// 	return vm.ConvertToDate(readValue), nil
 		case "datetime":
-		 	return vm.ConvertToDatetime(readValue), nil
-		// case "time":
-		// 	return vm.ConvertToTime(readValue), nil
-		// case "decimal":
-		// 	return vm.ConvertToDecimal(readValue, v.Type.Length), nil
-		// case "json":
-		// 	return vm.ConvertToJSON(readValue), nil
-		// case "nchar":
-		// 	return vm.ConvertToNChar(readValue, v.Type.Length, v.Type.Charset), nil
+			return vm.ConvertToDatetime(readValue), nil
+			// case "time":
+			// 	return vm.ConvertToTime(readValue), nil
+			// case "decimal":
+			// 	return vm.ConvertToDecimal(readValue, v.Type.Length), nil
+			// case "json":
+			// 	return vm.ConvertToJSON(readValue), nil
+			// case "nchar":
+			// 	return vm.ConvertToNChar(readValue, v.Type.Length, v.Type.Charset), nil
 		}
 		return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)
 	case *sqlparser.SubstrExpr:
@@ -413,7 +413,7 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 	}
 }
 
-func ToFuncGetValue(ctx filterContext, expr *sqlparser.FuncExpr) (func(vm.Context) (vm.Value, error), error) {		
+func ToFuncGetValue(ctx filterContext, expr *sqlparser.FuncExpr) (func(vm.Context) (vm.Value, error), error) {
 	// // FuncExpr represents a function call.
 	// type FuncExpr struct {
 	// 	Qualifier TableIdent
@@ -424,7 +424,7 @@ func ToFuncGetValue(ctx filterContext, expr *sqlparser.FuncExpr) (func(vm.Contex
 
 	f, ok := vm.Funcs[expr.Name.String()]
 	if !ok {
-		return nil, errors.New("func '"+expr.Name.String()+"' isnot exists")
+		return nil, errors.New("func '" + expr.Name.String() + "' isnot exists")
 	}
 
 	values, err := ToGetValues(ctx, expr.Exprs)
@@ -446,21 +446,20 @@ func ToGetValues(ctx filterContext, expr sqlparser.SQLNode) (func(vm.Context) ([
 			funcs = append(funcs, f)
 		}
 		return func(ctx vm.Context) ([]vm.Value, error) {
-				values := make([]vm.Value, len(funcs))
-				for idx, read := range funcs {
-					value, err := read(ctx)
-					if err != nil {
-						return nil, err
-					}
-					values[idx] = value
+			values := make([]vm.Value, len(funcs))
+			for idx, read := range funcs {
+				value, err := read(ctx)
+				if err != nil {
+					return nil, err
 				}
-				return values, nil
+				values[idx] = value
+			}
+			return values, nil
 		}, nil
 	default:
 		return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)
 	}
 }
-
 
 func ToGetSelectValue(ctx filterContext, expr sqlparser.SelectExpr) (func(vm.Context) (vm.Value, error), error) {
 	switch subexpr := expr.(type) {
@@ -476,13 +475,13 @@ func ToGetSelectValue(ctx filterContext, expr sqlparser.SelectExpr) (func(vm.Con
 }
 
 func errUnknownOperator(op string) error {
-	return errors.New("'"+op+"' is unknown operator")
+	return errors.New("'" + op + "' is unknown operator")
 }
 
 func ErrUnsupportedExpr(op string) error {
-	return errors.New("unsupported expression '"+op+"'")
+	return errors.New("unsupported expression '" + op + "'")
 }
 
 func newTypeError(s, typ string) error {
-	return errors.New("invalid '"+typ+"': '"+s+"'")
+	return errors.New("invalid '" + typ + "': '" + s + "'")
 }

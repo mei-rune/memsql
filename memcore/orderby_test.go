@@ -55,7 +55,6 @@ func TestOrderByDescending(t *testing.T) {
 		return
 	}
 
-
 	j := len(slice) - 1
 
 	for _, item := range items {
@@ -65,7 +64,6 @@ func TestOrderByDescending(t *testing.T) {
 		j--
 	}
 }
-
 
 func TestThenByAscending(t *testing.T) {
 	slice := make([][2]int64, 1000)
@@ -84,7 +82,6 @@ func TestThenByAscending(t *testing.T) {
 	}).ThenByAscending(func(item Record) (Value, error) {
 		return item.Values[0], nil
 	})
-
 
 	items, err := q.Results(mkCtx())
 	if err != nil {
@@ -129,7 +126,6 @@ func TestThenByDescending(t *testing.T) {
 		}
 	}
 }
-
 
 func TestSort(t *testing.T) {
 	slice := make([]int64, 100)

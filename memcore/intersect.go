@@ -71,7 +71,6 @@ func (q Query) IntersectBy(q2 Query,
 			var readDone = false
 			var readError error
 
-
 			return func(ctx Context) (item Record, err error) {
 				if !readDone {
 					if readError != nil {

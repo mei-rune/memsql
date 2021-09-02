@@ -120,7 +120,6 @@ func ToDatetimeValue(s string) (Value, error) {
 	return Null(), errors.New("invalid time: " + s)
 }
 
-
 func DatetimeToInt(t time.Time) int64 {
 	return t.Unix()
 }
@@ -146,14 +145,15 @@ func IntToInterval(t int64) time.Duration {
 }
 
 type Value struct {
-	Type    ValueType
+	Type ValueType
 	// Bool    bool
 	Str     string
 	Int64   int64
 	Uint64  uint64
 	Float64 float64
-	Any interface{}
+	Any     interface{}
 }
+
 func (v *Value) BoolValue() bool {
 	return v.Int64 != 0
 }
@@ -184,7 +184,7 @@ func (v *Value) String() string {
 	case ValueAny:
 		bs, err := json.Marshal(v.Any)
 		if err != nil {
-			return "error_" +err.Error()
+			return "error_" + err.Error()
 		}
 		return string(bs)
 	default:
@@ -417,13 +417,13 @@ func ToValue(value interface{}) (Value, error) {
 		}, nil
 	case bool:
 		if v {
-		return Value{
-			Type: ValueBool,
-			Int64: 1,
-		}, nil
+			return Value{
+				Type:  ValueBool,
+				Int64: 1,
+			}, nil
 		}
 		return Value{
-			Type: ValueBool,
+			Type:  ValueBool,
 			Int64: 0,
 		}, nil
 	case int8:
@@ -512,13 +512,13 @@ func MustToValue(value interface{}) Value {
 
 func BoolToValue(value bool) Value {
 	if value {
-	return Value{
-		Type: ValueBool,
-		Int64: 1,
+		return Value{
+			Type:  ValueBool,
+			Int64: 1,
+		}
 	}
-	}
 	return Value{
-		Type: ValueBool,
+		Type:  ValueBool,
 		Int64: 0,
 	}
 }
@@ -583,8 +583,8 @@ func IntervalToValue(value time.Duration) Value {
 
 func AnyToValue(value interface{}) Value {
 	return Value{
-		Type:  ValueAny,
-		Any: value,
+		Type: ValueAny,
+		Any:  value,
 	}
 }
 

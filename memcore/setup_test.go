@@ -33,8 +33,8 @@ func fromInt2(inputs [][2]int64) Query {
 	for _, value := range inputs {
 		record := Record{
 			Columns: []Column{{Name: "c1"}, {Name: "c2"}},
-			Values:  []Value{
-				{Type: ValueInt64, Int64: value[0]}, 
+			Values: []Value{
+				{Type: ValueInt64, Int64: value[0]},
 				{Type: ValueInt64, Int64: value[1]},
 			},
 		}
@@ -42,7 +42,6 @@ func fromInt2(inputs [][2]int64) Query {
 	}
 	return FromRecords(results)
 }
-
 
 func makeRecordWithStr(value string) Record {
 	return Record{

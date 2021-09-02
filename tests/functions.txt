@@ -1,0 +1,8 @@
+-- a --
+f1,f2
+"123",1
+
+-- func_test.sql --
+select test("abc") from a
+-- func_test.result --
+"test_abc"

@@ -24,7 +24,6 @@ func (q Query) Join(isLeft bool, inner Query,
 			var readDone = false
 			var readError error
 
-
 			var outerItem Record
 			var innerGroup []Record
 			innerLen, innerIndex := 0, 0
@@ -89,8 +88,6 @@ func (q Query) Join(isLeft bool, inner Query,
 	}
 }
 
-
-
 func (q Query) FullJoin(inner Query, resultSelector func(outer Record, inner Record) Record) Query {
 	return Query{
 		Iterate: func() Iterator {
@@ -100,7 +97,6 @@ func (q Query) FullJoin(inner Query, resultSelector func(outer Record, inner Rec
 			var innerItems = make([]Record, 0, 16)
 			var readDone = false
 			var readError error
-
 
 			var outerItem Record
 			var innerGroup []Record

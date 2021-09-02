@@ -1,8 +1,9 @@
 package memcore
 
 import (
- "sort"
- 	"github.com/runner-mei/memsql/vm"
+	"sort"
+
+	"github.com/runner-mei/memsql/vm"
 )
 
 type comparer func(Value, Value) int
@@ -99,7 +100,6 @@ func (q Query) OrderByDescending(selector func(Record) (Value, error)) OrderedQu
 						index = 0
 						readDone = true
 					}
-
 
 					if index < length {
 						item = items[index]
@@ -227,22 +227,22 @@ func (q Query) Sort(less func(i, j Record) bool) Query {
 			var index = 0
 
 			return func(ctx Context) (item Record, err error) {
-					if !readDone {
-						if readError != nil {
-							err = readError
-							return
-						}
-
-						items, err = q.lessSort(ctx, less)
-						if err != nil {
-							readError = err
-							return Record{}, err
-						}
-
-						length = len(items)
-						index = 0
-						readDone = true
+				if !readDone {
+					if readError != nil {
+						err = readError
+						return
 					}
+
+					items, err = q.lessSort(ctx, less)
+					if err != nil {
+						readError = err
+						return Record{}, err
+					}
+
+					length = len(items)
+					index = 0
+					readDone = true
+				}
 
 				if index < length {
 					item = items[index]

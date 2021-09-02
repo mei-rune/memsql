@@ -2,6 +2,7 @@ package memcore
 
 import (
 	"database/sql"
+	"errors"
 )
 
 var ErrReadFirst = errors.New("read first while fetch items")
@@ -98,8 +99,7 @@ func FromIterable(source Iterable) Query {
 	}
 }
 
-
-type Stash struct {	
+type Stash struct {
 	items     []Record
 	readDone  bool
 	readError error
@@ -113,7 +113,7 @@ func (stash *Stash) Get(ctx Context, index int) (item Record, err error) {
 		}
 
 		err = ErrReadFirst
-		return 
+		return
 	}
 
 	if index >= len(stash.items) {
@@ -124,7 +124,6 @@ func (stash *Stash) Get(ctx Context, index int) (item Record, err error) {
 	item = stash.items[index]
 	return
 }
-
 
 func (stash *Stash) ReadAll(ctx Context, next Iterator) error {
 	if stash.readDone {

@@ -1,37 +1,37 @@
 package vm
 
 func MultFunc(left, right func(Context) (Value, error)) func(Context) (Value, error) {
-  return func(ctx Context) (Value, error) {
-    leftValue, err := left(ctx)
-    if err != nil {
-      return Null(), err
-    }
-    rightValue, err := right(ctx)
-    if err != nil {
-      return Null(), err
-    }
+	return func(ctx Context) (Value, error) {
+		leftValue, err := left(ctx)
+		if err != nil {
+			return Null(), err
+		}
+		rightValue, err := right(ctx)
+		if err != nil {
+			return Null(), err
+		}
 
-    switch rightValue.Type {
-    case ValueNull:
-      return Null(), NewArithmeticError("*", leftValue.Type.String(), rightValue.Type.String())
-    case ValueBool:
-      return Null(), NewArithmeticError("*", leftValue.Type.String(), rightValue.Type.String())
-    case ValueString:
-      return Null(), NewArithmeticError("*", leftValue.Type.String(), rightValue.Type.String())
-    case ValueInt64:
-      return multInt(leftValue, rightValue.Int64)
-    case ValueUint64:
-      return multUint(leftValue, rightValue.Uint64)
-    case ValueFloat64:
-      return multFloat(leftValue, rightValue.Float64)
-    // case ValueDatetime:
-    //   return multDatetime(leftValue, IntToDatetime(rightValue.Int64))
-    // case ValueInterval:
-    //   return multInterval(leftValue, IntToInterval(rightValue.Int64))
-    default:
-      return Null(), NewArithmeticError("*", leftValue.Type.String(), rightValue.Type.String())
-    }
-  }
+		switch rightValue.Type {
+		case ValueNull:
+			return Null(), NewArithmeticError("*", leftValue.Type.String(), rightValue.Type.String())
+		case ValueBool:
+			return Null(), NewArithmeticError("*", leftValue.Type.String(), rightValue.Type.String())
+		case ValueString:
+			return Null(), NewArithmeticError("*", leftValue.Type.String(), rightValue.Type.String())
+		case ValueInt64:
+			return multInt(leftValue, rightValue.Int64)
+		case ValueUint64:
+			return multUint(leftValue, rightValue.Uint64)
+		case ValueFloat64:
+			return multFloat(leftValue, rightValue.Float64)
+		// case ValueDatetime:
+		//   return multDatetime(leftValue, IntToDatetime(rightValue.Int64))
+		// case ValueInterval:
+		//   return multInterval(leftValue, IntToInterval(rightValue.Int64))
+		default:
+			return Null(), NewArithmeticError("*", leftValue.Type.String(), rightValue.Type.String())
+		}
+	}
 }
 
 func multInt(left Value, right int64) (Value, error) {
@@ -86,7 +86,7 @@ func multFloat(left Value, right float64) (Value, error) {
 		return Null(), NewArithmeticError("*", left.Type.String(), "float")
 	case ValueString:
 		return Null(), NewArithmeticError("*", left.Type.String(), "float")
-	case ValueInt64:	
+	case ValueInt64:
 		return FloatToValue(float64(left.Int64) * right), nil
 	case ValueUint64:
 		return FloatToValue(float64(left.Uint64) * right), nil

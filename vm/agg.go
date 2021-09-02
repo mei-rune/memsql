@@ -1,6 +1,5 @@
 package vm
 
-
 type Aggregator interface {
 	Agg(Value) error
 
@@ -31,7 +30,7 @@ func (c *countAgg) Agg(value Value) error {
 	if value.IsNull() {
 		return nil
 	}
-	c.count ++ 
+	c.count++
 	return nil
 }
 
@@ -56,8 +55,8 @@ func (c *sumAgg) Result() (Value, error) {
 }
 
 type avgAgg struct {
-	name string
-	sum Value
+	name  string
+	sum   Value
 	count int64
 }
 
@@ -69,7 +68,7 @@ func (c *avgAgg) Agg(value Value) (err error) {
 	if err != nil {
 		return err
 	}
-	c.count ++
+	c.count++
 	return nil
 }
 

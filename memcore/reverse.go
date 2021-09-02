@@ -39,7 +39,6 @@ func (q Query) Reverse() Query {
 					readDone = true
 				}
 
-
 				if index < 0 {
 					err = ErrNoRows
 					return
