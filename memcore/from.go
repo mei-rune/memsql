@@ -4,6 +4,7 @@ import (
 	"database/sql"
 )
 
+var ErrReadFirst = errors.New("read first while fetch items")
 var ErrNoRows = sql.ErrNoRows
 
 func IsNoRows(e error) bool {
@@ -95,4 +96,56 @@ func FromIterable(source Iterable) Query {
 	return Query{
 		Iterate: source.Iterate,
 	}
+}
+
+
+type Stash struct {	
+	items     []Record
+	readDone  bool
+	readError error
+}
+
+func (stash *Stash) Get(ctx Context, index int) (item Record, err error) {
+	if !stash.readDone {
+		if stash.readError != nil {
+			err = stash.readError
+			return
+		}
+
+		err = ErrReadFirst
+		return 
+	}
+
+	if index >= len(stash.items) {
+		err = ErrNoRows
+		return
+	}
+
+	item = stash.items[index]
+	return
+}
+
+
+func (stash *Stash) ReadAll(ctx Context, next Iterator) error {
+	if stash.readDone {
+		return nil
+	}
+	if stash.readError != nil {
+		return stash.readError
+	}
+
+	for {
+		current, err := next(ctx)
+		if err != nil {
+			if !IsNoRows(err) {
+				stash.readError = err
+				return err
+			}
+			break
+		}
+
+		stash.items = append(stash.items, current)
+	}
+	stash.readDone = true
+	return nil
 }

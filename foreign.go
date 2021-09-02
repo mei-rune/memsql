@@ -9,12 +9,12 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-type Foreign struct {
+type dbForeign struct {
 	Drv string
 	Conn *sql.DB
 }
 
-func (f *Foreign) From(ctx *SessionContext, tableName, tableAs string, where *sqlparser.Where) (memcore.Query, error) {
+func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *sqlparser.Where) (memcore.Query, error) {
 	sqlstr := "SELECT * FROM " + tableName
 	if tableAs != "" {
 		sqlstr = sqlstr + " AS " + tableAs

@@ -21,6 +21,10 @@ type Record = memcore.Record
 type RecordSet = memcore.RecordSet
 type Storage = memcore.Storage
 
+type Foreign interface {
+	From(ctx *SessionContext, tableName, tableAs string, where *sqlparser.Where) (memcore.Query, error)
+}
+
 type Context struct {
 	Ctx     context.Context
 	Debuger ExecuteDebuger
