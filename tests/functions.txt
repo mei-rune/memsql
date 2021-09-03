@@ -6,3 +6,8 @@ f1,f2
 select test("abc") from a
 -- func_test.result --
 "test_abc"
+
+-- cast1.sql --
+select cast(f1 as int),cast(f2 as bool) from a
+-- cast1.result --
+123,true

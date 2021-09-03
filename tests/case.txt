@@ -1,0 +1,17 @@
+-- a --
+f1,f2
+"123",1
+"223",2
+
+-- case1.sql --
+select f1, case f2 when 1 then 'abc' else 'def' end from a
+-- case1.result --
+123,"abc"
+223,"def"
+
+
+-- case2.sql --
+select f1, case when f2 > 1 then 'abc' else 'def' end from a
+-- case2.result --
+123,"def"
+223,"abc"

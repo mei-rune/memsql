@@ -364,7 +364,59 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 	case *sqlparser.FuncExpr:
 		return ToFuncGetValue(ctx, v)
 	case *sqlparser.CaseExpr:
-		return nil, ErrUnsupportedExpr("CaseExpr")
+		// CaseExpr represents a CASE expression.
+		// type CaseExpr struct {
+		// 	Expr  Expr
+		// 	Whens []*When
+		// 	Else  Expr
+		// }
+
+
+		elseValue, err := ToGetValue(ctx, v.Else)
+		if err != nil {
+			return nil, fmt.Errorf("invalid expression %+v", v.Else)
+		}
+
+		if v.Expr != nil {
+
+
+			readValue, err := ToGetValue(ctx, v.Expr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid expression %+v", v.Expr)
+			}
+
+			var condList  []func(vm.Context) (vm.Value, error)
+			var valueList  []func(vm.Context) (vm.Value, error)
+			for _, when := range v.Whens {
+				condValue, err := ToGetValue(ctx, when.Cond)
+				if err != nil {
+					return nil, fmt.Errorf("invalid expression %+v", when)
+				}
+				getValue, err := ToGetValue(ctx, when.Val)
+				if err != nil {
+					return nil, fmt.Errorf("invalid expression %+v", when)
+				}
+				condList = append(condList, condValue)
+				valueList = append(valueList, getValue)
+			}
+			return vm.ToSwitchWithValue(readValue, condList, valueList, elseValue), nil
+		}
+
+		var condList  []func(vm.Context) (bool, error)
+		var valueList  []func(vm.Context) (vm.Value, error)
+		for _, when := range v.Whens {
+			condValue, err := ToFilter(ctx, when.Cond)
+			if err != nil {
+				return nil, fmt.Errorf("invalid expression %+v", when)
+			}
+			getValue, err := ToGetValue(ctx, when.Val)
+			if err != nil {
+				return nil, fmt.Errorf("invalid expression %+v", when)
+			}
+			condList = append(condList, condValue)
+			valueList = append(valueList, getValue)
+		}
+		return vm.ToSwitch(condList, valueList, elseValue), nil
 	case *sqlparser.ValuesFuncExpr:
 		return nil, ErrUnsupportedExpr("ValuesFuncExpr")
 	case *sqlparser.ConvertExpr:
@@ -407,7 +459,6 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 		return nil, ErrUnsupportedExpr("MatchExpr")
 	case *sqlparser.GroupConcatExpr:
 		return nil, ErrUnsupportedExpr("GroupConcatExpr")
-
 	default:
 		return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)
 	}
