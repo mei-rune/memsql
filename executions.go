@@ -19,10 +19,36 @@ type Column = memcore.Column
 type Table = memcore.Table
 type Record = memcore.Record
 type RecordSet = memcore.RecordSet
-type Storage = memcore.Storage
 
 type Foreign interface {
 	From(ctx *SessionContext, tableName, tableAs string, where *sqlparser.Where) (memcore.Query, error)
+}
+
+type Storage interface {
+	From(ctx *SessionContext, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error)
+}
+
+func WrapStorage(storage memcore.Storage) Storage {
+	return storageWrapper{storage: storage}
+}
+
+type storageWrapper struct {
+	storage memcore.Storage	
+}
+
+func (s storageWrapper)	From(ctx *SessionContext, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
+	var f = func(vm.Context) (bool, error) {
+		return true, nil
+	}
+	if tableExpr != nil {
+		ff, err := parser.ToFilter(nil, tableExpr)
+		if err != nil {
+			return memcore.Query{}, nil, errors.Wrap(err, "couldn't convert tableExpr '"+sqlparser.String(tableExpr)+"'")
+		}
+		f = ff
+	}
+
+	return s.storage.From(ctx, tableName, f)
 }
 
 type Context struct {
@@ -174,8 +200,6 @@ func ExecuteSelect(ec *SessionContext, stmt *sqlparser.Select, hasJoin bool) (me
 	if stmt.Distinct != "" {
 		return memcore.Query{}, errors.New("currently unsupport distinct")
 	}
-
-	// Where       *Where
 
 	_, query, err := ExecuteTableExpression(ec, stmt.From[0], stmt.Where, hasJoin)
 	if err != nil {
@@ -394,10 +418,6 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 		return ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, &sqlparser.Where{Expr: whereExpr})
 	}
 
-	var f = func(vm.Context) (bool, error) {
-		return true, nil
-	}
-
 	var expr sqlparser.Expr
 	if where != nil {
 		expr = where.Expr
@@ -413,17 +433,11 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 		if err != nil {
 			return memcore.Query{}, errors.Wrap(err, "couldn't resolve where '"+sqlparser.String(expr)+"'")
 		}
-		if tableExpr != nil {
-			f, err = parser.ToFilter(nil, tableExpr)
-			if err != nil {
-				return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
-			}
-		}
 	}
 
 	debuger := ec.Debuger.Table(ds.Table, ds.As, tableExpr)
 
-	query, tableNames, err := ec.Storage.From(ec, ds.Table, f)
+	query, tableNames, err := ec.Storage.From(ec, ds.Table, ds.As, tableExpr)
 	if err != nil {
 		return memcore.Query{}, err
 	}

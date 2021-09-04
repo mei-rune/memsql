@@ -45,7 +45,7 @@ type TestApp struct {
 	filename string
 	driver   string
 	conn     *sql.DB
-	s        Storage
+	s        memcore.Storage
 }
 
 func (app *TestApp) Close() error {
@@ -156,7 +156,7 @@ func (app *TestApp) Execute(t *testing.T, ctx *Context, sqlstmt string) (RecordS
 		ctx.Ctx = context.Background()
 	}
 	if ctx.Storage == nil {
-		ctx.Storage = app.s
+		ctx.Storage = WrapStorage(app.s)
 	}
 	if ctx.Foreign == nil {
 		ctx.Foreign = NewDbForeign(app.driver, app.conn)

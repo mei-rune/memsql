@@ -6,7 +6,7 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-func SplitByOr(expr sqlparser.Expr, results []sqlparser.Expr) ([]sqlparser.Expr, error) {
+func SplitByOr(expr sqlparser.Expr) ([]sqlparser.Expr, error) {
 	return splitByOr(expr, nil)
 }
 
