@@ -47,3 +47,10 @@ select f3, f2, f1 from abc where f3 <= 2
 -- fooselect7.result --
 1,"b1","a1"
 2,"b2","a2"
+
+
+-- fooselect8.sql --
+select f3, f2, f1 from abc where f3 in (1, 2)
+-- fooselect8.result --
+1,"b1","a1"
+2,"b2","a2"

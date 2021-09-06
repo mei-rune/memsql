@@ -507,6 +507,26 @@ func ToGetValues(ctx filterContext, expr sqlparser.SQLNode) (func(vm.Context) ([
 			}
 			return values, nil
 		}, nil
+	case sqlparser.ValTuple:
+		var funcs []func(vm.Context) (vm.Value, error)
+		for idx := range v {
+			f, err := ToGetValue(ctx, v[idx])
+			if err != nil {
+				return nil, err
+			}
+			funcs = append(funcs, f)
+		}
+		return func(ctx vm.Context) ([]vm.Value, error) {
+			values := make([]vm.Value, len(funcs))
+			for idx, read := range funcs {
+				value, err := read(ctx)
+				if err != nil {
+					return nil, err
+				}
+				values[idx] = value
+			}
+			return values, nil
+		}, nil
 	default:
 		return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)
 	}
