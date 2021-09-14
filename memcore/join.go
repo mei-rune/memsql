@@ -139,6 +139,8 @@ func (q Query) FullJoin(inner Query, resultSelector func(outer Record, inner Rec
 						innerGroup = innerItems
 						innerLen = len(innerGroup)
 						innerIndex = 0
+
+						has = innerIndex < innerLen 
 					}
 				}
 

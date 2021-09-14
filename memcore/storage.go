@@ -31,7 +31,7 @@ type TableName struct {
 
 type Storage interface {
 	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, []TableName, error)
-	Set(name string, tags []KeyValue, table Table)
+	Set(name string, tags []KeyValue, table Table, err error)
 	Exists(name string, tags []KeyValue) bool
 }
 
@@ -118,6 +118,7 @@ func (kvs KeyValues) ToKey() string {
 
 type measurement struct {
 	tags  KeyValues
+	err error
 	table Table
 }
 
@@ -160,6 +161,9 @@ func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer)
 		if err != nil {
 			return Query{}, nil, err
 		}
+		if m.err != nil {
+			return Query{}, nil, m.err
+		}
 
 		if ok {
 			tableNames = append(tableNames, TableName{
@@ -179,7 +183,7 @@ func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer)
 	return query, tableNames, nil
 }
 
-func (s *storage) Set(name string, tags []KeyValue, table Table) {
+func (s *storage) Set(name string, tags []KeyValue, table Table, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -198,6 +202,7 @@ func (s *storage) Set(name string, tags []KeyValue, table Table) {
 	key := KeyValues(copyed).ToKey()
 	byKey[key] = measurement{
 		tags:  copyed,
+		err:   err,
 		table: table,
 	}
 }
