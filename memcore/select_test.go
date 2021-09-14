@@ -7,12 +7,12 @@ import (
 func TestSelectIndexed(t *testing.T) {
 	tests := []struct {
 		input    []int64
-		selector func(int, Record) Record
+		selector func(int, Record) (Record, error)
 		output   []Record
 	}{
-		{[]int64{1, 2, 3}, func(i int, x Record) Record {
+		{[]int64{1, 2, 3}, func(i int, x Record) (Record, error) {
 			x.Values[0].Int64 = x.Values[0].Int64 * int64(i)
-			return x
+			return x, nil
 		}, makeRecords(0, 2, 6)},
 	}
 

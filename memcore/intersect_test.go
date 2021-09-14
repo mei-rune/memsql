@@ -1,6 +1,10 @@
 package memcore
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/runner-mei/memsql/vm"
+)
 
 func TestIntersect(t *testing.T) {
 	input1 := []int64{1, 2, 3}
@@ -18,7 +22,7 @@ func TestIntersectBy(t *testing.T) {
 	want := makeRecords(5, 8)
 
 	if q := fromInts(input1...).IntersectBy(fromInts(input2...), func(i Record) Value {
-		return IntToValue(i.Values[0].Int64 % 2)
+		return vm.IntToValue(i.Values[0].Int64 % 2)
 	}); !validateQuery(q, want) {
 		t.Errorf("From(%v).IntersectBy(%v)=%v expected %v", input1, input2, toSlice(q), want)
 	}

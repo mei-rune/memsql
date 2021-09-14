@@ -3,7 +3,11 @@ package memcore
 import (
 	"fmt"
 	"testing"
+
+	"github.com/runner-mei/memsql/vm"
 )
+
+var MustToValue = vm.MustToValue
 
 func mkCtx() Context {
 	return nil
@@ -12,7 +16,9 @@ func mkCtx() Context {
 func makeRecord(value int64) Record {
 	return Record{
 		Columns: []Column{{Name: "c1"}},
-		Values:  []Value{{Type: ValueInt64, Int64: value}},
+		Values:  []Value{
+				vm.IntToValue(value),
+			},
 	}
 }
 
@@ -34,8 +40,8 @@ func fromInt2(inputs [][2]int64) Query {
 		record := Record{
 			Columns: []Column{{Name: "c1"}, {Name: "c2"}},
 			Values: []Value{
-				{Type: ValueInt64, Int64: value[0]},
-				{Type: ValueInt64, Int64: value[1]},
+				vm.IntToValue(value[0]),
+				vm.IntToValue(value[1]),
 			},
 		}
 		results = append(results, record)
@@ -46,7 +52,7 @@ func fromInt2(inputs [][2]int64) Query {
 func makeRecordWithStr(value string) Record {
 	return Record{
 		Columns: []Column{{Name: "c1"}},
-		Values:  []Value{{Type: ValueString, Str: value}},
+		Values:  []Value{{Type: vm.ValueString, Str: value}},
 	}
 }
 
@@ -55,7 +61,7 @@ func makeRecordsWithStrings(value ...string) []Record {
 	for _, v := range value {
 		results = append(results, Record{
 			Columns: []Column{{Name: "c1"}},
-			Values:  []Value{{Type: ValueString, Str: v}},
+			Values:  []Value{vm.StringToValue(v)},
 		})
 	}
 	return results
@@ -79,19 +85,19 @@ func (f foo) Iterate() Iterator {
 		case 0:
 			item = Record{
 				Columns: []Column{{Name: "c1"}},
-				Values:  []Value{{Type: ValueInt64, Int64: int64(f.f1)}},
+				Values:  []Value{vm.IntToValue(int64(f.f1))},
 			}
 			err = nil
 		case 1:
 			item = Record{
 				Columns: []Column{{Name: "c1"}},
-				Values:  []Value{{Type: ValueBool, Bool: f.f2}},
+				Values:  []Value{vm.BoolToValue(f.f2)},
 			}
 			err = nil
 		case 2:
 			item = Record{
 				Columns: []Column{{Name: "c1"}},
-				Values:  []Value{{Type: ValueString, Str: f.f3}},
+				Values:  []Value{vm.StringToValue( f.f3)},
 			}
 			err = nil
 		default:
@@ -133,7 +139,7 @@ func validateQuery(q Query, output []Record) bool {
 			panic(err)
 		}
 
-		ok, err := oitem.EqualTo(qitem, emptyCompareOption)
+		ok, err := oitem.EqualTo(qitem, vm.EmptyCompareOption())
 		if err != nil {
 			panic(err)
 		}

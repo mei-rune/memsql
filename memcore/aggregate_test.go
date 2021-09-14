@@ -68,7 +68,7 @@ func TestAggregateWithSeedBy(t *testing.T) {
 			}
 			return i, nil
 		},
-		func(r Record) (Record, error) {
+		func(c Context, r Record) (Record, error) {
 			r.Values[0].Str = strings.ToUpper(r.Values[0].Str)
 			return r, nil
 		},

@@ -1,6 +1,10 @@
 package memcore
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/runner-mei/memsql/vm"
+)
 
 func TestExcept(t *testing.T) {
 	input1 := []int64{1, 2, 3, 4, 5, 1, 2, 5}
@@ -18,7 +22,7 @@ func TestExceptBy(t *testing.T) {
 	want := makeRecords(2, 4, 2)
 
 	if q := fromInts(input1...).ExceptBy(fromInts(input2...), func(i Record) Value {
-		return IntToValue(i.Values[0].Int64 % 2)
+		return vm.IntToValue(i.Values[0].Int64 % 2)
 	}); !validateQuery(q, want) {
 		t.Errorf("From(%v).ExceptBy(%v)=%v expected %v", input1, input2, toSlice(q), want)
 	}

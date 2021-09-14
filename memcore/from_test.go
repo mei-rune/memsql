@@ -1,6 +1,10 @@
 package memcore
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/runner-mei/memsql/vm"
+)
 
 func TestFrom(t *testing.T) {
 	if q := FromRecords(makeRecords(1, 2, 3)); !validateQuery(q, makeRecords(1, 2, 3)) {
@@ -14,15 +18,15 @@ func TestFrom(t *testing.T) {
 	excepted := []Record{
 		Record{
 			Columns: []Column{{Name: "c1"}},
-			Values:  []Value{{Type: ValueInt64, Int64: 1}},
+			Values:  []Value{{Type: vm.ValueInt64, Int64: 1}},
 		},
 		Record{
 			Columns: []Column{{Name: "c1"}},
-			Values:  []Value{{Type: ValueBool, Bool: true}},
+			Values:  []Value{{Type: vm.ValueBool, Int64: 1}},
 		},
 		Record{
 			Columns: []Column{{Name: "c1"}},
-			Values:  []Value{{Type: ValueString, Str: "string"}},
+			Values:  []Value{{Type: vm.ValueString, Str: "string"}},
 		},
 	}
 	fooinput := foo{f1: 1, f2: true, f3: "string"}
