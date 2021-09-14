@@ -94,7 +94,7 @@ func TestSplit(t *testing.T) {
 		}
 		sel, _ := stmt.(*sqlparser.Select)
 
-		exprs, err := SplitByOr(sel.Where.Expr, nil)
+		exprs, err := SplitByOr(sel.Where.Expr)
 		if err != nil {
 			t.Error(test.s)
 			t.Error(err)
