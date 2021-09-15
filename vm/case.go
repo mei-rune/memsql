@@ -1,9 +1,8 @@
 package vm
 
-
-func ToSwitchWithValue(readValue func(Context) (Value, error), 
-	condList []func(Context) (Value, error), 
-	valueList []func(Context) (Value, error), 
+func ToSwitchWithValue(readValue func(Context) (Value, error),
+	condList []func(Context) (Value, error),
+	valueList []func(Context) (Value, error),
 	elseValue func(Context) (Value, error)) func(Context) (Value, error) {
 	return func(ctx Context) (Value, error) {
 		value, err := readValue(ctx)
@@ -27,9 +26,8 @@ func ToSwitchWithValue(readValue func(Context) (Value, error),
 	}
 }
 
-
-func ToSwitch(condList []func(Context) (bool, error), 
-	valueList []func(Context) (Value, error), 
+func ToSwitch(condList []func(Context) (bool, error),
+	valueList []func(Context) (Value, error),
 	elseValue func(Context) (Value, error)) func(Context) (Value, error) {
 	return func(ctx Context) (Value, error) {
 		for idx := range condList {

@@ -36,8 +36,8 @@ func TestJoin(t *testing.T) {
 }
 
 func TestFullJoin(t *testing.T) {
-	outer := []int64{1,2,3}
-	inner := []int64{4,5,6}
+	outer := []int64{1, 2, 3}
+	inner := []int64{4, 5, 6}
 
 	columns := []Column{
 		{Name: "c1"},

@@ -12,8 +12,8 @@ type StringIterator interface {
 }
 
 type simpleStringIterator struct {
-	value string
-	readable bool	
+	value    string
+	readable bool
 }
 
 func (simple *simpleStringIterator) Next() (string, error) {
@@ -26,14 +26,14 @@ func (simple *simpleStringIterator) Next() (string, error) {
 
 func toStringIterator(s string) StringIterator {
 	return &simpleStringIterator{
-		value: s,
+		value:    s,
 		readable: true,
 	}
 }
 
 type stringList struct {
-	list []string
-	index int	
+	list  []string
+	index int
 }
 
 func (kl *stringList) Next() (string, error) {
@@ -49,10 +49,9 @@ func cloneStrings(ss []string) []string {
 	return c
 }
 
-
 type unionStrs struct {
 	query1, query2 StringIterator
-	query1Done bool	
+	query1Done     bool
 }
 
 func (us *unionStrs) Next() (string, error) {
@@ -85,7 +84,7 @@ func appendStringIterator(query1, query2 StringIterator) StringIterator {
 				list: append(cloneStrings(q1.list[q1.index:]), q2.value),
 			}
 		}
-	case *simpleStringIterator:		
+	case *simpleStringIterator:
 		if !q1.readable {
 			return query2
 		}
@@ -104,7 +103,7 @@ func appendStringIterator(query1, query2 StringIterator) StringIterator {
 		}
 	}
 	return &unionStrs{
-		query1: query1, 
+		query1: query1,
 		query2: query2,
 	}
 }
@@ -114,8 +113,8 @@ type KeyValueIterator interface {
 }
 
 type keyValues struct {
-  name string
-  query StringIterator
+	name  string
+	query StringIterator
 }
 
 func (kvs *keyValues) Next() ([]memcore.KeyValue, error) {
@@ -127,8 +126,8 @@ func (kvs *keyValues) Next() ([]memcore.KeyValue, error) {
 }
 
 type kvList struct {
-	list [][]memcore.KeyValue
-	index int	
+	list  [][]memcore.KeyValue
+	index int
 }
 
 func (kl *kvList) Next() ([]memcore.KeyValue, error) {
@@ -139,8 +138,8 @@ func (kl *kvList) Next() ([]memcore.KeyValue, error) {
 }
 
 type simpleKv struct {
-	values []memcore.KeyValue
-	readable bool	
+	values   []memcore.KeyValue
+	readable bool
 }
 
 func (simple *simpleKv) Next() ([]memcore.KeyValue, error) {
@@ -154,12 +153,12 @@ func (simple *simpleKv) Next() ([]memcore.KeyValue, error) {
 type mergeIterator struct {
 	query1, query2 KeyValueIterator
 
-	done bool
+	done    bool
 	readErr error
-	inner [][]memcore.KeyValue
+	inner   [][]memcore.KeyValue
 
-	outer []memcore.KeyValue
-	innerLen int	
+	outer      []memcore.KeyValue
+	innerLen   int
 	innerIndex int
 }
 
@@ -210,14 +209,14 @@ func appendKeyValueIterator(query KeyValueIterator, kv ...memcore.KeyValue) KeyV
 		return q
 	case *simpleKv:
 		return &simpleKv{
-			values: append(q.values, kv...),
+			values:   append(q.values, kv...),
 			readable: q.readable,
 		}
 	default:
 		return &mergeIterator{
-				query1: query, 
-				query2: &simpleKv{values: kv, readable: true},
-			}
+			query1: query,
+			query2: &simpleKv{values: kv, readable: true},
+		}
 	}
 }
 
@@ -253,7 +252,7 @@ func ToKeyValues(expr sqlparser.Expr, results KeyValueIterator) (KeyValueIterato
 		return ToKeyValues(v.Expr, results)
 	case *sqlparser.ComparisonExpr:
 		if v.Operator == sqlparser.InStr {
-			 return ToInKeyValue(v)
+			return ToInKeyValue(v)
 		}
 
 		key, value, err := ToKeyValue(v)
@@ -366,7 +365,6 @@ func ToInKeyValue(expr *sqlparser.ComparisonExpr) (KeyValueIterator, error) {
 	return nil, fmt.Errorf("invalid key value expression %+v", expr)
 }
 
-
 func ToValueLiteral(expr sqlparser.Expr) (StringIterator, error) {
 	switch v := expr.(type) {
 	case *sqlparser.SQLVal:
@@ -414,7 +412,7 @@ func ToValueLiteral(expr sqlparser.Expr) (StringIterator, error) {
 		if results == nil {
 			return nil, ErrUnsupportedExpr("ValTuple")
 		}
-	 	return results, nil
+		return results, nil
 	// case *sqlparser.Subquery:
 	// 	return nil, ErrUnsupportedExpr("Subquery")
 	// case sqlparser.ListArg:

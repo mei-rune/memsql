@@ -16,6 +16,7 @@ import (
 
 type Value = memcore.Value
 type Column = memcore.Column
+type KeyValue = memcore.KeyValue
 type Table = memcore.Table
 type Record = memcore.Record
 type RecordSet = memcore.RecordSet
@@ -26,6 +27,8 @@ type Foreign interface {
 
 type Storage interface {
 	From(ctx *SessionContext, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error)
+	// Set(name string, tags []KeyValue, t time.Time, table Table, err error)
+	// Exists(name string, tags []KeyValue) bool
 }
 
 func WrapStorage(storage memcore.Storage) Storage {
@@ -33,10 +36,14 @@ func WrapStorage(storage memcore.Storage) Storage {
 }
 
 type storageWrapper struct {
-	storage memcore.Storage	
+	storage memcore.Storage
 }
 
-func (s storageWrapper)	From(ctx *SessionContext, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
+func (s storageWrapper) From(ctx *SessionContext, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
+	return fromRun(ctx, s.storage, tableName, tableAs, tableExpr)
+}
+
+func fromRun(ctx *SessionContext, storage memcore.Storage, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
 	var f = func(vm.Context) (bool, error) {
 		return true, nil
 	}
@@ -48,7 +55,7 @@ func (s storageWrapper)	From(ctx *SessionContext, tableName, tableAs string, tab
 		f = ff
 	}
 
-	return s.storage.From(ctx, tableName, f)
+	return storage.From(ctx, tableName, f)
 }
 
 type Context struct {

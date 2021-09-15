@@ -9,9 +9,9 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-func NewDbForeign(drv  string, conn *sql.DB) Foreign {
+func NewDbForeign(drv string, conn *sql.DB) Foreign {
 	return &dbForeign{
-		Drv: drv,
+		Drv:  drv,
 		Conn: conn,
 	}
 }

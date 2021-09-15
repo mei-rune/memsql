@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/aryann/difflib"
@@ -144,7 +145,7 @@ func (app *TestApp) Add(t *testing.T, table *TestTable) error {
 	if index > 0 {
 		tableName = tableName[:index]
 	}
-	app.s.Set(tableName, memcore.MapToTags(table.Tags), innerTable, nil)
+	app.s.Set(tableName, memcore.MapToTags(table.Tags), time.Now(), innerTable, nil)
 	return nil
 }
 

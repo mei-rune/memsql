@@ -16,9 +16,9 @@ func mkCtx() Context {
 func makeRecord(value int64) Record {
 	return Record{
 		Columns: []Column{{Name: "c1"}},
-		Values:  []Value{
-				vm.IntToValue(value),
-			},
+		Values: []Value{
+			vm.IntToValue(value),
+		},
 	}
 }
 
@@ -97,7 +97,7 @@ func (f foo) Iterate() Iterator {
 		case 2:
 			item = Record{
 				Columns: []Column{{Name: "c1"}},
-				Values:  []Value{vm.StringToValue( f.f3)},
+				Values:  []Value{vm.StringToValue(f.f3)},
 			}
 			err = nil
 		default:

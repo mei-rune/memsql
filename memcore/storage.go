@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/runner-mei/errors"
 	"github.com/runner-mei/memsql/vm"
@@ -31,7 +32,7 @@ type TableName struct {
 
 type Storage interface {
 	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, []TableName, error)
-	Set(name string, tags []KeyValue, table Table, err error)
+	Set(name string, tags []KeyValue, t time.Time, table Table, err error) error
 	Exists(name string, tags []KeyValue) bool
 }
 
@@ -117,9 +118,12 @@ func (kvs KeyValues) ToKey() string {
 }
 
 type measurement struct {
-	tags  KeyValues
-	err error
-	table Table
+	tags     KeyValues
+	dataTime time.Time
+	data     Table
+
+	errTime time.Time
+	err     error
 }
 
 func toGetValuer(tags KeyValues) GetValuer {
@@ -176,14 +180,14 @@ func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer)
 	if len(list) == 0 {
 		return Query{}, nil, TableNotExists(tablename)
 	}
-	query := From(list[0].table)
+	query := From(list[0].data)
 	for i := 1; i < len(list); i++ {
-		query = query.UnionAll(From(list[i].table))
+		query = query.UnionAll(From(list[i].data))
 	}
 	return query, tableNames, nil
 }
 
-func (s *storage) Set(name string, tags []KeyValue, table Table, err error) {
+func (s *storage) Set(name string, tags []KeyValue, t time.Time, data Table, err error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -193,18 +197,31 @@ func (s *storage) Set(name string, tags []KeyValue, table Table, err error) {
 		s.measurements[name] = byKey
 	}
 
-	for idx := range table.Columns {
-		table.Columns[idx].TableName = name
+	for idx := range data.Columns {
+		data.Columns[idx].TableName = name
 	}
 
 	copyed := KeyValues(CloneKeyValues(tags))
 	sort.Sort(copyed)
 	key := KeyValues(copyed).ToKey()
-	byKey[key] = measurement{
-		tags:  copyed,
-		err:   err,
-		table: table,
+
+	m := measurement{
+		tags:     copyed,
+		dataTime: t,
+		data:     data,
+		errTime:  t,
+		err:      err,
 	}
+
+	old, ok := byKey[key]
+	if ok {
+		if err != nil {
+			m.data = old.data
+			m.dataTime = old.dataTime
+		}
+	}
+	byKey[key] = m
+	return nil
 }
 
 func (s *storage) Exists(tablename string, tags []KeyValue) bool {

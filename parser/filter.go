@@ -371,7 +371,6 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 		// 	Else  Expr
 		// }
 
-
 		elseValue, err := ToGetValue(ctx, v.Else)
 		if err != nil {
 			return nil, fmt.Errorf("invalid expression %+v", v.Else)
@@ -379,14 +378,13 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 
 		if v.Expr != nil {
 
-
 			readValue, err := ToGetValue(ctx, v.Expr)
 			if err != nil {
 				return nil, fmt.Errorf("invalid expression %+v", v.Expr)
 			}
 
-			var condList  []func(vm.Context) (vm.Value, error)
-			var valueList  []func(vm.Context) (vm.Value, error)
+			var condList []func(vm.Context) (vm.Value, error)
+			var valueList []func(vm.Context) (vm.Value, error)
 			for _, when := range v.Whens {
 				condValue, err := ToGetValue(ctx, when.Cond)
 				if err != nil {
@@ -402,8 +400,8 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 			return vm.ToSwitchWithValue(readValue, condList, valueList, elseValue), nil
 		}
 
-		var condList  []func(vm.Context) (bool, error)
-		var valueList  []func(vm.Context) (vm.Value, error)
+		var condList []func(vm.Context) (bool, error)
+		var valueList []func(vm.Context) (vm.Value, error)
 		for _, when := range v.Whens {
 			condValue, err := ToFilter(ctx, when.Cond)
 			if err != nil {
