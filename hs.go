@@ -8,6 +8,7 @@ import (
 	"github.com/runner-mei/memsql/memcore"
 	"github.com/runner-mei/memsql/parser"
 	"github.com/xwb1989/sqlparser"
+	// "github.com/cabify/timex"
 )
 
 type HookStorage struct {
@@ -29,8 +30,9 @@ func (hs *HookStorage) From(ctx *SessionContext, tableName, tableAs string, tabl
 }
 
 func (hs *HookStorage) EnsureTables(ctx *SessionContext, tableName, tableAs string, iterator parser.KeyValueIterator) error {
+	predateLimit := hs.GetPredateLimit(ctx)
 	for {
-		current, err := iterator.Next()
+		tags, err := iterator.Next()
 		if err != nil {
 			if memcore.IsNoRows(err) {
 				return nil
@@ -38,19 +40,23 @@ func (hs *HookStorage) EnsureTables(ctx *SessionContext, tableName, tableAs stri
 			return err
 		}
 
-		t, value, err := hs.Read(ctx, tableName, current)
+		if hs.storage.Exists(tableName, tags, predateLimit) {
+			continue
+		}
+
+		t, value, err := hs.Read(ctx, tableName, tags)
 		if err != nil {
-			hs.storage.Set(tableName, current, t, memcore.Table{}, err)
+			hs.storage.Set(tableName, tags, t, memcore.Table{}, err)
 			return err
 		}
 
 		switch v := value.(type) {
 		case map[string]interface{}:
-			return hs.saveRecordToTable(ctx, tableName, t, current, v)
+			return hs.saveRecordToTable(ctx, tableName, t, tags, v)
 		case []map[string]interface{}:
-			return hs.saveRecordsToTable(ctx, tableName, t, current, v)
+			return hs.saveRecordsToTable(ctx, tableName, t, tags, v)
 		default:
-			return errors.New("read '" + tableName + "(" + memcore.KeyValues(current).ToKey() + ")' and return unknown type - " + reflect.TypeOf(value).Name())
+			return errors.New("read '" + tableName + "(" + memcore.KeyValues(tags).ToKey() + ")' and return unknown type - " + reflect.TypeOf(value).Name())
 		}
 	}
 }
@@ -67,6 +73,13 @@ func (hs *HookStorage) saveRecordsToTable(ctx *SessionContext, tableName string,
 	return hs.storage.Set(tableName, tags, t, table, nil)
 }
 
+func (hs *HookStorage) GetPredateLimit(ctx *SessionContext) time.Time {
+	// TODO: xxx
+	return time.Now().Add(1 * time.Minute)
+}
+
 func (hs *HookStorage) Read(ctx *SessionContext, tableName string, tags []memcore.KeyValue) (time.Time, interface{}, error) {
+	// TODO: xxx
+
 	return time.Time{}, nil, errors.New("not implemented")
 }

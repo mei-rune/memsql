@@ -33,7 +33,7 @@ type TableName struct {
 type Storage interface {
 	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, []TableName, error)
 	Set(name string, tags []KeyValue, t time.Time, table Table, err error) error
-	Exists(name string, tags []KeyValue) bool
+	Exists(name string, tags []KeyValue, predateLimit time.Time) bool
 }
 
 type KeyValue struct {
@@ -224,7 +224,7 @@ func (s *storage) Set(name string, tags []KeyValue, t time.Time, data Table, err
 	return nil
 }
 
-func (s *storage) Exists(tablename string, tags []KeyValue) bool {
+func (s *storage) Exists(tablename string, tags []KeyValue, predateLimit time.Time) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -234,6 +234,18 @@ func (s *storage) Exists(tablename string, tags []KeyValue) bool {
 	}
 
 	key := KeyValues(tags).ToKey()
-	_, ok := byKey[key]
+	old, ok := byKey[key]
+	if !ok {
+		return false
+	}
+
+	if predateLimit.After(old.dataTime) {
+		return false
+	}
+	if old.err != nil {
+		if predateLimit.After(old.errTime) {
+			return false
+		}
+	}
 	return ok
 }
