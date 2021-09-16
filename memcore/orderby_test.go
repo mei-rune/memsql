@@ -1,10 +1,14 @@
 package memcore
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/runner-mei/memsql/vm"
+)
 
 func TestEmpty(t *testing.T) {
 	q := fromStrings([]string{}...).OrderByAscending(func(in Record) (Value, error) {
-		return Value{}, nil
+		return vm.Null(), nil
 	})
 
 	_, err := q.Iterate()(mkCtx())

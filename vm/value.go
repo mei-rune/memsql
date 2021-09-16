@@ -384,7 +384,7 @@ func Null() Value {
 
 func ToValue(value interface{}) (Value, error) {
 	if value == nil {
-		return Value{}, nil
+		return Null(), nil
 	}
 	switch v := value.(type) {
 	case json.Number:
@@ -409,7 +409,7 @@ func ToValue(value interface{}) (Value, error) {
 				Float64: f64,
 			}, nil
 		}
-		return Value{}, err
+		return Null(), err
 	case string:
 		return Value{
 			Type: ValueString,
@@ -499,7 +499,7 @@ func ToValue(value interface{}) (Value, error) {
 	case Value:
 		return v, nil
 	}
-	return Value{}, fmt.Errorf("Unknown type %T: %v", value, value)
+	return Null(), fmt.Errorf("Unknown type %T: %v", value, value)
 }
 
 func MustToValue(value interface{}) Value {
@@ -564,7 +564,7 @@ func StringAsNumber(s string) (Value, error) {
 	if err == nil {
 		return FloatToValue(f64), nil
 	}
-	return Value{}, NewTypeError(s, "string", "number")
+	return Null(), NewTypeError(s, "string", "number")
 }
 
 func DatetimeToValue(value time.Time) Value {
