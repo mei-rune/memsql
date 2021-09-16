@@ -32,6 +32,10 @@ type Iterable interface {
 // input. In this case From delegates it to FromString, FromChannel and
 // FromIterable internally.
 func From(source Table) Query {
+	return FromWithTags(source, nil)
+}
+
+func FromWithTags(source Table, tags KeyValues) Query {
 	return Query{
 		Iterate: func() Iterator {
 			index := 0
@@ -39,6 +43,7 @@ func From(source Table) Query {
 			return func(Context) (item Record, err error) {
 				if index < source.Length() {
 					item = source.At(index)
+					item.Tags = tags
 					index++
 					return
 				}

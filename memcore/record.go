@@ -6,10 +6,13 @@ import (
 	"io"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/runner-mei/errors"
 	"github.com/runner-mei/memsql/vm"
 )
+
+const TagIndexStart = 100000
 
 type Value = vm.Value
 
@@ -18,6 +21,7 @@ type Column struct {
 	TableAs   string
 	Name      string
 }
+
 
 func mkColumn(name string) Column {
 	return Column{Name: name}
@@ -66,6 +70,7 @@ func columnSearchByName(columns []Column, column string) int {
 }
 
 type Record struct {
+	Tags KeyValues
 	Columns []Column
 	Values  []Value
 }
@@ -117,39 +122,80 @@ func (r *Record) Clone() Record {
 	values := make([]Value, len(r.Values))
 	copy(values, r.Values)
 
+
+	tags := make([]KeyValue, len(r.Tags))
+	copy(tags, r.Tags)
+
 	return Record{
+		Tags: 	 tags,
 		Columns: columns,
 		Values:  values,
 	}
 }
 
 func (r *Record) Search(name string) int {
-	return columnSearchByName(r.Columns, name)
+	idx := columnSearchByName(r.Columns, name)
+	if idx < 0 {
+		if strings.HasPrefix( name, "@") {
+			name = strings.TrimPrefix(name, "@")
+		}
+		for idx := range r.Tags {
+			if r.Tags[idx].Key == name {
+				return TagIndexStart + idx
+			}
+		}
+	}
+
+	return -1
 }
 
 func (r *Record) At(idx int) Value {
-	if len(r.Values) >= idx {
-		// Columns 和 Values 的长度不一定一致, 看下面的 ToTable
-		return vm.Null()
+	if len(r.Values) < idx {
+		return r.Values[idx]
 	}
 
-	return r.Values[idx]
+	if idx >= TagIndexStart {
+		idx = idx - TagIndexStart
+		if len(r.Tags) < idx {
+			return vm.StringToValue(r.Tags[idx].Value)
+		}
+	}
+	// Columns 和 Values 的长度不一定一致, 看下面的 ToTable
+	return vm.Null()
 }
 
 func (r *Record) Get(name string) (Value, bool) {
 	idx := columnSearchByName(r.Columns, name)
-	if idx < 0 {
-		return Value{}, false
+	if idx >= 0 {
+		return r.Values[idx], true
 	}
-	return r.Values[idx], true
+
+	if strings.HasPrefix(name, "@") {
+		name = strings.TrimPrefix(name, "@")
+	}
+	for idx := range r.Tags {
+		if r.Tags[idx].Key == name {
+			return vm.StringToValue(r.Tags[idx].Value), true
+		}
+	}
+	return vm.Null(), false
 }
 
 func (r *Record) GetByQualifierName(tableAs, name string) (Value, bool) {
 	idx := columnSearchByQualifierName(r.Columns, tableAs, name)
-	if idx < 0 {
-		return Value{}, false
+	if idx >= 0 {
+		return r.Values[idx], true
 	}
-	return r.Values[idx], true
+
+	if strings.HasPrefix(name, "@") {
+		name = strings.TrimPrefix(name, "@")
+	}
+	for idx := range r.Tags {
+		if r.Tags[idx].Key == name {
+			return vm.StringToValue(r.Tags[idx].Value), true
+		}
+	}
+	return vm.Null(), false
 }
 
 func (r *Record) IsEmpty() bool {
@@ -185,6 +231,22 @@ func (r *Record) marshalText() ([]byte, error) {
 	var buf = make([]byte, 0, 256)
 	buf = append(buf, '{')
 	isFirst := true
+
+	for idx := range r.Tags {
+		if isFirst {
+			isFirst = false
+		} else {
+			buf = append(buf, ',')
+		}
+
+		buf = append(buf, '"')
+		buf = append(buf, r.Tags[idx].Key...)
+		buf = append(buf, '"')
+		buf = append(buf, ':')
+		buf = append(buf, '"')
+		buf = append(buf, r.Tags[idx].Value...)
+		buf = append(buf, '"')
+	}
 	for idx := range r.Columns {
 		if r.Values[idx].IsNil() {
 			continue

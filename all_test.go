@@ -231,12 +231,13 @@ func readTable(data []byte) (TestTable, error) {
 		if pos < 0 {
 			pos = len(data)
 		}
+
 		err := json.Unmarshal(bytes.TrimSpace(data[:pos]), &tags)
 		if err != nil {
 			return TestTable{}, err
 		}
 
-		data = data[:pos]
+		data = data[pos:]
 		data = bytes.TrimSpace(data)
 	}
 

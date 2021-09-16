@@ -12,12 +12,22 @@ import (
 
 var ErrNotFound = vm.ErrNotFound
 
-func TableNotExists(table string) error {
+func TableNotExists(table string, err ...error) error {
+	if len(err) > 0 && err[0] != nil {
+		return errors.WithTitle(errors.ErrTableNotExists, "table '"+table+"' isnot exists: " + err[0].Error())
+	}
 	return errors.WithTitle(errors.ErrTableNotExists, "table '"+table+"' isnot exists")
 }
 
 func ColumnNotFound(columnName string) error {
 	return errors.WithTitle(ErrNotFound, "column '"+columnName+"' isnot found")
+}
+
+func TagNotFound(tableName, tagName string) error {
+	if tableName == "" {
+		return errors.WithTitle(ErrNotFound, "tag '"+tagName+"' isnot found")
+	}
+	return errors.WithTitle(ErrNotFound, "tag '"+tableName+"."+tagName+"' isnot found")
 }
 
 type Context interface{}
@@ -128,12 +138,16 @@ type measurement struct {
 
 func toGetValuer(tags KeyValues) GetValuer {
 	return GetValueFunc(func(tableName, name string) (Value, error) {
-		value, ok := tags.Get(name)
+
+		tagName := name
+		if strings.HasPrefix(tagName, "@") {
+			tagName = strings.TrimPrefix(tagName, "@")
+		}
+		value, ok := tags.Get(tagName)
 		if ok {
 			return vm.StringToValue(value), nil
 		}
-
-		return vm.Null(), ErrNotFound
+		return vm.Null(), TagNotFound(tableName, name)
 	})
 }
 
@@ -163,7 +177,11 @@ func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer)
 		values := toGetValuer(m.tags)
 		ok, err := filter(values)
 		if err != nil {
-			return Query{}, nil, err
+			if errors.Is(err, ErrNotFound) {
+				continue
+			}
+
+			return Query{}, nil, TableNotExists(tablename, err)
 		}
 		if m.err != nil {
 			return Query{}, nil, m.err
@@ -180,9 +198,9 @@ func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer)
 	if len(list) == 0 {
 		return Query{}, nil, TableNotExists(tablename)
 	}
-	query := From(list[0].data)
+	query := FromWithTags(list[0].data, list[0].tags)
 	for i := 1; i < len(list); i++ {
-		query = query.UnionAll(From(list[i].data))
+		query = query.UnionAll(FromWithTags(list[i].data, list[0].tags))
 	}
 	return query, tableNames, nil
 }

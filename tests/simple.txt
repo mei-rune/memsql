@@ -3,6 +3,35 @@ f1,f2,f3
 a1,b1,1
 a2,b2,2
 a3,b3,3
+
+-- cpu --
+tags: {"mo":"1"}
+f1,f2,f3,f4
+c1a1,c1b1,1,true
+c1a2,c1b2,2,true
+c1a3,c1b3,3,true
+
+-- cpu --
+tags: {"mo":"2"}
+f1,f2,f3,f4
+c1a1,c2b1,1,true
+c1a1,c2b1,1,false
+c1a2,c2b2,2,true
+c1a2,c2b2,2,false
+c1a3,c2b3,3,true
+c1a3,c2b3,3,false
+
+-- cpu --
+tags: {"mo":"3"}
+f1,f2,f3,f4
+c1a1,c3b1,1,true
+c1a1,c3b1,1,false
+c1a2,c3b2,2,true
+c1a2,c3b2,2,false
+c1a3,c3b3,3,true
+c1a3,c3b3,3,false
+
+
 -- foo.sql --
 select * from abc
 -- foo.sort.result --
@@ -54,3 +83,10 @@ select f3, f2, f1 from abc where f3 in (1, 2)
 -- fooselect8.result --
 1,"b1","a1"
 2,"b2","a2"
+
+-- fooselect9.sql --
+select f1,f2,f3,f4 from cpu where @mo = "1"
+-- fooselect9.result --
+"c1a1","c1b1",1,true
+"c1a2","c1b2",2,true
+"c1a3","c1b3",3,true
