@@ -200,6 +200,8 @@ func (merge *mergeIterator) Next() ([]memcore.KeyValue, error) {
 	return items, nil
 }
 
+
+
 func appendKeyValueIterator(query KeyValueIterator, kv ...memcore.KeyValue) KeyValueIterator {
 	switch q := query.(type) {
 	case *kvList:
@@ -220,14 +222,14 @@ func appendKeyValueIterator(query KeyValueIterator, kv ...memcore.KeyValue) KeyV
 	}
 }
 
-func ToKeyValues(expr sqlparser.Expr, results KeyValueIterator) (KeyValueIterator, error) {
+func ToKeyValues(expr sqlparser.Expr, qualifier string, results KeyValueIterator) (KeyValueIterator, error) {
 	switch v := expr.(type) {
 	case *sqlparser.AndExpr:
-		tmp, err := ToKeyValues(v.Left, results)
+		tmp, err := ToKeyValues(v.Left, qualifier, results)
 		if err != nil {
 			return nil, err
 		}
-		tmp, err = ToKeyValues(v.Right, tmp)
+		tmp, err = ToKeyValues(v.Right, qualifier, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -249,15 +251,28 @@ func ToKeyValues(expr sqlparser.Expr, results KeyValueIterator) (KeyValueIterato
 	// 	}
 	// 	return vm.Not(f), nil
 	case *sqlparser.ParenExpr:
-		return ToKeyValues(v.Expr, results)
+		return ToKeyValues(v.Expr, qualifier, results)
 	case *sqlparser.ComparisonExpr:
 		if v.Operator == sqlparser.InStr {
-			return ToInKeyValue(v)
+			tableAs, iter, err := ToInKeyValue(v)
+			if err != nil {
+				return nil, err
+			}
+			if qualifier == tableAs {
+				return results, nil
+			}
+			return &mergeIterator{
+				query1: results,
+				query2: iter,
+			}, nil
 		}
 
-		key, value, err := ToKeyValue(v)
+		tableAs, key, value, err := ToKeyValue(v)
 		if err != nil {
 			return nil, err
+		}
+		if qualifier == tableAs {
+			return results, nil
 		}
 		return appendKeyValueIterator(results, memcore.KeyValue{Key: key, Value: value}), nil
 	// case *sqlparser.RangeCond:
@@ -311,58 +326,58 @@ func ToKeyValues(expr sqlparser.Expr, results KeyValueIterator) (KeyValueIterato
 	}
 }
 
-func ToKeyValue(expr *sqlparser.ComparisonExpr) (string, string, error) {
+func ToKeyValue(expr *sqlparser.ComparisonExpr) (string, string, string, error) {
 	if expr.Operator != sqlparser.EqualStr {
-		return "", "", fmt.Errorf("invalid key value expression %+v", expr)
+		return "", "", "", fmt.Errorf("invalid key value expression %+v", expr)
 	}
 
 	left, ok := expr.Left.(*sqlparser.ColName)
 	if ok {
 		value, err := ToValueLiteral(expr.Right)
 		if err != nil {
-			return "", "", fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
+			return "", "", "", fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
 		}
 		simple, ok := value.(*simpleStringIterator)
 		if !ok {
-			return "", "", fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
+			return "", "", "", fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
 		}
-		return sqlparser.String(left.Name), simple.value, nil
+		return sqlparser.String(left.Qualifier), sqlparser.String(left.Name), simple.value, nil
 	}
 
 	right, ok := expr.Right.(*sqlparser.ColName)
 	if ok {
 		value, err := ToValueLiteral(expr.Left)
 		if err != nil {
-			return "", "", fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
+			return "", "", "", fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
 		}
 		simple, ok := value.(*simpleStringIterator)
 		if !ok {
-			return "", "", fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
+			return "", "", "", fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
 		}
-		return sqlparser.String(right.Name), simple.value, err
+		return sqlparser.String(right.Qualifier), sqlparser.String(right.Name), simple.value, err
 	}
-	return "", "", fmt.Errorf("invalid key value expression %+v", expr)
+	return "", "", "", fmt.Errorf("invalid key value expression %+v", expr)
 }
 
-func ToInKeyValue(expr *sqlparser.ComparisonExpr) (KeyValueIterator, error) {
+func ToInKeyValue(expr *sqlparser.ComparisonExpr) (string, KeyValueIterator, error) {
 	left, ok := expr.Left.(*sqlparser.ColName)
 	if ok {
 		value, err := ToValueLiteral(expr.Right)
 		if err != nil {
-			return nil, fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
+			return "", nil, fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
 		}
-		return &keyValues{name: left.Name.String(), query: value}, nil
+		return sqlparser.String(left.Qualifier), &keyValues{name: left.Name.String(), query: value}, nil
 	}
 
 	right, ok := expr.Right.(*sqlparser.ColName)
 	if ok {
 		value, err := ToValueLiteral(expr.Left)
 		if err != nil {
-			return nil, fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
+			return "", nil, fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
 		}
-		return &keyValues{name: right.Name.String(), query: value}, nil
+		return sqlparser.String(right.Qualifier), &keyValues{name: right.Name.String(), query: value}, nil
 	}
-	return nil, fmt.Errorf("invalid key value expression %+v", expr)
+	return "", nil, fmt.Errorf("invalid key value expression %+v", expr)
 }
 
 func ToValueLiteral(expr sqlparser.Expr) (StringIterator, error) {

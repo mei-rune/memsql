@@ -138,7 +138,6 @@ type measurement struct {
 
 func toGetValuer(tags KeyValues) GetValuer {
 	return GetValueFunc(func(tableName, name string) (Value, error) {
-
 		tagName := name
 		if strings.HasPrefix(tagName, "@") {
 			tagName = strings.TrimPrefix(tagName, "@")
@@ -186,7 +185,6 @@ func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer)
 		if m.err != nil {
 			return Query{}, nil, m.err
 		}
-
 		if ok {
 			tableNames = append(tableNames, TableName{
 				Table: tablename,

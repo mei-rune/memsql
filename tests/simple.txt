@@ -31,52 +31,58 @@ c1a2,c3b2,2,false
 c1a3,c3b3,3,true
 c1a3,c3b3,3,false
 
-
 -- foo.sql --
 select * from abc
 -- foo.sort.result --
 "a1","b1",1
 "a2","b2",2
 "a3","b3",3
+
 -- fooselect1.sql --
 select f1, f2 from abc
 -- fooselect1.result --
 "a1","b1"
 "a2","b2"
 "a3","b3"
+
 -- fooselect2.sql --
 select f2, f1 from abc
 -- fooselect2.result --
 "b1","a1"
 "b2","a2"
 "b3","a3"
+
 -- fooselect3.sql --
 select f2, f1 from abc where f1 = 'a1'
 -- fooselect3.result --
 "b1","a1"
+
 -- fooselect4.sql --
 select f3, f2, f1 from abc where f3 = 1
 -- fooselect4.result --
 1,"b1","a1"
+
 -- fooselect5.sql --
 select f3, f2, f1 from abc where f3 > 2
 -- fooselect5.result --
 3,"b3","a3"
+
 -- fooselect6.sql --
 select f3, f2, f1 from abc where f3 >= 2
 -- fooselect6.result --
 2,"b2","a2"
 3,"b3","a3"
+
 -- fooselect7.sql --
 select f3, f2, f1 from abc where f3 < 2
 -- fooselect7.result --
 1,"b1","a1"
+
 -- fooselect7.sql --
 select f3, f2, f1 from abc where f3 <= 2
 -- fooselect7.result --
 1,"b1","a1"
 2,"b2","a2"
-
 
 -- fooselect8.sql --
 select f3, f2, f1 from abc where f3 in (1, 2)
@@ -90,3 +96,17 @@ select f1,f2,f3,f4 from cpu where @mo = "1"
 "c1a1","c1b1",1,true
 "c1a2","c1b2",2,true
 "c1a3","c1b3",3,true
+
+-- fooselect10.sql --
+select f1,f2,f3,f4 from cpu where @mo = "1" order by f1 desc
+-- fooselect10.result --
+"c1a3","c1b3",3,true
+"c1a2","c1b2",2,true
+"c1a1","c1b1",1,true
+
+-- fooselect11.sql --
+select c1.f1,c1.f2,c1.f3,c1.f4 from cpu as c1 where c1.@mo = "1" order by c1.f1 desc
+-- fooselect11.result --
+"c1a3","c1b3",3,true
+"c1a2","c1b2",2,true
+"c1a1","c1b1",1,true

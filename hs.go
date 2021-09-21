@@ -16,7 +16,7 @@ type HookStorage struct {
 }
 
 func (hs *HookStorage) From(ctx *SessionContext, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
-	kvs, err := parser.ToKeyValues(tableExpr, nil)
+	kvs, err := parser.ToKeyValues(tableExpr, tableAs, nil)
 	if err != nil {
 		return memcore.Query{}, nil, err
 	}

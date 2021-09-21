@@ -350,9 +350,9 @@ func ParseJoinOn(ctx *SessionContext, on sqlparser.Expr) (
 		return "", nil, "", nil, fmt.Errorf("invalid On expression %+v", on)
 	}
 	return sqlparser.String(leftCol.Qualifier), func(r memcore.Record) (memcore.Value, error) {
-			return leftValue(memcore.ToRecordValuer(&r, true))
+			return leftValue(memcore.ToRecordValuer(&r, false))
 		}, sqlparser.String(rightCol.Qualifier), func(r memcore.Record) (memcore.Value, error) {
-			return rightValue(memcore.ToRecordValuer(&r, true))
+			return rightValue(memcore.ToRecordValuer(&r, false))
 		}, nil
 }
 
@@ -459,7 +459,7 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 	if err != nil {
 		return memcore.Query{}, err
 	}
-	debuger.SetWhere(expr)
+	debuger.SetWhere(whereExpr)
 	return ExecuteWhere(ec, query, whereExpr)
 }
 
