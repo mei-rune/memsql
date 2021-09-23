@@ -25,15 +25,15 @@ func (f GetValueFunc) GetValue(tableName, name string) (Value, error) {
 	return f(tableName, name)
 }
 
-func WrapAlias(g GetValuer, alias map[string]string) GetValuer {
-	return GetValueFunc(func(tableAlias, name string) (Value, error) {
-		tableName, ok := alias[tableAlias]
-		if ok {
-			return g.GetValue(tableName, name)
-		}
-		return g.GetValue(tableAlias, name)
-	})
-}
+// func WrapAlias(g GetValuer, alias map[string]string) GetValuer {
+// 	return GetValueFunc(func(tableAlias, name string) (Value, error) {
+// 		tableName, ok := alias[tableAlias]
+// 		if ok {
+// 			return g.GetValue(tableName, name)
+// 		}
+// 		return g.GetValue(tableAlias, name)
+// 	})
+// }
 
 type ValueType int
 

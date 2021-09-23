@@ -277,6 +277,21 @@ func (r Record) MarshalText() ([]byte, error) {
 	return r.marshalText()
 }
 
+func RenameTableToAlias(alias string) func(Context, Record) (Record, error) {
+	return func(ctx Context, r Record) (Record, error) {
+		columns := make([]Column, len(r.Columns))
+		copy(columns, r.Columns)
+		for idx := range columns {
+			columns[idx].TableAs = alias
+		}
+		return Record{
+			Tags: 	 r.Tags,
+			Columns: columns,
+			Values:  r.Values,
+		}, nil
+	}
+}
+
 var _ encoding.TextMarshaler = &Record{}
 
 type recordValuer Record

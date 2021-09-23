@@ -415,12 +415,17 @@ func ExecuteAliasedTableExpression(ec *SessionContext, expr *sqlparser.AliasedTa
 			}
 		}
 
-
 		if where == nil {
 			query, err := ExecuteTable(ec, ds, nil, hasJoin)
+			if err == nil && !expr.As.IsEmpty() {
+				query = query.Map(memcore.RenameTableToAlias(ds.As))
+			}
 			return ds.As, query, err
 		}
-		query, err := ExecuteTable(ec, ds, where, hasJoin)
+		query, err := ExecuteTable(ec, ds, where, hasJoin)		
+		if err == nil && !expr.As.IsEmpty() {
+			query = query.Map(memcore.RenameTableToAlias(ds.As))
+		}
 		return ds.As, query, err
 	case *sqlparser.Subquery:
 		query, err := ExecuteSelectStatement(ec, subExpr.Select, hasJoin)
@@ -700,7 +705,7 @@ func ExecuteSelectExprs(ec *SessionContext, query memcore.Query, selectExprs sql
 		}
 		selector := func(index int, r Record) (result Record, err error) {
 			valuer := memcore.ToRecordValuer(&r, true)
-			valuer = vm.WrapAlias(valuer, ec.alias)
+			// valuer = vm.WrapAlias(valuer, ec.alias)
 			for _, f := range selectFuncs {
 				result, err = f(valuer, result)
 			}
