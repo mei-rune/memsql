@@ -65,10 +65,21 @@ type Context struct {
 	Foreign Foreign
 }
 
+
 type SessionContext struct {
 	*Context
 
 	closers []io.Closer
+	alias map[string]string
+}
+
+func (sc *SessionContext) addAlias(tableAlias, tableName string) error {
+	_, ok := sc.alias[tableAlias]
+	if ok {
+		return errors.New("alias '"+tableAlias+"' is already exists")		
+	}
+	sc.alias[tableAlias] = tableName
+	return nil
 }
 
 func (sc *SessionContext) OnClosing(closers ...io.Closer) {
@@ -102,7 +113,10 @@ func Execute(ctx *Context, sqlstmt string) (rset RecordSet, err error) {
 	if e != nil {
 		return nil, e
 	}
-	sessctx := &SessionContext{Context: ctx}
+	sessctx := &SessionContext{
+		Context: ctx,
+		alias: map[string]string{},
+	}
 	defer func() {
 		if e := sessctx.Close(); e != nil {
 			err = e
@@ -395,7 +409,12 @@ func ExecuteAliasedTableExpression(ec *SessionContext, expr *sqlparser.AliasedTa
 			ds.As = ds.Table
 		} else {
 			ds.As = expr.As.String()
+
+			if err := ec.addAlias(ds.As, ds.Table); err != nil {
+				return "", memcore.Query{}, err
+			}
 		}
+
 
 		if where == nil {
 			query, err := ExecuteTable(ec, ds, nil, hasJoin)
@@ -681,6 +700,7 @@ func ExecuteSelectExprs(ec *SessionContext, query memcore.Query, selectExprs sql
 		}
 		selector := func(index int, r Record) (result Record, err error) {
 			valuer := memcore.ToRecordValuer(&r, true)
+			valuer = vm.WrapAlias(valuer, ec.alias)
 			for _, f := range selectFuncs {
 				result, err = f(valuer, result)
 			}
