@@ -364,7 +364,7 @@ func ToInKeyValue(expr *sqlparser.ComparisonExpr) (string, KeyValueIterator, err
 	if ok {
 		value, err := ToValueLiteral(expr.Right)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
+			return "", nil, fmt.Errorf("invalid key values expression %+v, %+v", expr, err)
 		}
 		return sqlparser.String(left.Qualifier), &keyValues{name: left.Name.String(), query: value}, nil
 	}
@@ -373,11 +373,11 @@ func ToInKeyValue(expr *sqlparser.ComparisonExpr) (string, KeyValueIterator, err
 	if ok {
 		value, err := ToValueLiteral(expr.Left)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
+			return "", nil, fmt.Errorf("invalid key values expression %+v, %+v", expr, err)
 		}
 		return sqlparser.String(right.Qualifier), &keyValues{name: right.Name.String(), query: value}, nil
 	}
-	return "", nil, fmt.Errorf("invalid key value expression %+v", expr)
+	return "", nil, fmt.Errorf("invalid key values expression %+v", expr)
 }
 
 func ToValueLiteral(expr sqlparser.Expr) (StringIterator, error) {
@@ -428,8 +428,8 @@ func ToValueLiteral(expr sqlparser.Expr) (StringIterator, error) {
 			return nil, ErrUnsupportedExpr("ValTuple")
 		}
 		return results, nil
-	// case *sqlparser.Subquery:
-	// 	return nil, ErrUnsupportedExpr("Subquery")
+	case *sqlparser.Subquery:
+	 	return nil, ErrUnsupportedExpr("Subquery")
 	// case sqlparser.ListArg:
 	// 	return nil, ErrUnsupportedExpr("ListArg")
 	// case *sqlparser.BinaryExpr:
@@ -457,6 +457,6 @@ func ToValueLiteral(expr sqlparser.Expr) (StringIterator, error) {
 	// case *sqlparser.GroupConcatExpr:
 	// 	return nil, ErrUnsupportedExpr("GroupConcatExpr")
 	default:
-		return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)
+		return nil, fmt.Errorf("invalid values expression %T %+v", expr, expr)
 	}
 }
