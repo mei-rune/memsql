@@ -110,3 +110,10 @@ select c1.f1,c1.f2,c1.f3,c1.f4 from cpu as c1 where c1.@mo = "1" order by c1.f1 
 "c1a3","c1b3",3,true
 "c1a2","c1b2",2,true
 "c1a1","c1b1",1,true
+
+-- fooselect12.sql --
+select c1.f1,c1.f2,cpu.f3,cpu.f4 from cpu as c1 where c1.@mo = "1" order by c1.f1 desc
+-- fooselect12.result --
+"c1a3","c1b3",3,true
+"c1a2","c1b2",2,true
+"c1a1","c1b1",1,true
