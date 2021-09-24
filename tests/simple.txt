@@ -104,16 +104,23 @@ select f1,f2,f3,f4 from cpu where @mo = "1" order by f1 desc
 "c1a2","c1b2",2,true
 "c1a1","c1b1",1,true
 
--- fooselect11.sql --
+-- foo_alias_1.sql --
 select c1.f1,c1.f2,c1.f3,c1.f4 from cpu as c1 where c1.@mo = "1" order by c1.f1 desc
--- fooselect11.result --
+-- foo_alias_1.result --
 "c1a3","c1b3",3,true
 "c1a2","c1b2",2,true
 "c1a1","c1b1",1,true
 
--- fooselect12.sql --
+-- foo_alias_2.sql --
 select c1.f1,c1.f2,cpu.f3,cpu.f4 from cpu as c1 where c1.@mo = "1" order by c1.f1 desc
--- fooselect12.result --
+-- foo_alias_2.result --
+"c1a3","c1b3",3,true
+"c1a2","c1b2",2,true
+"c1a1","c1b1",1,true
+
+-- foo_in_1.sql --
+select f1,f2,f3,f4 from cpu where @mo in ( "1" ) order by f1 desc
+-- foo_in_1.result --
 "c1a3","c1b3",3,true
 "c1a2","c1b2",2,true
 "c1a1","c1b1",1,true
