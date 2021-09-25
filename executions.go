@@ -48,7 +48,7 @@ func fromRun(ctx *SessionContext, storage memcore.Storage, tableName, tableAs st
 		return true, nil
 	}
 	if tableExpr != nil {
-		ff, err := parser.ToFilter(nil, tableExpr)
+		ff, err := parser.ToFilter(ctx, tableExpr)
 		if err != nil {
 			return memcore.Query{}, nil, errors.Wrap(err, "couldn't convert tableExpr '"+sqlparser.String(tableExpr)+"'")
 		}
@@ -71,6 +71,10 @@ type SessionContext struct {
 
 	closers []io.Closer
 	alias map[string]string
+}
+
+func (sc *SessionContext) ExecuteSelect(stmt sqlparser.SelectStatement) (memcore.Query, error) {
+	return ExecuteSelectStatement(sc, stmt, false)
 }
 
 func (sc *SessionContext) addAlias(tableAlias, tableName string) error {

@@ -8,10 +8,13 @@ import (
 
 	"github.com/runner-mei/errors"
 	"github.com/runner-mei/memsql/vm"
+	"github.com/runner-mei/memsql/memcore"
 	"github.com/xwb1989/sqlparser"
 )
 
-type filterContext interface{}
+type filterContext interface{
+	ExecuteSelect(sel sqlparser.SelectStatement) (memcore.Query, error)
+}
 
 func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (bool, error), error) {
 	switch v := expr.(type) {
@@ -483,12 +486,12 @@ func ToFuncGetValue(ctx filterContext, expr *sqlparser.FuncExpr) (func(vm.Contex
 	return vm.CallFunc(f, values), nil
 }
 
-func ToGetValues(ctx filterContext, expr sqlparser.SQLNode) (func(vm.Context) ([]vm.Value, error), error) {
+func ToGetValues(fctx filterContext, expr sqlparser.SQLNode) (func(vm.Context) ([]vm.Value, error), error) {
 	switch v := expr.(type) {
 	case sqlparser.SelectExprs:
 		var funcs []func(vm.Context) (vm.Value, error)
 		for idx := range v {
-			f, err := ToGetSelectValue(ctx, v[idx])
+			f, err := ToGetSelectValue(fctx, v[idx])
 			if err != nil {
 				return nil, err
 			}
@@ -508,7 +511,7 @@ func ToGetValues(ctx filterContext, expr sqlparser.SQLNode) (func(vm.Context) ([
 	case sqlparser.ValTuple:
 		var funcs []func(vm.Context) (vm.Value, error)
 		for idx := range v {
-			f, err := ToGetValue(ctx, v[idx])
+			f, err := ToGetValue(fctx, v[idx])
 			if err != nil {
 				return nil, err
 			}
@@ -524,6 +527,25 @@ func ToGetValues(ctx filterContext, expr sqlparser.SQLNode) (func(vm.Context) ([
 				values[idx] = value
 			}
 			return values, nil
+		}, nil
+	case *sqlparser.Subquery:
+		if fctx == nil {
+			panic(errors.New("fctx is nil"))
+		}
+		return func(vmctx vm.Context) ([]vm.Value, error) {
+			q, err := fctx.ExecuteSelect(v.Select)
+			if err != nil {
+				return nil, err
+			}
+			records, err := q.Results(vmctx)
+			if err != nil {
+				return nil, err
+			}
+			var results = make([]vm.Value, len(records))
+			for idx := range records {
+				results[idx] = records[idx].At(0)
+			}
+			return results, nil
 		}, nil
 	default:
 		return nil, fmt.Errorf("invalid expression %T %+v", expr, expr)

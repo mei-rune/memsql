@@ -56,7 +56,7 @@ func Equal(left, right func(Context) (Value, error)) func(Context) (bool, error)
 		if err != nil {
 			return false, err
 		}
-		return leftValue.EqualTo(rightValue, CompareOption{})
+		return leftValue.EqualTo(rightValue, EmptyCompareOption())
 	}
 }
 
@@ -70,7 +70,7 @@ func LessThan(left, right func(Context) (Value, error)) func(Context) (bool, err
 		if err != nil {
 			return false, err
 		}
-		result, err := leftValue.CompareTo(rightValue, CompareOption{})
+		result, err := leftValue.CompareTo(rightValue, EmptyCompareOption())
 		if err != nil {
 			return false, err
 		}
@@ -89,7 +89,7 @@ func GreaterThan(left, right func(Context) (Value, error)) func(Context) (bool, 
 			return false, err
 		}
 
-		result, err := leftValue.CompareTo(rightValue, CompareOption{})
+		result, err := leftValue.CompareTo(rightValue, EmptyCompareOption())
 		if err != nil {
 			return false, err
 		}
@@ -108,7 +108,7 @@ func LessEqual(left, right func(Context) (Value, error)) func(Context) (bool, er
 			return false, err
 		}
 
-		result, err := leftValue.CompareTo(rightValue, CompareOption{})
+		result, err := leftValue.CompareTo(rightValue, EmptyCompareOption())
 		if err != nil {
 			return false, err
 		}
@@ -127,7 +127,7 @@ func GreaterEqual(left, right func(Context) (Value, error)) func(Context) (bool,
 			return false, err
 		}
 
-		result, err := leftValue.CompareTo(rightValue, CompareOption{})
+		result, err := leftValue.CompareTo(rightValue, EmptyCompareOption())
 		if err != nil {
 			return false, err
 		}
@@ -146,7 +146,7 @@ func NotEqual(left, right func(Context) (Value, error)) func(Context) (bool, err
 			return false, err
 		}
 
-		result, err := leftValue.EqualTo(rightValue, CompareOption{})
+		result, err := leftValue.EqualTo(rightValue, EmptyCompareOption())
 		if err != nil {
 			return false, err
 		}
@@ -166,7 +166,7 @@ func In(left func(Context) (Value, error), right func(Context) ([]Value, error))
 			return false, err
 		}
 		for _, value := range rightValues {
-			result, err := value.EqualTo(leftValue, CompareOption{})
+			result, err := value.EqualTo(leftValue, EmptyCompareOption())
 			if err != nil {
 				return false, err
 			}
@@ -189,7 +189,7 @@ func NotIn(left func(Context) (Value, error), right func(Context) ([]Value, erro
 			return false, err
 		}
 		for _, value := range rightValues {
-			result, err := value.EqualTo(leftValue, CompareOption{})
+			result, err := value.EqualTo(leftValue, EmptyCompareOption())
 			if err != nil {
 				return false, err
 			}
@@ -283,14 +283,14 @@ func Between(left, from, to func(Context) (Value, error)) func(Context) (bool, e
 			return false, err
 		}
 
-		result, err := leftValue.CompareTo(fromValue, CompareOption{})
+		result, err := leftValue.CompareTo(fromValue, EmptyCompareOption())
 		if err != nil {
 			return false, err
 		}
 		if result < 0 {
 			return false, nil
 		}
-		result, err = leftValue.CompareTo(toValue, CompareOption{})
+		result, err = leftValue.CompareTo(toValue, EmptyCompareOption())
 		if err != nil {
 			return false, err
 		}

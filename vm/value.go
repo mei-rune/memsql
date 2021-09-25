@@ -342,7 +342,9 @@ type CompareOption struct {
 	IgnoreCase bool
 }
 
-var emptyCompareOption = CompareOption{}
+var emptyCompareOption = CompareOption{
+	Weak: true,
+}
 
 func EmptyCompareOption() CompareOption {
 	return emptyCompareOption

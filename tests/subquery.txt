@@ -1,9 +1,20 @@
+-- t1 --
+id,f2
+1,dev1
+2,dev2
+3,dev3
+
 -- db.t3 --
 id,f2
 1,dev1
 2,dev2
 3,dev3
 
+-- cpuUsage --
+id,f2,f3
+1,c1b1,1
+2,c1b2,2
+3,c1b3,3
 
 -- cpu --
 tags: {"mo":"1"}
@@ -27,8 +38,21 @@ c1a2,c3b2,2
 c1a3,c3b3,3
 
 -- foo_1.sql --
-select f2 from cpu where @mo in (select id from db.t3)
+select f2 from cpuUsage where id in (select id from t1)
 -- foo_1.result --
-"c1b1","c2b1"
-"c1b2","c2b2"
-"c1b3","c2b3"
+"c1b1"
+"c1b2"
+"c1b3"
+
+-- foo_2.sql --
+select f2 from cpu where @mo in (select id from db.t3)
+-- foo_2.result --
+"c1b1"
+"c1b2"
+"c1b3"
+"c2b1"
+"c2b2"
+"c2b3"
+"c3b1"
+"c3b2"
+"c3b3"

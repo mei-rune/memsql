@@ -150,7 +150,7 @@ func (r *Record) Search(name string) int {
 }
 
 func (r *Record) At(idx int) Value {
-	if len(r.Values) < idx {
+	if len(r.Values) > idx {
 		return r.Values[idx]
 	}
 
