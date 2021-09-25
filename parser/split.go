@@ -99,6 +99,6 @@ func splitByOr(expr sqlparser.Expr, results []sqlparser.Expr) ([]sqlparser.Expr,
 	case *sqlparser.Default:
 		return append(results, expr), nil
 	default:
-		return nil, fmt.Errorf("invalid expression %+v", expr)
+		return nil, fmt.Errorf("splitByOr: invalid expression %+v", expr)
 	}
 }

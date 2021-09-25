@@ -399,7 +399,7 @@ func ToValueLiteral(fctx filterContext, expr sqlparser.Expr) (StringIterator, er
 		case sqlparser.ValArg:
 			return toStringIterator(string(v.Val)), nil
 		default:
-			return nil, fmt.Errorf("invalid expression %+v", expr)
+			return nil, fmt.Errorf("invalid sqlval expression %+v", expr)
 		}
 	case *sqlparser.NullVal:
 		return toStringIterator("null"), nil

@@ -435,7 +435,7 @@ func SplitByColumnName(expr sqlparser.Expr, filter func(*sqlparser.ColName) bool
 	case *sqlparser.Default:
 		return true, nil, nil
 	default:
-		return false, nil, fmt.Errorf("invalid expression %+v", expr)
+		return false, nil, fmt.Errorf("SplitByColumnName: invalid expression %+v", expr)
 	}
 }
 
@@ -471,7 +471,7 @@ func splitSelectExprsByTableName(expr sqlparser.SelectExprs, filter func(*sqlpar
 			}
 			selectExprs = append(selectExprs, sqlparser.Nextval{Expr: x})
 		default:
-			return false, nil, fmt.Errorf("invalid expression %+v", expr)
+			return false, nil, fmt.Errorf("splitSelectExprsByTableName: invalid expression %+v", expr)
 		}
 	}
 

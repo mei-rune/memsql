@@ -25,6 +25,11 @@ t1a2,t2b2,2,false
 t1a3,t2b3,3,true
 t1a3,t2b3,3,false
 
+-- db.managed_objects --
+id,f2
+1,dev1
+2,dev2
+3,dev3
 
 -- cpu --
 tags: {"mo":"1"}
@@ -80,6 +85,13 @@ true,"t1b1","t1a1",true,"t2b1","t1a1"
 -- fooselect6.sql --
 select c1.f2, c2.f2 from cpu as c1 join cpu as c2 on c1.f1 = c2.f1 where c1.@mo = "1" and c2.@mo = "2"
 -- fooselect6.result --
+"c1b1","c2b1"
+"c1b2","c2b2"
+"c1b3","c2b3"
+
+-- foo_foreign_1.sql --
+select c1.f2, c2.f2 from cpu as c1 join db.managed_objects c2 on c1.@mo = c2.id
+-- foo_foreign_1.result --
 "c1b1","c2b1"
 "c1b2","c2b2"
 "c1b3","c2b3"

@@ -493,6 +493,11 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 		return ExecuteWhere(ec, query, expr)
 	}
 
+	if expr == nil {
+		debuger.SetWhere(nil)
+		return ExecuteWhere(ec, query, nil)
+	}
+	
 	whereExpr, err := parser.SplitByTableName(expr, ds.As)
 	if err != nil {
 		return memcore.Query{}, err
