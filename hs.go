@@ -16,7 +16,7 @@ type HookStorage struct {
 }
 
 func (hs *HookStorage) From(ctx *SessionContext, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
-	kvs, err := parser.ToKeyValues(tableExpr, tableAs, nil)
+	kvs, err := parser.ToKeyValues(ctx, tableExpr, tableAs, nil)
 	if err != nil {
 		return memcore.Query{}, nil, err
 	}
@@ -32,7 +32,7 @@ func (hs *HookStorage) From(ctx *SessionContext, tableName, tableAs string, tabl
 func (hs *HookStorage) EnsureTables(ctx *SessionContext, tableName, tableAs string, iterator parser.KeyValueIterator) error {
 	predateLimit := hs.GetPredateLimit(ctx)
 	for {
-		tags, err := iterator.Next()
+		tags, err := iterator.Next(nil)
 		if err != nil {
 			if memcore.IsNoRows(err) {
 				return nil

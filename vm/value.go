@@ -286,7 +286,7 @@ func (v *Value) AsInt(weak bool) (int64, error) {
 	case ValueUint64:
 		return int64(v.Uint64), nil
 	}
-	return 0, NewTypeMismatch(v.Type.String(), "unknown")
+	return 0, NewTypeMismatch(v.Type.String(), "int")
 }
 
 func (v *Value) AsUint(weak bool) (uint64, error) {
@@ -303,7 +303,29 @@ func (v *Value) AsUint(weak bool) (uint64, error) {
 	case ValueUint64:
 		return v.Uint64, nil
 	}
-	return 0, NewTypeMismatch(v.Type.String(), "unknown")
+	return 0, NewTypeMismatch(v.Type.String(), "uint")
+}
+func (v *Value) AsString(weak bool) (string, error) {
+	switch v.Type {
+	case ValueString:
+		return v.Str, nil
+	case ValueInt64:
+		if weak {
+			return strconv.FormatInt(v.Int64, 10), nil
+		}
+	case ValueUint64:
+		if weak {
+			return strconv.FormatUint(v.Uint64, 10), nil
+		}
+	case ValueBool:
+		if weak {
+			if v.BoolValue() {
+				return "true", nil
+			}
+			return "false", nil
+		}
+	}
+	return "", NewTypeMismatch(v.Type.String(), "string")
 }
 
 func (v *Value) IsNil() bool {

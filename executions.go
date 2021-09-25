@@ -71,6 +71,16 @@ type SessionContext struct {
 
 	closers []io.Closer
 	alias map[string]string
+	resultSets map[string][]memcore.Record
+}
+
+func (sc *SessionContext) SetResultSet(stmt string, records []memcore.Record) {
+	sc.resultSets[stmt] = records
+}
+
+func (sc *SessionContext) GetResultSet(stmt string) ([]memcore.Record, bool) {
+	results, ok := sc.resultSets[stmt]
+	return results, ok
 }
 
 func (sc *SessionContext) ExecuteSelect(stmt sqlparser.SelectStatement) (memcore.Query, error) {

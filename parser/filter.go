@@ -13,6 +13,8 @@ import (
 )
 
 type filterContext interface{
+	SetResultSet(stmt string, records []memcore.Record)
+	GetResultSet(stmt string) ([]memcore.Record, bool)
 	ExecuteSelect(sel sqlparser.SelectStatement) (memcore.Query, error)
 }
 
@@ -533,6 +535,14 @@ func ToGetValues(fctx filterContext, expr sqlparser.SQLNode) (func(vm.Context) (
 			panic(errors.New("fctx is nil"))
 		}
 		return func(vmctx vm.Context) ([]vm.Value, error) {
+			resultSet, ok := fctx.GetResultSet(sqlparser.String(v.Select))
+			if ok {
+				var results = make([]vm.Value, len(resultSet))
+				for idx := range resultSet {
+					results[idx] = resultSet[idx].At(0)
+				}
+				return results, nil
+			}
 			q, err := fctx.ExecuteSelect(v.Select)
 			if err != nil {
 				return nil, err
