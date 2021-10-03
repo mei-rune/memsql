@@ -1,6 +1,5 @@
 package memcore
 
-
 func (q Query) Map(mapFunc func(Context, Record) (Record, error)) Query {
 	return Query{
 		Iterate: func() Iterator {

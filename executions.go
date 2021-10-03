@@ -65,13 +65,19 @@ type Context struct {
 	Foreign Foreign
 }
 
-
 type SessionContext struct {
 	*Context
 
-	closers []io.Closer
-	alias map[string]string
+	closers    []io.Closer
+	alias      map[string]string
 	resultSets map[string][]memcore.Record
+	queries    []TableQuery
+}
+
+type TableQuery struct {
+	Name  string
+	Alias string
+	Query memcore.Query
 }
 
 func (sc *SessionContext) SetResultSet(stmt string, records []memcore.Record) {
@@ -87,10 +93,23 @@ func (sc *SessionContext) ExecuteSelect(stmt sqlparser.SelectStatement) (memcore
 	return ExecuteSelectStatement(sc, stmt, false)
 }
 
+func (sc *SessionContext) GetQuery(name string) (memcore.Query, bool) {
+	for idx := range sc.queries {
+		if sc.queries[idx].Name == name && sc.queries[idx].Alias == name {
+			return sc.queries[idx].Query, true
+		}
+	}
+
+	return memcore.Query{}, false
+}
+func (sc *SessionContext) addQuery(tableName, tableAlias string, query memcore.Query) {
+	sc.queries = append(sc.queries, TableQuery{Name: tableName, Alias: tableAlias, Query: query})
+}
+
 func (sc *SessionContext) addAlias(tableAlias, tableName string) error {
 	_, ok := sc.alias[tableAlias]
 	if ok {
-		return errors.New("alias '"+tableAlias+"' is already exists")		
+		return errors.New("alias '" + tableAlias + "' is already exists")
 	}
 	sc.alias[tableAlias] = tableName
 	return nil
@@ -129,7 +148,7 @@ func Execute(ctx *Context, sqlstmt string) (rset RecordSet, err error) {
 	}
 	sessctx := &SessionContext{
 		Context: ctx,
-		alias: map[string]string{},
+		alias:   map[string]string{},
 	}
 	defer func() {
 		if e := sessctx.Close(); e != nil {
@@ -301,6 +320,7 @@ func ExecuteJoinTableExpression(ec *SessionContext, expr *sqlparser.JoinTableExp
 	if err != nil {
 		return "", memcore.Query{}, err
 	}
+
 	rightAs, query2, err := ExecuteTableExpression(ec, expr.RightExpr, where, true)
 	if err != nil {
 		return "", memcore.Query{}, err
@@ -423,26 +443,40 @@ func ExecuteAliasedTableExpression(ec *SessionContext, expr *sqlparser.AliasedTa
 			ds.As = ds.Table
 		} else {
 			ds.As = expr.As.String()
-
-			if err := ec.addAlias(ds.As, ds.Table); err != nil {
-				return "", memcore.Query{}, err
-			}
 		}
 
 		if where == nil {
 			query, err := ExecuteTable(ec, ds, nil, hasJoin)
-			if err == nil && !expr.As.IsEmpty() {
+			if err != nil {
+				return "", memcore.Query{}, err
+			}
+			if !expr.As.IsEmpty() {
 				query = query.Map(memcore.RenameTableToAlias(ds.As))
 			}
+			ec.addQuery(ds.Table, ds.As, query)
 			return ds.As, query, err
 		}
-		query, err := ExecuteTable(ec, ds, where, hasJoin)		
-		if err == nil && !expr.As.IsEmpty() {
+		query, err := ExecuteTable(ec, ds, where, hasJoin)
+		if err != nil {
+			return "", memcore.Query{}, err
+		}
+
+		if !expr.As.IsEmpty() {
 			query = query.Map(memcore.RenameTableToAlias(ds.As))
 		}
+		ec.addQuery(ds.Table, ds.As, query)
 		return ds.As, query, err
 	case *sqlparser.Subquery:
 		query, err := ExecuteSelectStatement(ec, subExpr.Select, hasJoin)
+
+		if err != nil {
+			return "", memcore.Query{}, err
+		}
+		if !expr.As.IsEmpty() {
+			query = query.Map(memcore.RenameTableToAlias(expr.As.String()))
+		}
+		ec.addQuery("", expr.As.String(), query)
+
 		return "", query, err
 	default:
 		return "", memcore.Query{}, fmt.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
@@ -497,7 +531,7 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 		debuger.SetWhere(nil)
 		return ExecuteWhere(ec, query, nil)
 	}
-	
+
 	whereExpr, err := parser.SplitByTableName(expr, ds.As)
 	if err != nil {
 		return memcore.Query{}, err

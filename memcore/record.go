@@ -22,7 +22,6 @@ type Column struct {
 	Name      string
 }
 
-
 func mkColumn(name string) Column {
 	return Column{Name: name}
 }
@@ -70,7 +69,7 @@ func columnSearchByName(columns []Column, column string) int {
 }
 
 type Record struct {
-	Tags KeyValues
+	Tags    KeyValues
 	Columns []Column
 	Values  []Value
 }
@@ -122,12 +121,11 @@ func (r *Record) Clone() Record {
 	values := make([]Value, len(r.Values))
 	copy(values, r.Values)
 
-
 	tags := make([]KeyValue, len(r.Tags))
 	copy(tags, r.Tags)
 
 	return Record{
-		Tags: 	 tags,
+		Tags:    tags,
 		Columns: columns,
 		Values:  values,
 	}
@@ -136,7 +134,7 @@ func (r *Record) Clone() Record {
 func (r *Record) Search(name string) int {
 	idx := columnSearchByName(r.Columns, name)
 	if idx < 0 {
-		if strings.HasPrefix( name, "@") {
+		if strings.HasPrefix(name, "@") {
 			name = strings.TrimPrefix(name, "@")
 		}
 		for idx := range r.Tags {
@@ -285,7 +283,7 @@ func RenameTableToAlias(alias string) func(Context, Record) (Record, error) {
 			columns[idx].TableAs = alias
 		}
 		return Record{
-			Tags: 	 r.Tags,
+			Tags:    r.Tags,
 			Columns: columns,
 			Values:  r.Values,
 		}, nil

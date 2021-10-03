@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/runner-mei/errors"
-	"github.com/runner-mei/memsql/vm"
 	"github.com/runner-mei/memsql/memcore"
+	"github.com/runner-mei/memsql/vm"
 	"github.com/xwb1989/sqlparser"
 )
 
-type filterContext interface{
+type filterContext interface {
+	GetQuery(name string) (memcore.Query, bool)
 	SetResultSet(stmt string, records []memcore.Record)
 	GetResultSet(stmt string) ([]memcore.Record, bool)
 	ExecuteSelect(sel sqlparser.SelectStatement) (memcore.Query, error)

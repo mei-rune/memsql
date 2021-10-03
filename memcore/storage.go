@@ -14,7 +14,7 @@ var ErrNotFound = vm.ErrNotFound
 
 func TableNotExists(table string, err ...error) error {
 	if len(err) > 0 && err[0] != nil {
-		return errors.WithTitle(errors.ErrTableNotExists, "table '"+table+"' isnot exists: " + err[0].Error())
+		return errors.WithTitle(errors.ErrTableNotExists, "table '"+table+"' isnot exists: "+err[0].Error())
 	}
 	return errors.WithTitle(errors.ErrTableNotExists, "table '"+table+"' isnot exists")
 }
