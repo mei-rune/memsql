@@ -262,6 +262,9 @@ func ExecuteSelect(ec *SessionContext, stmt *sqlparser.Select, hasJoin bool) (me
 
 
 	var query memcore.Query
+	if len(stmt.From) > 1 {
+		hasJoin = true
+	}
 	for idx := range stmt.From {
 		_, q, err := ExecuteTableExpression(ec, stmt.From[idx], stmt.Where, hasJoin)
 		if err != nil {
@@ -277,8 +280,14 @@ func ExecuteSelect(ec *SessionContext, stmt *sqlparser.Select, hasJoin bool) (me
 			return memcore.MergeRecord("", outer, "", inner)
 		})
 	}
-
 	var err error
+
+	if len(stmt.From) > 1 {
+		query, err = ExecuteWhere(ec, query, stmt.Where.Expr)
+		if err != nil {
+			return memcore.Query{}, err
+		}
+	}
 
 	if stmt.GroupBy != nil {
 		query, err = ExecuteGroupBy(ec, query, stmt.GroupBy)
@@ -781,6 +790,10 @@ func ExecuteSelectExprs(ec *SessionContext, query memcore.Query, selectExprs sql
 			// valuer = vm.WrapAlias(valuer, ec.alias)
 			for _, f := range selectFuncs {
 				result, err = f(valuer, result)
+				if err != nil {
+					fmt.Println("====", r.GoString())
+					return
+				}
 			}
 			return result, nil
 		}

@@ -201,7 +201,7 @@ func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer)
 	}
 	query := FromWithTags(list[0].data, list[0].tags)
 	for i := 1; i < len(list); i++ {
-		query = query.UnionAll(FromWithTags(list[i].data, list[0].tags))
+		query = query.UnionAll(FromWithTags(list[i].data, list[i].tags))
 	}
 	return query, tableNames, nil
 }

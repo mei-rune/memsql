@@ -39,7 +39,6 @@ func columnSearch(columns []Column, column Column) int {
 		}
 	}
 	return -1
-
 }
 
 func columnSearchByQualifierName(columns []Column, tableAs, column string) int {
@@ -165,6 +164,10 @@ func (r *Record) At(idx int) Value {
 func (r *Record) Get(name string) (Value, bool) {
 	idx := columnSearchByName(r.Columns, name)
 	if idx >= 0 {
+		if len(r.Values) <= idx {
+			// Columns 和 Values 的长度不一定一致, 看下面的 ToTable
+			return vm.Null(), true
+		}
 		return r.Values[idx], true
 	}
 
@@ -182,6 +185,10 @@ func (r *Record) Get(name string) (Value, bool) {
 func (r *Record) GetByQualifierName(tableAs, name string) (Value, bool) {
 	idx := columnSearchByQualifierName(r.Columns, tableAs, name)
 	if idx >= 0 {
+		if len(r.Values) <= idx {
+			// Columns 和 Values 的长度不一定一致, 看下面的 ToTable
+			return vm.Null(), true
+		}
 		return r.Values[idx], true
 	}
 
@@ -245,7 +252,7 @@ func (r *Record) marshalText() ([]byte, error) {
 		buf = append(buf, r.Tags[idx].Value...)
 		buf = append(buf, '"')
 	}
-	for idx := range r.Columns {
+	for idx := range r.Values {
 		if r.Values[idx].IsNil() {
 			continue
 		}
@@ -299,6 +306,7 @@ func (r *recordValuer) GetValue(tableName, name string) (Value, error) {
 	if ok {
 		return value, nil
 	}
+	fmt.Println("=====", (*Record)(r).GoString())
 	if tableName == "" {
 		return vm.Null(), ColumnNotFound(name)
 	}
@@ -420,25 +428,58 @@ func ToTable(values []map[string]interface{}) (Table, error) {
 func MergeRecord(outerAs string, outer Record, innerAs string, inner Record) Record {
 	// Columns 和 Values 并不一定数目相等
 	result := Record{
-		Columns: make([]Column, len(outer.Columns)+len(inner.Columns)),
-	    Values: make([]Value, len(outer.Columns)+len(inner.Columns)),
+		Columns: make([]Column, len(outer.Tags) + len(outer.Columns)+len(inner.Tags) +len(inner.Columns)),
+	    Values: make([]Value, len(outer.Tags) +len(outer.Columns)+len(inner.Tags) +len(inner.Columns)),
 	}
-	
-	copy(result.Columns, outer.Columns)
-	if outerAs != "" {
-		for idx := range outer.Columns {
+
+	if len(outer.Tags) > 0 {
+		for idx := range outer.Tags {
+			if len(outer.Columns) > 0 {
+				result.Columns[idx].TableName = outer.Columns[0].TableName
+			}
 			result.Columns[idx].TableAs = outerAs
+			result.Columns[idx].Name = outer.Tags[idx].Key
 		}
 	}
-	copy(result.Columns[len(outer.Columns):], inner.Columns)
+	copy(result.Columns[len(outer.Tags):], outer.Columns)
+	if outerAs != "" {
+		for idx := range outer.Columns {
+			result.Columns[len(outer.Tags) + idx].TableAs = outerAs
+		}
+	}
+
+
+	if len(inner.Tags) > 0 {
+		for idx := range inner.Tags {
+			if len(inner.Columns) > 0 {
+				result.Columns[len(outer.Tags) + len(outer.Columns) + idx].TableName = inner.Columns[0].TableName
+			}
+			result.Columns[len(outer.Tags) + len(outer.Columns) + idx].TableAs = innerAs
+			result.Columns[len(outer.Tags) + len(outer.Columns) + idx].Name = inner.Tags[idx].Key
+		}
+	}
+	copy(result.Columns[len(outer.Tags) + len(outer.Columns)+ len(inner.Tags):], inner.Columns)
 	if innerAs != "" {
 		for idx := range outer.Columns {
-			result.Columns[len(outer.Columns)+idx].TableAs = innerAs
+			result.Columns[len(outer.Tags) + len(outer.Columns)+ len(inner.Tags)+idx].TableAs = innerAs
 		}
 	}
 
 	// Columns 和 Values 并不一定数目相等
-	copy(result.Values, outer.Values)
-	copy(result.Values[len(outer.Columns):], inner.Values)
+	for idx := range outer.Tags {
+		result.Values[idx] = vm.StringToValue(outer.Tags[idx].Value)
+	}
+	copy(result.Values[len(outer.Tags):], outer.Values)
+
+	for idx := range inner.Tags {
+		result.Values[len(outer.Tags) + len(outer.Columns) + idx] = vm.StringToValue(inner.Tags[idx].Value)
+	}
+	copy(result.Values[len(outer.Tags) + len(outer.Columns)+ len(inner.Tags):], inner.Values)
+	
+
+	// fmt.Println("=========")
+	// fmt.Println(outer.GoString())
+	// fmt.Println(inner.GoString())
+	// fmt.Println(result.GoString())
 	return result
 }

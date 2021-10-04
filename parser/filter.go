@@ -252,6 +252,9 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 		}, nil
 	case *sqlparser.ColName:
 		var name = strings.ToLower(v.Name.String())
+		if strings.HasPrefix(name, "@") {
+			name = strings.TrimPrefix(name, "@")
+		}
 		var tableName = strings.ToLower(v.Qualifier.Name.String())
 		var tableQualifier = strings.ToLower(v.Qualifier.Qualifier.String())
 		if tableName != "" {
