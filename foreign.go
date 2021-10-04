@@ -38,7 +38,7 @@ func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *
 		}
 	}
 
-	return memcore.Query{
+	query := memcore.Query{
 		Iterate: func() memcore.Iterator {
 			rows, err := f.Conn.QueryContext(ctx.Ctx, sqlstr)
 			if err != nil {
@@ -113,7 +113,13 @@ func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *
 				return
 			}
 		},
-	}, nil
+	}
+
+	if tableAs != "" {
+		query = query.Map(memcore.RenameTableToAlias(tableAs))
+	}
+
+	return debuger.Track(query), nil
 }
 
 type scanValue struct {

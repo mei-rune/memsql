@@ -449,8 +449,11 @@ func MergeRecord(outerAs string, outer Record, innerAs string, inner Record) Rec
 		for idx := range outer.Tags {
 			if len(outer.Columns) > 0 {
 				result.Columns[idx].TableName = outer.Columns[0].TableName
+				result.Columns[idx].TableAs = outer.Columns[0].TableAs
 			}
-			result.Columns[idx].TableAs = outerAs
+			if outerAs != "" {
+				result.Columns[idx].TableAs = outerAs
+			}
 			result.Columns[idx].Name = outer.Tags[idx].Key
 		}
 	}
@@ -461,13 +464,15 @@ func MergeRecord(outerAs string, outer Record, innerAs string, inner Record) Rec
 		}
 	}
 
-
 	if len(inner.Tags) > 0 {
 		for idx := range inner.Tags {
 			if len(inner.Columns) > 0 {
 				result.Columns[len(outer.Tags) + len(outer.Columns) + idx].TableName = inner.Columns[0].TableName
+				result.Columns[len(outer.Tags) + len(outer.Columns) + idx].TableAs = inner.Columns[0].TableAs
 			}
-			result.Columns[len(outer.Tags) + len(outer.Columns) + idx].TableAs = innerAs
+			if innerAs != "" {
+				result.Columns[len(outer.Tags) + len(outer.Columns) + idx].TableAs = innerAs
+			}
 			result.Columns[len(outer.Tags) + len(outer.Columns) + idx].Name = inner.Tags[idx].Key
 		}
 	}

@@ -282,6 +282,11 @@ func ExecuteSelect(ec *SessionContext, stmt *sqlparser.Select, hasJoin bool) (me
 			})
 		}
 
+		query = query.Map(func(ctx memcore.Context, r memcore.Record)(memcore.Record, error) {
+			fmt.Println(r.GoString())
+			return r, nil
+		})
+
 		query, err = ExecuteWhere(ec, query, stmt.Where.Expr)
 		if err != nil {
 			return memcore.Query{}, err
@@ -469,31 +474,15 @@ func ExecuteAliasedTableExpression(ec *SessionContext, expr *sqlparser.AliasedTa
 		var ds Datasource
 		ds.Qualifier = subExpr.Qualifier.String()
 		ds.Table = subExpr.Name.String()
-		if expr.As.IsEmpty() {
-			ds.As = ds.Table
-		} else {
+		if !expr.As.IsEmpty() {
 			ds.As = expr.As.String()
 		}
 
-		if where == nil {
-			query, err := ExecuteTable(ec, ds, nil, hasJoin)
-			if err != nil {
-				return "", memcore.Query{}, err
-			}
-			if !expr.As.IsEmpty() {
-				query = query.Map(memcore.RenameTableToAlias(ds.As))
-			}
-			ec.addQuery(ds.Table, ds.As, query)
-			return ds.As, query, err
-		}
 		query, err := ExecuteTable(ec, ds, where, hasJoin)
 		if err != nil {
 			return "", memcore.Query{}, err
 		}
 
-		if !expr.As.IsEmpty() {
-			query = query.Map(memcore.RenameTableToAlias(ds.As))
-		}
 		ec.addQuery(ds.Table, ds.As, query)
 		return ds.As, query, err
 	case *sqlparser.Subquery:
@@ -519,7 +508,7 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 			return ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, where)
 		}
 
-		whereExpr, err := parser.SplitByTableName(where.Expr, ds.As)
+		whereExpr, err := parser.SplitByTableName(where.Expr, ds.Table, ds.As)
 		if err != nil {
 			return memcore.Query{}, err
 		}
@@ -535,7 +524,7 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 	if expr != nil {
 		var err error
 		if hasJoin {
-			_, tableExpr, err = parser.SplitByColumnName(expr, parser.ByTableTag(ds.As))
+			_, tableExpr, err = parser.SplitByColumnName(expr, parser.ByTableTag(ds.Table, ds.As))
 		} else {
 			_, tableExpr, err = parser.SplitByColumnName(expr, parser.ByTag())
 		}
@@ -553,8 +542,8 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 	debuger.SetTableNames(tableNames)
 
 	whereExpr := expr
-	if hasJoin {
-		whereExpr, err = parser.SplitByTableName(expr, ds.As)
+	if hasJoin && expr != nil {
+		whereExpr, err = parser.SplitByTableName(expr, ds.Table, ds.As)
 		if err != nil {
 			return memcore.Query{}, err
 		}
@@ -565,6 +554,11 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 	if err != nil {
 		return memcore.Query{}, err
 	}
+
+	if ds.As != "" {
+		query = query.Map(memcore.RenameTableToAlias(ds.As))
+	}
+
 	return debuger.Track(query), nil
 }
 

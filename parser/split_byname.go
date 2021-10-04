@@ -13,37 +13,37 @@ func ByTag() func(*sqlparser.ColName) bool {
 	}
 }
 
-func ByTableTag(tablename string) func(*sqlparser.ColName) bool {
-	isEmpty := tablename == ""
-	tablename = strings.ToLower(tablename)
+func ByTableTag(tableName, tableAs string) func(*sqlparser.ColName) bool {
+	tableName = strings.ToLower(tableName)
+	tableAs = strings.ToLower(tableAs)
 
 	return func(expr *sqlparser.ColName) bool {
-		if isEmpty && expr.Qualifier.IsEmpty() {
+		if expr.Qualifier.IsEmpty() {
 			return strings.HasPrefix(expr.Name.String(), "@")
 		}
-		if tablename == strings.ToLower(expr.Qualifier.Name.String()) ||
-			tablename == strings.ToLower(expr.Qualifier.Qualifier.String()) {
+		if qualifier := strings.ToLower(sqlparser.String(expr.Qualifier)); tableName == qualifier ||
+			tableAs == qualifier {
 			return strings.HasPrefix(expr.Name.String(), "@")
 		}
 		return false
 	}
 }
 
-func SplitByTableName(expr sqlparser.Expr, tablename string) (sqlparser.Expr, error) {
-	_, expr, err := SplitByColumnName(expr, ByTable(tablename))
+func SplitByTableName(expr sqlparser.Expr, tableName, tableAs string) (sqlparser.Expr, error) {
+	_, expr, err := SplitByColumnName(expr, ByTable(tableName, tableAs))
 	return expr, err
 }
 
-func ByTable(tablename string) func(*sqlparser.ColName) bool {
-	isEmpty := tablename == ""
-	tablename = strings.ToLower(tablename)
+func ByTable(tableName, tableAs string) func(*sqlparser.ColName) bool {
+	tableName = strings.ToLower(tableName)
+	tableAs = strings.ToLower(tableAs)
 
 	return func(expr *sqlparser.ColName) bool {
-		if isEmpty && expr.Qualifier.IsEmpty() {
+		if expr.Qualifier.IsEmpty() {
 			return true
 		}
-		if tablename == strings.ToLower(expr.Qualifier.Name.String()) ||
-			tablename == strings.ToLower(expr.Qualifier.Qualifier.String()) {
+		if qualifier := strings.ToLower(sqlparser.String(expr.Qualifier)); tableName == qualifier ||
+			tableAs == qualifier {
 			return true
 		}
 		return false
@@ -435,6 +435,7 @@ func SplitByColumnName(expr sqlparser.Expr, filter func(*sqlparser.ColName) bool
 	case *sqlparser.Default:
 		return true, nil, nil
 	default:
+		panic("")
 		return false, nil, fmt.Errorf("SplitByColumnName: invalid expression %+v", expr)
 	}
 }

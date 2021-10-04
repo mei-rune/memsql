@@ -96,9 +96,17 @@ func (d *TableDebuger) Track(query memcore.Query) memcore.Query {
 
 func (d *TableDebuger) Format(formater Formater) {
 	if d.As == "" || d.Table == d.As {
-		formater.Println(uintptr(unsafe.Pointer(d)), "SELECT * FROM " + d.Table + " WHERE " + d.Where)
+		if d.Where == "" {
+			formater.Println(uintptr(unsafe.Pointer(d)), "SELECT * FROM " + d.Table)
+		} else {
+			formater.Println(uintptr(unsafe.Pointer(d)), "SELECT * FROM " + d.Table + " WHERE " + d.Where)
+		}
 	} else {
+		if d.Where == "" {
+		formater.Println(uintptr(unsafe.Pointer(d)), "SELECT * FROM " + d.Table + " AS " + d.As)
+		} else{
 		formater.Println(uintptr(unsafe.Pointer(d)), "SELECT * FROM " + d.Table + " AS " + d.As + " WHERE " + d.Where)
+		}
 	}
 	if len(d.TableNames) > 0 {
 		formater.Println("\t\tTableFilter: " + d.TableFilter + ", Results:")
