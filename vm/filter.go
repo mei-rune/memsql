@@ -56,6 +56,7 @@ func Equal(left, right func(Context) (Value, error)) func(Context) (bool, error)
 		if err != nil {
 			return false, err
 		}
+
 		return leftValue.EqualTo(rightValue, EmptyCompareOption())
 	}
 }

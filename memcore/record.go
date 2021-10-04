@@ -319,7 +319,6 @@ func (r *recordValuer) GetValue(tableName, name string) (Value, error) {
 	if ok {
 		return value, nil
 	}
-	fmt.Println("=====", (*Record)(r).GoString())
 	if tableName == "" {
 		return vm.Null(), ColumnNotFound(name)
 	}
@@ -478,7 +477,7 @@ func MergeRecord(outerAs string, outer Record, innerAs string, inner Record) Rec
 	}
 	copy(result.Columns[len(outer.Tags) + len(outer.Columns)+ len(inner.Tags):], inner.Columns)
 	if innerAs != "" {
-		for idx := range outer.Columns {
+		for idx := range inner.Columns {
 			result.Columns[len(outer.Tags) + len(outer.Columns)+ len(inner.Tags)+idx].TableAs = innerAs
 		}
 	}

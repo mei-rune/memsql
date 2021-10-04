@@ -1,5 +1,9 @@
 package memcore
 
+import (
+	"github.com/runner-mei/memsql/vm"
+)
+
 // Join correlates the elements of two collection based on matching keys.
 //
 // A join refers to the operation of correlating the elements of two sources of
@@ -69,6 +73,18 @@ func (q Query) Join(isLeft bool, inner Query,
 						}
 
 						innerGroup, has = innerLookup[outKey]
+						if !has {
+							// FIXME: outKey 和 innerKey 可能会因为类型不匹配
+							//        所以这里用 Equal 再试一下
+							for innerKey, group := range innerLookup {
+								ok, _ := innerKey.EqualTo(outKey, vm.EmptyCompareOption())
+								if ok {
+									innerGroup = group
+									has = true
+									break
+								}
+							}
+						}
 						innerLen = len(innerGroup)
 						innerIndex = 0
 
