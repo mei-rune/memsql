@@ -388,6 +388,7 @@ func ToEqualValues(fctx filterContext, expr *sqlparser.ComparisonExpr, qualifier
 
 		return &simpleKv{
 			values: []memcore.KeyValue{memcore.KeyValue{Key: key, Value: value}},
+			readable: true,
 		}, nil
 	}
 
@@ -403,6 +404,7 @@ func ToEqualValues(fctx filterContext, expr *sqlparser.ComparisonExpr, qualifier
 		}
 		return &simpleKv{
 			values: []memcore.KeyValue{memcore.KeyValue{Key: key, Value: value}},
+			readable: true,
 		}, nil
 	}
 	return nil, fmt.Errorf("invalid key value expression %+v", expr)

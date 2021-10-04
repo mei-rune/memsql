@@ -416,3 +416,29 @@ func ToTable(values []map[string]interface{}) (Table, error) {
 	}
 	return table, nil
 }
+
+func MergeRecord(outerAs string, outer Record, innerAs string, inner Record) Record {
+	// Columns 和 Values 并不一定数目相等
+	result := Record{
+		Columns: make([]Column, len(outer.Columns)+len(inner.Columns)),
+	    Values: make([]Value, len(outer.Columns)+len(inner.Columns)),
+	}
+	
+	copy(result.Columns, outer.Columns)
+	if outerAs != "" {
+		for idx := range outer.Columns {
+			result.Columns[idx].TableAs = outerAs
+		}
+	}
+	copy(result.Columns[len(outer.Columns):], inner.Columns)
+	if innerAs != "" {
+		for idx := range outer.Columns {
+			result.Columns[len(outer.Columns)+idx].TableAs = innerAs
+		}
+	}
+
+	// Columns 和 Values 并不一定数目相等
+	copy(result.Values, outer.Values)
+	copy(result.Values[len(outer.Columns):], inner.Values)
+	return result
+}

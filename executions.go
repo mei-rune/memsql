@@ -14,6 +14,11 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
+
+func wrap(err error, msg string) error {
+	return memcore.Wrap(err, msg)
+}
+
 type Value = memcore.Value
 type Column = memcore.Column
 type KeyValue = memcore.KeyValue
@@ -240,8 +245,8 @@ func ExecuteUnion(ec *SessionContext, stmt *sqlparser.Union, hasJoin bool) (memc
 }
 
 func ExecuteSelect(ec *SessionContext, stmt *sqlparser.Select, hasJoin bool) (memcore.Query, error) {
-	if len(stmt.From) != 1 {
-		return memcore.Query{}, fmt.Errorf("currently only one expression in from supported, got %v", len(stmt.From))
+	if len(stmt.From) == 0 {
+		return memcore.Query{}, fmt.Errorf("currently from empty, got %v", len(stmt.From))
 	}
 
 	if stmt.Hints != "" {
@@ -255,10 +260,25 @@ func ExecuteSelect(ec *SessionContext, stmt *sqlparser.Select, hasJoin bool) (me
 		return memcore.Query{}, errors.New("currently unsupport distinct")
 	}
 
-	_, query, err := ExecuteTableExpression(ec, stmt.From[0], stmt.Where, hasJoin)
-	if err != nil {
-		return memcore.Query{}, errors.Wrap(err, "couldn't parse from expression")
+
+	var query memcore.Query
+	for idx := range stmt.From {
+		_, q, err := ExecuteTableExpression(ec, stmt.From[idx], stmt.Where, hasJoin)
+		if err != nil {
+			return memcore.Query{}, errors.Wrap(err, "couldn't parse from expression")
+		}
+		if idx == 0 {
+			query = q
+			continue
+		}
+
+
+		query = query.FullJoin(q, func(outer, inner memcore.Record) memcore.Record {
+			return memcore.MergeRecord("", outer, "", inner)
+		})
 	}
+
+	var err error
 
 	if stmt.GroupBy != nil {
 		query, err = ExecuteGroupBy(ec, query, stmt.GroupBy)
@@ -348,18 +368,18 @@ func ExecuteJoinTableExpression(ec *SessionContext, expr *sqlparser.JoinTableExp
 	switch expr.Join {
 	case sqlparser.JoinStr:
 		resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
-			return MergeRecord(leftAs, outer, rightAs, inner)
+			return memcore.MergeRecord(leftAs, outer, rightAs, inner)
 		}
 		return "", query1.Join(false, query2, left, right, resultSelector), nil
 	// case sqlparser.StraightJoinStr:
 	case sqlparser.LeftJoinStr:
 		resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
-			return MergeRecord(leftAs, outer, rightAs, inner)
+			return memcore.MergeRecord(leftAs, outer, rightAs, inner)
 		}
 		return "", query1.Join(true, query2, left, right, resultSelector), nil
 	case sqlparser.RightJoinStr:
 		resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
-			return MergeRecord(rightAs, inner, leftAs, outer)
+			return memcore.MergeRecord(rightAs, inner, leftAs, outer)
 		}
 		return "", query2.Join(true, query1, right, left, resultSelector), nil
 	// case sqlparser.NaturalJoinStr:
@@ -418,9 +438,9 @@ func ParseParenTableExpression(ec *SessionContext, expr *sqlparser.ParenTableExp
 
 		resultSelector := func(outer memcore.Record, inner Record) memcore.Record {
 			if idx == 1 {
-				return MergeRecord(tableAs, outer, queryAs, inner)
+				return memcore.MergeRecord(tableAs, outer, queryAs, inner)
 			}
-			return MergeRecord("", outer, queryAs, inner)
+			return memcore.MergeRecord("", outer, queryAs, inner)
 		}
 		query = query.FullJoin(query1, resultSelector)
 	}
@@ -484,7 +504,7 @@ func ExecuteAliasedTableExpression(ec *SessionContext, expr *sqlparser.AliasedTa
 }
 
 func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, hasJoin bool) (memcore.Query, error) {
-	if ds.Qualifier == "db" {
+	if ds.Qualifier == "fdw" {
 		if where == nil || !hasJoin {
 			return ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, where)
 		}
@@ -800,24 +820,3 @@ func toSelectAggOneFunc(idx int, as string, funcName string,
 	}), nil
 }
 
-func MergeRecord(outerAs string, outer memcore.Record, innerAs string, inner Record) memcore.Record {
-	result := memcore.Record{}
-	result.Columns = make([]memcore.Column, len(outer.Columns)+len(inner.Columns))
-	copy(result.Columns, outer.Columns)
-	if outerAs != "" {
-		for idx := range outer.Columns {
-			result.Columns[idx].TableAs = outerAs
-		}
-	}
-	copy(result.Columns[len(outer.Columns):], inner.Columns)
-	if innerAs != "" {
-		for idx := range outer.Columns {
-			result.Columns[len(outer.Columns)+idx].TableAs = innerAs
-		}
-	}
-
-	result.Values = make([]memcore.Value, len(outer.Values)+len(inner.Values))
-	copy(result.Values, outer.Values)
-	copy(result.Values[len(outer.Values):], inner.Values)
-	return result
-}

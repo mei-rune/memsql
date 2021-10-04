@@ -29,7 +29,7 @@ func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *
 
 	debuger := ctx.Debuger.Table(tableName, tableAs, nil)
 	if where != nil {
-		sqlstr = sqlstr + " WHERE " + sqlparser.String(where)
+		sqlstr = sqlstr + sqlparser.String(where)
 		debuger.SetWhere(where.Expr)
 
 		if f.Drv == "sqlite3" {
@@ -38,39 +38,44 @@ func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *
 		}
 	}
 
-	rows, err := f.Conn.QueryContext(ctx.Ctx, sqlstr)
-	if err != nil {
-		return memcore.Query{}, err
-	}
-
-	columnNames, err := rows.Columns()
-	if err != nil {
-		rows.Close()
-		return memcore.Query{}, err
-	}
-
-	// columnTypes, err := rows.ColumnTypes()
-	// if err != nil {
-	// 	return nil, memcore.Query{}, err
-	// }
-
-	var initFuncs = make([]func(*memcore.Value) interface{}, len(columnNames))
-	var columns = make([]memcore.Column, len(columnNames))
-	for idx := range columns {
-		columns[idx].TableName = tableName
-		columns[idx].TableAs = tableAs
-		columns[idx].Name = columnNames[idx]
-		initFuncs[idx] = func(value *memcore.Value) interface{} {
-			return scanValue{
-				value: value,
-			}
-		}
-	}
-
-	ctx.OnClosing(rows)
-
 	return memcore.Query{
 		Iterate: func() memcore.Iterator {
+			rows, err := f.Conn.QueryContext(ctx.Ctx, sqlstr)
+			if err != nil {
+				return func(memcore.Context) ( memcore.Record, error) {
+					return memcore.Record{}, wrap(err, "execute '"+sqlstr+"' fail")
+				}
+			}
+
+			columnNames, err := rows.Columns()
+			if err != nil {
+				rows.Close()
+
+				return func(memcore.Context) ( memcore.Record, error) {
+					return memcore.Record{}, wrap(err, fmt.Sprintf("execute %q fail", sqlstr))
+				}
+			}
+
+			// columnTypes, err := rows.ColumnTypes()
+			// if err != nil {
+			// 	return nil, memcore.Query{}, err
+			// }
+
+			var initFuncs = make([]func(*memcore.Value) interface{}, len(columnNames))
+			var columns = make([]memcore.Column, len(columnNames))
+			for idx := range columns {
+				columns[idx].TableName = tableName
+				columns[idx].TableAs = tableAs
+				columns[idx].Name = columnNames[idx]
+				initFuncs[idx] = func(value *memcore.Value) interface{} {
+					return scanValue{
+						value: value,
+					}
+				}
+			}
+
+			ctx.OnClosing(rows)
+
 			var done = false
 			var lastErr error
 

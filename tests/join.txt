@@ -66,32 +66,51 @@ select t1.f4, t1.f2, t1.f1, t2.f4, t2.f2, t2.f1 from t1 join t2 on t1.f1 = t2.f1
 true,"t1b1","t1a1",true,"t2b1","t1a1"
 true,"t1b1","t1a1",false,"t2b1","t1a1"
 
-
 -- fooselect3.sql --
 select t1.f4, t1.f2, t1.f1, t2.f4, t2.f2, t2.f1 from t1 join t2 on t1.f1 = t2.f1 where t1.f1 = 't1a1' and t1.f4 = true and t2.f4=true
 -- fooselect3.result --
 true,"t1b1","t1a1",true,"t2b1","t1a1"
 
+
 -- fooselect4.sql --
-select t1.f4, t1.f2, t1.f1, cast(t2.f4 as boolean), t2.f2, t2.f1 from t1 join db.t3 as t2 on t1.f1 = t2.f1 where t1.f1 = 't1a1' and t1.f4 = true and t2.f4=true
+select t1.f4, t1.f2, t1.f1, t2.f4, t2.f2, t2.f1 from t1, t2 where t1.f1 = t2.f1 and t1.f1 = 't1a1' and t1.f4 = true and t2.f4=true
 -- fooselect4.result --
 true,"t1b1","t1a1",true,"t2b1","t1a1"
 
+
 -- fooselect5.sql --
-select t1.f4, t1.f2, t1.f1, cast(t2.f4 as boolean), t2.f2, t2.f1 from t1 join db.t3 as t2 on t2.f1 = t1.f1 where t1.f1 = 't1a1' and t1.f4 = true and t2.f4=true
+select t1.f4, t1.f2, t1.f1, t2.f4, t2.f2, t2.f1 from t1 as a, t2 as b where t1.f1 = t2.f1 and t1.f1 = 't1a1' and t1.f4 = true and t2.f4=true
 -- fooselect5.result --
 true,"t1b1","t1a1",true,"t2b1","t1a1"
 
--- fooselect6.sql --
+
+-- foo_foreign_1.sql --
+select t1.f4, t1.f2, t1.f1, cast(t2.f4 as boolean), t2.f2, t2.f1 from t1 join fdw.t3 as t2 on t1.f1 = t2.f1 where t1.f1 = 't1a1' and t1.f4 = true and t2.f4=true
+-- foo_foreign_1.result --
+true,"t1b1","t1a1",true,"t2b1","t1a1"
+
+-- foo_foreign_2.sql --
+select t1.f4, t1.f2, t1.f1, cast(t2.f4 as boolean), t2.f2, t2.f1 from t1 join fdw.t3 as t2 on t2.f1 = t1.f1 where t1.f1 = 't1a1' and t1.f4 = true and t2.f4=true
+-- foo_foreign_2.result --
+true,"t1b1","t1a1",true,"t2b1","t1a1"
+
+-- foo_foreign_3.sql --
 select c1.f2, c2.f2 from cpu as c1 join cpu as c2 on c1.f1 = c2.f1 where c1.@mo = "1" and c2.@mo = "2"
--- fooselect6.result --
+-- foo_foreign_3.result --
 "c1b1","c2b1"
 "c1b2","c2b2"
 "c1b3","c2b3"
 
--- foo_foreign_1.sql --
-select c1.f2, c2.f2 from cpu as c1 join db.managed_objects c2 on c1.@mo = c2.id
--- foo_foreign_1.result --
+-- foo_foreign_4.sql --
+select c1.f2, c2.f2 from cpu as c1 join fdw.managed_objects c2 on c1.@mo = c2.id
+-- foo_foreign_4.result --
+"c1b1","c2b1"
+"c1b2","c2b2"
+"c1b3","c2b3"
+
+-- foo_foreign_5.sql --
+select c1.f2, c2.f2 from cpu as c1, fdw.managed_objects as c2 where c1.@mo = c2.id
+-- foo_foreign_5.result --
 "c1b1","c2b1"
 "c1b2","c2b2"
 "c1b3","c2b3"

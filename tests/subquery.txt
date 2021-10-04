@@ -45,7 +45,7 @@ select f2 from cpuUsage where id in (select id from t1)
 "c1b3"
 
 -- foo_2.sql --
-select f2 from cpu where @mo in (select id from db.t3) order by f2
+select f2 from cpu where @mo in (select id from fdw.t3) order by f2
 -- foo_2.result --
 "c1b1"
 "c1b2"
