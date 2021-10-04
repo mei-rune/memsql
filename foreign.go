@@ -27,7 +27,7 @@ func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *
 		sqlstr = sqlstr + " AS " + tableAs
 	}
 
-	debuger := ctx.Debuger.Table(tableName, tableAs, nil)
+	debuger := ctx.Debuger.NewTable(tableName, tableAs, nil)
 	if where != nil && where.Expr != nil {
 		sqlstr = sqlstr +" WHERE "+ sqlparser.String(where.Expr)
 		debuger.SetWhere(where.Expr)

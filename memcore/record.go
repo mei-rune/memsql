@@ -74,7 +74,7 @@ type Record struct {
 }
 
 func (r Record) GoString() string {
-	bs, _ := r.MarshalText()
+	bs, _ := r.marshalText(true)
 	return string(bs)
 }
 
@@ -232,7 +232,7 @@ func (r *Record) EqualTo(to Record, opt vm.CompareOption) (bool, error) {
 	return true, nil
 }
 
-func (r *Record) marshalText() ([]byte, error) {
+func (r *Record) marshalText(withTable bool) ([]byte, error) {
 	var buf = make([]byte, 0, 256)
 	buf = append(buf, '{')
 	isFirst := true
@@ -263,6 +263,19 @@ func (r *Record) marshalText() ([]byte, error) {
 			buf = append(buf, ',')
 		}
 		buf = append(buf, '"')
+		if withTable {
+			if r.Columns[idx].TableName != "" {
+				buf = append(buf, r.Columns[idx].TableName...)
+				buf = append(buf, '.')
+				if r.Columns[idx].TableAs != "" {
+					buf = append(buf, r.Columns[idx].TableAs...)
+					buf = append(buf, '.')
+				}
+			} else if r.Columns[idx].TableAs != "" {
+				buf = append(buf, r.Columns[idx].TableAs...)
+				buf = append(buf, '.')
+			}
+		}
 		buf = append(buf, r.Columns[idx].Name...)
 		buf = append(buf, '"')
 		buf = append(buf, ':')
@@ -279,7 +292,7 @@ func (r *Record) marshalText() ([]byte, error) {
 }
 
 func (r Record) MarshalText() ([]byte, error) {
-	return r.marshalText()
+	return r.marshalText(false)
 }
 
 func RenameTableToAlias(alias string) func(Context, Record) (Record, error) {

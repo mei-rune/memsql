@@ -42,6 +42,12 @@ type TableName struct {
 	Tags  KeyValues
 	Table string
 }
+func (tn TableName) String() string {
+	if len(tn.Tags) > 0 {
+		return tn.Table + "("+ tn.Tags.ToKey() +")"
+	}
+	return tn.Table
+}
 
 type Storage interface {
 	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, []TableName, error)

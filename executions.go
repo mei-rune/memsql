@@ -261,33 +261,34 @@ func ExecuteSelect(ec *SessionContext, stmt *sqlparser.Select, hasJoin bool) (me
 	}
 
 
-	var query memcore.Query
 	if len(stmt.From) > 1 {
 		hasJoin = true
 	}
-	for idx := range stmt.From {
-		_, q, err := ExecuteTableExpression(ec, stmt.From[idx], stmt.Where, hasJoin)
-		if err != nil {
-			return memcore.Query{}, errors.Wrap(err, "couldn't parse from expression")
-		}
-		if idx == 0 {
-			query = q
-			continue
-		}
 
-
-		query = query.FullJoin(q, func(outer, inner memcore.Record) memcore.Record {
-			return memcore.MergeRecord("", outer, "", inner)
-		})
+	_, query, err := ExecuteTableExpression(ec, stmt.From[0], stmt.Where, hasJoin)
+	if err != nil {
+		return memcore.Query{}, errors.Wrap(err, "couldn't parse from expression")
 	}
-	var err error
 
 	if len(stmt.From) > 1 {
+		for idx := 1; idx < len(stmt.From); idx ++ {
+			_, q, err := ExecuteTableExpression(ec, stmt.From[idx], stmt.Where, true)
+			if err != nil {
+				return memcore.Query{}, errors.Wrap(err, "couldn't parse from expression")
+			}
+
+			query = query.FullJoin(q, func(outer, inner memcore.Record) memcore.Record {
+				return memcore.MergeRecord("", outer, "", inner)
+			})
+		}
+
 		query, err = ExecuteWhere(ec, query, stmt.Where.Expr)
 		if err != nil {
 			return memcore.Query{}, err
 		}
 	}
+
+	query = ec.Debuger.Track(query)
 
 	if stmt.GroupBy != nil {
 		query, err = ExecuteGroupBy(ec, query, stmt.GroupBy)
@@ -543,7 +544,7 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 		}
 	}
 
-	debuger := ec.Debuger.Table(ds.Table, ds.As, tableExpr)
+	debuger := ec.Debuger.NewTable(ds.Table, ds.As, tableExpr)
 
 	query, tableNames, err := ec.Storage.From(ec, ds.Table, ds.As, tableExpr)
 	if err != nil {
@@ -551,22 +552,20 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 	}
 	debuger.SetTableNames(tableNames)
 
-	if !hasJoin {
-		debuger.SetWhere(expr)
-		return ExecuteWhere(ec, query, expr)
+	whereExpr := expr
+	if hasJoin {
+		whereExpr, err = parser.SplitByTableName(expr, ds.As)
+		if err != nil {
+			return memcore.Query{}, err
+		}
 	}
+	debuger.SetWhere(whereExpr)
 
-	if expr == nil {
-		debuger.SetWhere(nil)
-		return ExecuteWhere(ec, query, nil)
-	}
-
-	whereExpr, err := parser.SplitByTableName(expr, ds.As)
+	query, err = ExecuteWhere(ec, query, whereExpr)
 	if err != nil {
 		return memcore.Query{}, err
 	}
-	debuger.SetWhere(whereExpr)
-	return ExecuteWhere(ec, query, whereExpr)
+	return debuger.Track(query), nil
 }
 
 func ExecuteWhere(ec *SessionContext, query memcore.Query, expr sqlparser.Expr) (memcore.Query, error) {
@@ -579,7 +578,7 @@ func ExecuteWhere(ec *SessionContext, query memcore.Query, expr sqlparser.Expr) 
 		return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
 	}
 	query = query.Where(func(idx int, r memcore.Record) (bool, error) {
-		return f(memcore.ToRecordValuer(&r, false))
+		return f(memcore.ToRecordValuer(&r, true))
 	})
 
 	// type Where Expr
@@ -791,7 +790,6 @@ func ExecuteSelectExprs(ec *SessionContext, query memcore.Query, selectExprs sql
 			for _, f := range selectFuncs {
 				result, err = f(valuer, result)
 				if err != nil {
-					fmt.Println("====", r.GoString())
 					return
 				}
 			}
