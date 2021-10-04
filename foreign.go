@@ -28,8 +28,8 @@ func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *
 	}
 
 	debuger := ctx.Debuger.Table(tableName, tableAs, nil)
-	if where != nil {
-		sqlstr = sqlstr + sqlparser.String(where)
+	if where != nil && where.Expr != nil {
+		sqlstr = sqlstr +" WHERE "+ sqlparser.String(where.Expr)
 		debuger.SetWhere(where.Expr)
 
 		if f.Drv == "sqlite3" {

@@ -104,9 +104,15 @@ select c1.f2, c2.f2 from cpu as c1 join cpu as c2 on c1.f1 = c2.f1 where c1.@mo 
 -- foo_foreign_4.sql --
 select c1.f2, c2.f2 from cpu as c1 join fdw.managed_objects c2 on c1.@mo = c2.id
 -- foo_foreign_4.result --
-"c1b1","c2b1"
-"c1b2","c2b2"
-"c1b3","c2b3"
+"c1b1","dev1"
+"c1b2","dev1"
+"c1b3","dev1"
+"c2b1","dev2"
+"c2b2","dev2"
+"c2b3","dev2"
+"c3b1","dev3"
+"c3b2","dev3"
+"c3b3","dev3"
 
 -- foo_foreign_5.sql --
 select c1.f2, c2.f2 from cpu as c1, fdw.managed_objects as c2 where c1.@mo = c2.id
