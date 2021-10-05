@@ -1,0 +1,14 @@
+-- runtime_cpu --
+tags: {"mo":"2"}
+f1,f2,f3
+a2_1,b1,1
+a2_2,b2,2
+a2_3,b3,3
+
+
+-- fooselect1.sql --
+select f1, f2 from cpu where @mo="2"
+-- fooselect1.result --
+"a2_1","b1"
+"a2_2","b2"
+"a2_3","b3"

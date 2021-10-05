@@ -125,12 +125,12 @@ select f1,f2,f3,f4 from cpu where @mo in ( "1" ) order by f1 desc
 "c1a2","c1b2",2,true
 "c1a1","c1b1",1,true
 
--- foo_error_1.sql --
+-- foo_error_1.result --
 select f2 from cpu where c1.@mo = "1"
 -- foo_error_1.error --
 c1 isnot exists
 
--- foo_error_2.sql --
+-- foo_error_2.result --
 select c1.f2 from cpu where @mo = "1"
 -- foo_error_2.error --
 c1 isnot exists

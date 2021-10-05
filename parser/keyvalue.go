@@ -2,225 +2,12 @@ package parser
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/runner-mei/errors"
 	"github.com/runner-mei/memsql/memcore"
-	"github.com/runner-mei/memsql/vm"
 	"github.com/xwb1989/sqlparser"
 )
-
-type StringIterator interface {
-	Next(ctx vm.Context) (string, error)
-}
-
-type simpleStringIterator struct {
-	value    string
-	readable bool
-}
-
-func (simple *simpleStringIterator) Next(ctx vm.Context) (string, error) {
-	if !simple.readable {
-		return "", memcore.ErrNoRows
-	}
-	simple.readable = false
-	return simple.value, nil
-}
-
-func toStringIterator(s string) StringIterator {
-	return &simpleStringIterator{
-		value:    s,
-		readable: true,
-	}
-}
-
-type stringList struct {
-	list  []string
-	index int
-}
-
-func (kl *stringList) Next(ctx vm.Context) (string, error) {
-	if len(kl.list) >= kl.index {
-		return "", memcore.ErrNoRows
-	}
-	return kl.list[kl.index], nil
-}
-
-func cloneStrings(ss []string) []string {
-	c := make([]string, len(ss))
-	copy(c, ss)
-	return c
-}
-
-type unionStrs struct {
-	query1, query2 StringIterator
-	query1Done     bool
-}
-
-func (us *unionStrs) Next(ctx vm.Context) (string, error) {
-	if !us.query1Done {
-		s, err := us.query1.Next(ctx)
-		if err == nil {
-			return s, nil
-		}
-		if !memcore.IsNoRows(err) {
-			return "", err
-		}
-		us.query1Done = true
-	}
-	return us.query2.Next(ctx)
-}
-
-func appendStringIterator(query1, query2 StringIterator) StringIterator {
-	switch q1 := query1.(type) {
-	case *stringList:
-		switch q2 := query2.(type) {
-		case *stringList:
-			return &stringList{
-				list: append(cloneStrings(q1.list[q1.index:]), q2.list[q2.index:]...),
-			}
-		case *simpleStringIterator:
-			if !q2.readable {
-				return q1
-			}
-			return &stringList{
-				list: append(cloneStrings(q1.list[q1.index:]), q2.value),
-			}
-		}
-	case *simpleStringIterator:
-		if !q1.readable {
-			return query2
-		}
-		switch q2 := query2.(type) {
-		case *stringList:
-			return &stringList{
-				list: append(cloneStrings(q2.list[q2.index:]), q1.value),
-			}
-		case *simpleStringIterator:
-			if !q2.readable {
-				return q1
-			}
-			return &stringList{
-				list: []string{q1.value, q2.value},
-			}
-		}
-	}
-	return &unionStrs{
-		query1: query1,
-		query2: query2,
-	}
-}
-
-type KeyValueIterator interface {
-	Next(ctx vm.Context) ([]memcore.KeyValue, error)
-}
-
-type keyValues struct {
-	name  string
-	query StringIterator
-}
-
-func (kvs *keyValues) Next(ctx vm.Context) ([]memcore.KeyValue, error) {
-	value, err := kvs.query.Next(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []memcore.KeyValue{{Key: kvs.name, Value: value}}, nil
-}
-
-type kvList struct {
-	list  [][]memcore.KeyValue
-	index int
-}
-
-func (kl *kvList) Next(ctx vm.Context) ([]memcore.KeyValue, error) {
-	if len(kl.list) >= kl.index {
-		return nil, memcore.ErrNoRows
-	}
-	return kl.list[kl.index], nil
-}
-
-type simpleKv struct {
-	values   []memcore.KeyValue
-	readable bool
-}
-
-func (simple *simpleKv) Next(ctx vm.Context) ([]memcore.KeyValue, error) {
-	if !simple.readable {
-		return nil, memcore.ErrNoRows
-	}
-	simple.readable = false
-	return simple.values, nil
-}
-
-type mergeIterator struct {
-	query1, query2 KeyValueIterator
-
-	done    bool
-	readErr error
-	inner   [][]memcore.KeyValue
-
-	outer      []memcore.KeyValue
-	innerLen   int
-	innerIndex int
-}
-
-func (merge *mergeIterator) Next(ctx vm.Context) ([]memcore.KeyValue, error) {
-	if !merge.done {
-		if merge.readErr != nil {
-			return nil, merge.readErr
-		}
-		for {
-			kv, err := merge.query2.Next(ctx)
-			if err != nil {
-				if !memcore.IsNoRows(err) {
-					merge.readErr = err
-					return nil, err
-				}
-				break
-			}
-			merge.inner = append(merge.inner, kv)
-		}
-		merge.done = true
-	}
-
-	if merge.innerIndex >= merge.innerLen {
-		has := false
-		for !has {
-			outer, err := merge.query1.Next(ctx)
-			if err != nil {
-				return nil, err
-			}
-
-			merge.outer = outer
-			merge.innerLen = len(merge.inner)
-			merge.innerIndex = 0
-		}
-	}
-
-	items := append(merge.outer, merge.inner[merge.innerIndex]...)
-	merge.innerIndex++
-	return items, nil
-}
-
-func appendKeyValueIterator(query KeyValueIterator, kv ...memcore.KeyValue) KeyValueIterator {
-	switch q := query.(type) {
-	case *kvList:
-		for idx := range q.list {
-			q.list[idx] = append(q.list[idx], kv...)
-		}
-		return q
-	case *simpleKv:
-		return &simpleKv{
-			values:   append(q.values, kv...),
-			readable: q.readable,
-		}
-	default:
-		return &mergeIterator{
-			query1: query,
-			query2: &simpleKv{values: kv, readable: true},
-		}
-	}
-}
 
 func ToKeyValues(fctx filterContext, expr sqlparser.Expr, qualifier string, results KeyValueIterator) (KeyValueIterator, error) {
 	switch v := expr.(type) {
@@ -255,12 +42,20 @@ func ToKeyValues(fctx filterContext, expr sqlparser.Expr, qualifier string, resu
 	case *sqlparser.ComparisonExpr:
 		if v.Operator == sqlparser.InStr {
 			tableAs, iter, err := ToInKeyValue(fctx, v)
+			// fmt.Println(qualifier, tableAs, iter, err)
 			if err != nil {
 				return nil, err
 			}
-			if qualifier == tableAs {
+			// fmt.Println("2", qualifier, tableAs)
+			if qualifier != tableAs {
 				return results, nil
 			}
+			// fmt.Println("3")
+			if results == nil {
+				// fmt.Println("3.1", iter)
+				return iter, nil
+			}
+			// fmt.Println("4")
 			return &mergeIterator{
 				query1: results,
 				query2: iter,
@@ -273,6 +68,11 @@ func ToKeyValues(fctx filterContext, expr sqlparser.Expr, qualifier string, resu
 		if err != nil {
 			return nil, err
 		}
+		if results == nil {
+			return iter, nil
+		}
+
+		// fmt.Println(fmt.Sprintf("%T %v", results, results), fmt.Sprintf("%T %v", iter, iter))
 		return &mergeIterator{
 			query1: results,
 			query2: iter,
@@ -350,7 +150,7 @@ func ToEqualValues(fctx filterContext, expr *sqlparser.ComparisonExpr, qualifier
 				query: &queryIterator{
 					Qualifier: rightQualifier,
 					Query:     query,
-					key:       sqlparser.String(left.Name),
+					key:       strings.TrimPrefix(sqlparser.String(left.Name), "@"),
 					field:     sqlparser.String(right.Name),
 				},
 			}, nil
@@ -366,7 +166,7 @@ func ToEqualValues(fctx filterContext, expr *sqlparser.ComparisonExpr, qualifier
 				query: &queryIterator{
 					Qualifier: leftQualifier,
 					Query:     query,
-					key:       sqlparser.String(right.Name),
+					key:       strings.TrimPrefix(sqlparser.String(right.Name), "@"),
 					field:     sqlparser.String(left.Name),
 				},
 			}, nil
@@ -386,8 +186,9 @@ func ToEqualValues(fctx filterContext, expr *sqlparser.ComparisonExpr, qualifier
 			return nil, err
 		}
 
+		key = strings.TrimPrefix(key, "@")
 		return &simpleKv{
-			values: []memcore.KeyValue{memcore.KeyValue{Key: key, Value: value}},
+			values:   []memcore.KeyValue{memcore.KeyValue{Key: key, Value: value}},
 			readable: true,
 		}, nil
 	}
@@ -402,8 +203,9 @@ func ToEqualValues(fctx filterContext, expr *sqlparser.ComparisonExpr, qualifier
 		if err != nil {
 			return nil, err
 		}
+		key = strings.TrimPrefix(key, "@")
 		return &simpleKv{
-			values: []memcore.KeyValue{memcore.KeyValue{Key: key, Value: value}},
+			values:   []memcore.KeyValue{memcore.KeyValue{Key: key, Value: value}},
 			readable: true,
 		}, nil
 	}
@@ -429,7 +231,9 @@ func ToInKeyValue(fctx filterContext, expr *sqlparser.ComparisonExpr) (string, K
 		if err != nil {
 			return "", nil, fmt.Errorf("invalid key values expression %+v, %+v", expr, err)
 		}
-		return sqlparser.String(left.Qualifier), &keyValues{name: left.Name.String(), query: value}, nil
+
+		name := strings.TrimPrefix(left.Name.String(), "@")
+		return sqlparser.String(left.Qualifier), &keyValues{name: name, query: value}, nil
 	}
 
 	right, ok := expr.Right.(*sqlparser.ColName)
@@ -438,7 +242,9 @@ func ToInKeyValue(fctx filterContext, expr *sqlparser.ComparisonExpr) (string, K
 		if err != nil {
 			return "", nil, fmt.Errorf("invalid key values expression %+v, %+v", expr, err)
 		}
-		return sqlparser.String(right.Qualifier), &keyValues{name: right.Name.String(), query: value}, nil
+
+		name := strings.TrimPrefix(right.Name.String(), "@")
+		return sqlparser.String(right.Qualifier), &keyValues{name: name, query: value}, nil
 	}
 	return "", nil, fmt.Errorf("invalid key values expression %+v", expr)
 }
@@ -528,91 +334,5 @@ func ToValueLiteral(fctx filterContext, expr sqlparser.Expr) (StringIterator, er
 	// 	return nil, ErrUnsupportedExpr("GroupConcatExpr")
 	default:
 		return nil, fmt.Errorf("invalid values expression %T %+v", expr, expr)
-	}
-}
-
-type subqueryStringIterator struct {
-	key      string
-	fctx     filterContext
-	subquery sqlparser.SelectStatement
-
-	done    bool
-	records []memcore.Record
-	err     error
-
-	index int
-}
-
-func (iter *subqueryStringIterator) Next(ctx vm.Context) (string, error) {
-	if !iter.done {
-		if iter.err != nil {
-			return "", iter.err
-		}
-		q, err := iter.fctx.ExecuteSelect(iter.subquery)
-		if err != nil {
-			iter.err = err
-			return "", err
-		}
-		records, err := q.Results(ctx)
-		if err != nil {
-			iter.err = err
-			return "", err
-		}
-		iter.records = records
-		iter.done = true
-		iter.index = 0
-
-		iter.fctx.SetResultSet(iter.key, iter.records)
-	}
-
-	if len(iter.records) >= iter.index {
-		return "", memcore.ErrNoRows
-	}
-
-	s := iter.records[iter.index].At(0)
-	iter.index++
-
-	return s.AsString(true)
-}
-
-type queryIterator struct {
-	Qualifier string
-	Query     memcore.Query
-	key       string
-	field     string
-
-	done    bool
-	records []memcore.Record
-	err     error
-
-	index int
-}
-
-func (iter *queryIterator) Next(ctx vm.Context) (string, error) {
-	if !iter.done {
-		if iter.err != nil {
-			return "", iter.err
-		}
-		records, err := iter.Query.Results(ctx)
-		if err != nil {
-			iter.err = err
-			return "", err
-		}
-		iter.records = records
-		iter.done = true
-		iter.index = 0
-	}
-
-	for {
-		if len(iter.records) >= iter.index {
-			return "", memcore.ErrNoRows
-		}
-		item := iter.records[iter.index]
-		iter.index++
-
-		s, ok := item.Get(iter.field)
-		if ok {
-			return s.AsString(true)
-		}
 	}
 }

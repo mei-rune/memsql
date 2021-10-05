@@ -38,6 +38,7 @@ type TestSelect struct {
 
 type TestCase struct {
 	Name    string       `json:"name"`
+	RuntimeValues  map[string][]map[string]interface{}
 	Tables  []TestTable  `json:"tables"`
 	Selects []TestSelect `json:"selects"`
 }
@@ -47,6 +48,7 @@ type TestApp struct {
 	driver   string
 	conn     *sql.DB
 	s        memcore.Storage
+	runtimeRead ReadFunc
 }
 
 func (app *TestApp) Close() error {
@@ -57,6 +59,11 @@ func (app *TestApp) Close() error {
 		}
 	}
 	return err
+}
+
+
+func (app *TestApp) ReadWith(runtimeValues map[string][]map[string]interface{}) {
+	app.runtimeRead = ReadValues(runtimeValues)
 }
 
 func (app *TestApp) Add(t *testing.T, table *TestTable) error {
@@ -157,7 +164,12 @@ func (app *TestApp) Execute(t *testing.T, ctx *Context, sqlstmt string) (RecordS
 		ctx.Ctx = context.Background()
 	}
 	if ctx.Storage == nil {
-		ctx.Storage = WrapStorage(app.s)
+
+		if app.runtimeRead != nil {
+			ctx.Storage = NewHookStorage(app.s, app.runtimeRead)
+		} else {
+			ctx.Storage = WrapStorage(app.s)
+		}
 	}
 	if ctx.Foreign == nil {
 		ctx.Foreign = NewDbForeign(app.driver, app.conn)
@@ -291,6 +303,7 @@ func readText(txt []byte) (TestCase, error) {
 	var stmts = map[string]string{}
 	var sorts = map[string]bool{}
 	var results = map[string][]string{}
+	var runtimeValues = map[string][]map[string]interface{} {}
 
 	for _, file := range ar.Files {
 		switch {
@@ -336,7 +349,14 @@ func readText(txt []byte) (TestCase, error) {
 				return TestCase{}, err
 			}
 			table.Name = tableName
-			tables = append(tables, table)
+
+			if !strings.HasPrefix(tableName, "runtime_") {
+				tables = append(tables, table)
+				break
+			}
+			tableName = strings.TrimPrefix(tableName, "runtime_")
+
+			runtimeValues[tableName+"-"+memcore.KeyValues(memcore.MapToTags(table.Tags)).ToKey()] = table.Records
 		}
 	}
 
@@ -353,6 +373,7 @@ func readText(txt []byte) (TestCase, error) {
 
 	testCase := TestCase{
 		Tables: tables,
+		RuntimeValues: runtimeValues,
 		// Selects []TestSelect `json:"selects"`
 	}
 	for key, stmt := range stmts {
@@ -415,6 +436,10 @@ func runTests(t *testing.T, allTests []TestCase) {
 			}()
 			for _, table := range test.Tables {
 				app.Add(t, &table)
+			}
+
+			if len(test.RuntimeValues) > 0 {
+				app.ReadWith(test.RuntimeValues)
 			}
 
 			for _, stmt := range test.Selects {
