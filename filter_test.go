@@ -62,6 +62,33 @@ func TestFilter(t *testing.T) {
 		result bool
 	}{
 		{
+			sql: "select * from cpu where a <> 2",
+			values: map[string]map[string]vm.Value{
+				"": map[string]vm.Value{
+					"a": vm.IntToValue(1),
+				},
+			},
+			result: true,
+		},
+		{
+			sql: "select * from cpu where a <> 2",
+			values: map[string]map[string]vm.Value{
+				"": map[string]vm.Value{
+					"a": vm.IntToValue(2),
+				},
+			},
+			result: false,
+		},
+		{
+			sql: "select * from cpu where a = 2",
+			values: map[string]map[string]vm.Value{
+				"": map[string]vm.Value{
+					"a": vm.IntToValue(1),
+				},
+			},
+			result: false,
+		},
+		{
 			sql: "select * from cpu where a = 2",
 			values: map[string]map[string]vm.Value{
 				"": map[string]vm.Value{
