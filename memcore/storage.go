@@ -22,7 +22,10 @@ func TableNotExists(table string, err ...error) error {
 	return errors.WithTitle(errors.ErrTableNotExists, "table '"+table+"' isnot exists")
 }
 
-func ColumnNotFound(columnName string) error {
+func ColumnNotFound(tableName, columnName string) error {
+	if tableName != "" {
+	return errors.WithTitle(ErrNotFound, "column '"+tableName +"."+columnName+"' isnot found")
+	}
 	return errors.WithTitle(ErrNotFound, "column '"+columnName+"' isnot found")
 }
 

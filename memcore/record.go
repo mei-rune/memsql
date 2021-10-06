@@ -319,10 +319,7 @@ func (r *recordValuer) GetValue(tableName, name string) (Value, error) {
 	if ok {
 		return value, nil
 	}
-	if tableName == "" {
-		return vm.Null(), ColumnNotFound(name)
-	}
-	return vm.Null(), ColumnNotFound(tableName + "." + name)
+	return vm.Null(), ColumnNotFound(tableName, name)
 }
 
 type recordValuerByQualifierName Record
@@ -332,10 +329,7 @@ func (r *recordValuerByQualifierName) GetValue(tableName, name string) (Value, e
 	if ok {
 		return value, nil
 	}
-	if tableName == "" {
-		return vm.Null(), ColumnNotFound(name)
-	}
-	return vm.Null(), ColumnNotFound(tableName + "." + name)
+	return vm.Null(), ColumnNotFound(tableName, name)
 }
 
 func ToRecordValuer(r *Record, withQualifier bool) GetValuer {
