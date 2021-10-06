@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -30,24 +31,25 @@ type TestTable struct {
 }
 
 type TestSelect struct {
-	Name    string   `json:"name"`
-	SQL     string   `json:"sql"`
-	Sort    bool     `json:"sort"`
-	Results []string `json:"results"`
+	Name       string   `json:"name"`
+	SQL        string   `json:"sql"`
+	RowSort    bool     `json:"row_sort"`
+	ColumnSort bool     `json:"column_sort"`
+	Results    []string `json:"results"`
 }
 
 type TestCase struct {
-	Name    string       `json:"name"`
-	RuntimeValues  map[string][]map[string]interface{}
-	Tables  []TestTable  `json:"tables"`
-	Selects []TestSelect `json:"selects"`
+	Name          string `json:"name"`
+	RuntimeValues map[string][]map[string]interface{}
+	Tables        []TestTable  `json:"tables"`
+	Selects       []TestSelect `json:"selects"`
 }
 
 type TestApp struct {
-	filename string
-	driver   string
-	conn     *sql.DB
-	s        memcore.Storage
+	filename    string
+	driver      string
+	conn        *sql.DB
+	s           memcore.Storage
 	runtimeRead ReadFunc
 }
 
@@ -60,7 +62,6 @@ func (app *TestApp) Close() error {
 	}
 	return err
 }
-
 
 func (app *TestApp) ReadWith(runtimeValues map[string][]map[string]interface{}) {
 	app.runtimeRead = ReadValues(runtimeValues)
@@ -186,16 +187,20 @@ func RecordToLine(t *testing.T, record Record, sort bool) string {
 	return sb.String()
 }
 
-func RecordToLines(t *testing.T, results RecordSet, sort bool) []string {
+func RecordToLines(t *testing.T, results RecordSet, columnSort bool) []string {
 	var lines = make([]string, 0, len(results))
 	for idx := range results {
-		lines = append(lines, RecordToLine(t, results[idx], sort))
+		lines = append(lines, RecordToLine(t, results[idx], columnSort))
 	}
 	return lines
 }
 
-func assertResults(t *testing.T, records RecordSet, sort bool, excepted []string) {
-	actual := RecordToLines(t, records, sort)
+func assertResults(t *testing.T, rowSort, columnSort bool, records RecordSet, excepted []string) {
+	actual := RecordToLines(t, records, columnSort)
+	if rowSort {
+		sort.Strings(actual)
+		sort.Strings(excepted)
+	}
 	results := difflib.Diff(excepted, actual)
 
 	isOk := true
@@ -301,9 +306,10 @@ func readText(txt []byte) (TestCase, error) {
 
 	var tables []TestTable
 	var stmts = map[string]string{}
-	var sorts = map[string]bool{}
+	var rowSorts = map[string]bool{}
+	var columnSorts = map[string]bool{}
 	var results = map[string][]string{}
-	var runtimeValues = map[string][]map[string]interface{} {}
+	var runtimeValues = map[string][]map[string]interface{}{}
 
 	for _, file := range ar.Files {
 		switch {
@@ -313,6 +319,11 @@ func readText(txt []byte) (TestCase, error) {
 		case strings.HasSuffix(file.Name, ".result"):
 			name := strings.TrimSuffix(file.Name, ".result")
 			name = strings.TrimSuffix(name, ".sort")
+			name = strings.TrimSuffix(name, ".row_sort")
+			name = strings.TrimSuffix(name, ".column_sort")
+			name = strings.TrimSuffix(name, ".row_sort")
+			name = strings.TrimSuffix(name, ".column_sort")
+			
 			lines := bytes.Split(file.Data, []byte("\n"))
 
 			var ss = make([]string, 0, len(lines))
@@ -334,8 +345,15 @@ func readText(txt []byte) (TestCase, error) {
 
 			results[name] = ss
 
+			if strings.Contains(file.Name, ".column_sort.") {
+				columnSorts[name] = true
+			}
+			if strings.Contains(file.Name, ".row_sort.") {
+				rowSorts[name] = true
+			}
 			if strings.Contains(file.Name, ".sort.") {
-				sorts[name] = true
+				columnSorts[name] = true
+				rowSorts[name] = true
 			}
 		default:
 			tableName := file.Name
@@ -372,7 +390,7 @@ func readText(txt []byte) (TestCase, error) {
 	}
 
 	testCase := TestCase{
-		Tables: tables,
+		Tables:        tables,
 		RuntimeValues: runtimeValues,
 		// Selects []TestSelect `json:"selects"`
 	}
@@ -380,11 +398,13 @@ func readText(txt []byte) (TestCase, error) {
 		sel := TestSelect{
 			Name:    key,
 			SQL:     stmt,
-			Sort:    false,
 			Results: results[key],
 		}
-		if value, ok := sorts[key]; ok {
-			sel.Sort = value
+		if value, ok := rowSorts[key]; ok {
+			sel.RowSort = value
+		}
+		if value, ok := columnSorts[key]; ok {
+			sel.ColumnSort = value
 		}
 		testCase.Selects = append(testCase.Selects, sel)
 	}
@@ -453,7 +473,7 @@ func runTests(t *testing.T, allTests []TestCase) {
 						t.Error(err)
 						return
 					}
-					assertResults(t, results, stmt.Sort, stmt.Results)
+					assertResults(t, stmt.RowSort, stmt.ColumnSort, results, stmt.Results)
 					if t.Failed() {
 						t.Log(ctx.Debuger.String())
 					}

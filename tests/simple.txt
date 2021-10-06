@@ -33,7 +33,7 @@ c1a3,c3b3,3,false
 
 -- foo.sql --
 select * from abc
--- foo.sort.result --
+-- foo.column_sort.result --
 "a1","b1",1
 "a2","b2",2
 "a3","b3",3
