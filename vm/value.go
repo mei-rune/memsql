@@ -167,6 +167,36 @@ type Value struct {
 func (v *Value) BoolValue() bool {
 	return v.Int64 != 0
 }
+
+
+func (v *Value) IntValue() int64 {
+	return v.Int64
+}
+
+func (v *Value) UintValue() uint64 {
+	return v.Uint64
+}
+
+func (v *Value) FloatValue() float64 {
+	return v.Float64
+}
+
+func (v *Value) StrValue() string {
+	return v.Str
+}
+
+func (v *Value) DatetimeValue() time.Time {
+	return IntToDatetime(v.Int64)
+}
+
+func (v *Value) DurationValue() time.Duration {
+	return IntToDuration(v.Int64)
+}
+
+func (v *Value) AnyValue() interface{} {
+	return v.Any
+}
+
 func (v Value) GoString() string {
 	return v.String()
 }

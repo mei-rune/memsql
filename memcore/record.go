@@ -440,8 +440,8 @@ func ToTable(values []map[string]interface{}) (Table, error) {
 func MergeRecord(outerAs string, outer Record, innerAs string, inner Record) Record {
 	// Columns 和 Values 并不一定数目相等
 	result := Record{
-		Columns: make([]Column, len(outer.Tags) + len(outer.Columns)+len(inner.Tags) +len(inner.Columns)),
-	    Values: make([]Value, len(outer.Tags) +len(outer.Columns)+len(inner.Tags) +len(inner.Columns)),
+		Columns: make([]Column, len(outer.Tags)+len(outer.Columns)+len(inner.Tags)+len(inner.Columns)),
+		Values:  make([]Value, len(outer.Tags)+len(outer.Columns)+len(inner.Tags)+len(inner.Columns)),
 	}
 
 	if len(outer.Tags) > 0 {
@@ -459,26 +459,26 @@ func MergeRecord(outerAs string, outer Record, innerAs string, inner Record) Rec
 	copy(result.Columns[len(outer.Tags):], outer.Columns)
 	if outerAs != "" {
 		for idx := range outer.Columns {
-			result.Columns[len(outer.Tags) + idx].TableAs = outerAs
+			result.Columns[len(outer.Tags)+idx].TableAs = outerAs
 		}
 	}
 
 	if len(inner.Tags) > 0 {
 		for idx := range inner.Tags {
 			if len(inner.Columns) > 0 {
-				result.Columns[len(outer.Tags) + len(outer.Columns) + idx].TableName = inner.Columns[0].TableName
-				result.Columns[len(outer.Tags) + len(outer.Columns) + idx].TableAs = inner.Columns[0].TableAs
+				result.Columns[len(outer.Tags)+len(outer.Columns)+idx].TableName = inner.Columns[0].TableName
+				result.Columns[len(outer.Tags)+len(outer.Columns)+idx].TableAs = inner.Columns[0].TableAs
 			}
 			if innerAs != "" {
-				result.Columns[len(outer.Tags) + len(outer.Columns) + idx].TableAs = innerAs
+				result.Columns[len(outer.Tags)+len(outer.Columns)+idx].TableAs = innerAs
 			}
-			result.Columns[len(outer.Tags) + len(outer.Columns) + idx].Name = inner.Tags[idx].Key
+			result.Columns[len(outer.Tags)+len(outer.Columns)+idx].Name = inner.Tags[idx].Key
 		}
 	}
-	copy(result.Columns[len(outer.Tags) + len(outer.Columns)+ len(inner.Tags):], inner.Columns)
+	copy(result.Columns[len(outer.Tags)+len(outer.Columns)+len(inner.Tags):], inner.Columns)
 	if innerAs != "" {
 		for idx := range inner.Columns {
-			result.Columns[len(outer.Tags) + len(outer.Columns)+ len(inner.Tags)+idx].TableAs = innerAs
+			result.Columns[len(outer.Tags)+len(outer.Columns)+len(inner.Tags)+idx].TableAs = innerAs
 		}
 	}
 
@@ -489,10 +489,9 @@ func MergeRecord(outerAs string, outer Record, innerAs string, inner Record) Rec
 	copy(result.Values[len(outer.Tags):], outer.Values)
 
 	for idx := range inner.Tags {
-		result.Values[len(outer.Tags) + len(outer.Columns) + idx] = vm.StringToValue(inner.Tags[idx].Value)
+		result.Values[len(outer.Tags)+len(outer.Columns)+idx] = vm.StringToValue(inner.Tags[idx].Value)
 	}
-	copy(result.Values[len(outer.Tags) + len(outer.Columns)+ len(inner.Tags):], inner.Values)
-	
+	copy(result.Values[len(outer.Tags)+len(outer.Columns)+len(inner.Tags):], inner.Values)
 
 	// fmt.Println("=========")
 	// fmt.Println(outer.GoString())
