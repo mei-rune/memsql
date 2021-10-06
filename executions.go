@@ -100,7 +100,7 @@ func (sc *SessionContext) ExecuteSelect(stmt sqlparser.SelectStatement) (memcore
 
 func (sc *SessionContext) GetQuery(name string) (memcore.Query, bool) {
 	for idx := range sc.queries {
-		if sc.queries[idx].Name == name && sc.queries[idx].Alias == name {
+		if sc.queries[idx].Name == name || sc.queries[idx].Alias == name {
 			return sc.queries[idx].Query, true
 		}
 	}
@@ -154,6 +154,7 @@ func Execute(ctx *Context, sqlstmt string) (rset RecordSet, err error) {
 	sessctx := &SessionContext{
 		Context: ctx,
 		alias:   map[string]string{},
+		resultSets: map[string][]memcore.Record{},
 	}
 	defer func() {
 		if e := sessctx.Close(); e != nil {

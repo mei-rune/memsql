@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"fmt"
+
 	"github.com/runner-mei/memsql/memcore"
 	"github.com/runner-mei/memsql/vm"
 	"github.com/xwb1989/sqlparser"
@@ -114,7 +116,7 @@ func appendStringIterator(query1, query2 StringIterator) StringIterator {
 
 type subqueryStringIterator struct {
 	key      string
-	fctx     filterContext
+	fctx     FilterContext
 	subquery sqlparser.SelectStatement
 
 	done    bool
@@ -129,16 +131,21 @@ func (iter *subqueryStringIterator) Next(ctx vm.Context) (string, error) {
 		if iter.err != nil {
 			return "", iter.err
 		}
+		fmt.Println(sqlparser.String(iter.subquery))
 		q, err := iter.fctx.ExecuteSelect(iter.subquery)
 		if err != nil {
+		fmt.Println(sqlparser.String(iter.subquery), err)
 			iter.err = err
 			return "", err
 		}
 		records, err := q.Results(ctx)
 		if err != nil {
+		fmt.Println(sqlparser.String(iter.subquery), err)
 			iter.err = err
 			return "", err
 		}
+		fmt.Println(sqlparser.String(iter.subquery), "===",records)
+
 		iter.records = records
 		iter.done = true
 		iter.index = 0
@@ -146,7 +153,7 @@ func (iter *subqueryStringIterator) Next(ctx vm.Context) (string, error) {
 		iter.fctx.SetResultSet(iter.key, iter.records)
 	}
 
-	if len(iter.records) >= iter.index {
+	if len(iter.records) <= iter.index {
 		return "", memcore.ErrNoRows
 	}
 
@@ -159,7 +166,6 @@ func (iter *subqueryStringIterator) Next(ctx vm.Context) (string, error) {
 type queryIterator struct {
 	Qualifier string
 	Query     memcore.Query
-	key       string
 	field     string
 
 	done    bool
@@ -185,7 +191,7 @@ func (iter *queryIterator) Next(ctx vm.Context) (string, error) {
 	}
 
 	for {
-		if len(iter.records) >= iter.index {
+		if len(iter.records) <= iter.index {
 			return "", memcore.ErrNoRows
 		}
 		item := iter.records[iter.index]

@@ -9,7 +9,7 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-func ToKeyValues(fctx filterContext, expr sqlparser.Expr, qualifier string, results KeyValueIterator) (KeyValueIterator, error) {
+func ToKeyValues(fctx FilterContext, expr sqlparser.Expr, qualifier string, results KeyValueIterator) (KeyValueIterator, error) {
 	switch v := expr.(type) {
 	case *sqlparser.AndExpr:
 		tmp, err := ToKeyValues(fctx, v.Left, qualifier, results)
@@ -127,7 +127,7 @@ func ToKeyValues(fctx filterContext, expr sqlparser.Expr, qualifier string, resu
 	return nil, fmt.Errorf("invalid key value expression %+v", expr)
 }
 
-func ToEqualValues(fctx filterContext, expr *sqlparser.ComparisonExpr, qualifier string) (KeyValueIterator, error) {
+func ToEqualValues(fctx FilterContext, expr *sqlparser.ComparisonExpr, qualifier string) (KeyValueIterator, error) {
 	left, leftok := expr.Left.(*sqlparser.ColName)
 	right, rightok := expr.Right.(*sqlparser.ColName)
 
@@ -146,11 +146,10 @@ func ToEqualValues(fctx filterContext, expr *sqlparser.ComparisonExpr, qualifier
 			}
 
 			return &keyValues{
-				name: sqlparser.String(right.Name),
+				name:       strings.TrimPrefix(sqlparser.String(left.Name), "@"),
 				query: &queryIterator{
 					Qualifier: rightQualifier,
 					Query:     query,
-					key:       strings.TrimPrefix(sqlparser.String(left.Name), "@"),
 					field:     sqlparser.String(right.Name),
 				},
 			}, nil
@@ -162,11 +161,10 @@ func ToEqualValues(fctx filterContext, expr *sqlparser.ComparisonExpr, qualifier
 			}
 
 			return &keyValues{
-				name: sqlparser.String(left.Name),
+				name:  strings.TrimPrefix(sqlparser.String(right.Name), "@"),
 				query: &queryIterator{
 					Qualifier: leftQualifier,
 					Query:     query,
-					key:       strings.TrimPrefix(sqlparser.String(right.Name), "@"),
 					field:     sqlparser.String(left.Name),
 				},
 			}, nil
@@ -212,7 +210,7 @@ func ToEqualValues(fctx filterContext, expr *sqlparser.ComparisonExpr, qualifier
 	return nil, fmt.Errorf("invalid key value expression %+v", expr)
 }
 
-func ToKeyValue(fctx filterContext, colName *sqlparser.ColName, expr sqlparser.Expr) (string, string, string, error) {
+func ToKeyValue(fctx FilterContext, colName *sqlparser.ColName, expr sqlparser.Expr) (string, string, string, error) {
 	value, err := ToValueLiteral(fctx, expr)
 	if err != nil {
 		return "", "", "", fmt.Errorf("invalid key value expression %+v, %+v", expr, err)
@@ -224,7 +222,7 @@ func ToKeyValue(fctx filterContext, colName *sqlparser.ColName, expr sqlparser.E
 	return sqlparser.String(colName.Qualifier), sqlparser.String(colName.Name), simple.value, err
 }
 
-func ToInKeyValue(fctx filterContext, expr *sqlparser.ComparisonExpr) (string, KeyValueIterator, error) {
+func ToInKeyValue(fctx FilterContext, expr *sqlparser.ComparisonExpr) (string, KeyValueIterator, error) {
 	left, ok := expr.Left.(*sqlparser.ColName)
 	if ok {
 		value, err := ToValueLiteral(fctx, expr.Right)
@@ -249,7 +247,7 @@ func ToInKeyValue(fctx filterContext, expr *sqlparser.ComparisonExpr) (string, K
 	return "", nil, fmt.Errorf("invalid key values expression %+v", expr)
 }
 
-func ToValueLiteral(fctx filterContext, expr sqlparser.Expr) (StringIterator, error) {
+func ToValueLiteral(fctx FilterContext, expr sqlparser.Expr) (StringIterator, error) {
 	switch v := expr.(type) {
 	case *sqlparser.SQLVal:
 		switch v.Type {

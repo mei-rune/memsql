@@ -12,14 +12,14 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-type filterContext interface {
+type FilterContext interface {
 	GetQuery(name string) (memcore.Query, bool)
 	SetResultSet(stmt string, records []memcore.Record)
 	GetResultSet(stmt string) ([]memcore.Record, bool)
 	ExecuteSelect(sel sqlparser.SelectStatement) (memcore.Query, error)
 }
 
-func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (bool, error), error) {
+func ToFilter(ctx FilterContext, expr sqlparser.Expr) (func(vm.Context) (bool, error), error) {
 	switch v := expr.(type) {
 	case *sqlparser.AndExpr:
 		leftFilter, err := ToFilter(ctx, v.Left)
@@ -193,7 +193,7 @@ func ToFilter(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (bool, e
 	}
 }
 
-func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Value, error), error) {
+func ToGetValue(ctx FilterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Value, error), error) {
 	switch v := expr.(type) {
 	case *sqlparser.SQLVal:
 		switch v.Type {
@@ -470,7 +470,7 @@ func ToGetValue(ctx filterContext, expr sqlparser.Expr) (func(vm.Context) (vm.Va
 	}
 }
 
-func ToFuncGetValue(ctx filterContext, expr *sqlparser.FuncExpr) (func(vm.Context) (vm.Value, error), error) {
+func ToFuncGetValue(ctx FilterContext, expr *sqlparser.FuncExpr) (func(vm.Context) (vm.Value, error), error) {
 	// // FuncExpr represents a function call.
 	// type FuncExpr struct {
 	// 	Qualifier TableIdent
@@ -491,7 +491,7 @@ func ToFuncGetValue(ctx filterContext, expr *sqlparser.FuncExpr) (func(vm.Contex
 	return vm.CallFunc(f, values), nil
 }
 
-func ToGetValues(fctx filterContext, expr sqlparser.SQLNode) (func(vm.Context) ([]vm.Value, error), error) {
+func ToGetValues(fctx FilterContext, expr sqlparser.SQLNode) (func(vm.Context) ([]vm.Value, error), error) {
 	switch v := expr.(type) {
 	case sqlparser.SelectExprs:
 		var funcs []func(vm.Context) (vm.Value, error)
@@ -565,7 +565,7 @@ func ToGetValues(fctx filterContext, expr sqlparser.SQLNode) (func(vm.Context) (
 	}
 }
 
-func ToGetSelectValue(ctx filterContext, expr sqlparser.SelectExpr) (func(vm.Context) (vm.Value, error), error) {
+func ToGetSelectValue(ctx FilterContext, expr sqlparser.SelectExpr) (func(vm.Context) (vm.Value, error), error) {
 	switch subexpr := expr.(type) {
 	case *sqlparser.StarExpr:
 		return nil, fmt.Errorf("invalid expression %T %+v", subexpr, subexpr)
