@@ -288,6 +288,100 @@ func TestKeyValues(t *testing.T) {
 				},
 			},
 		},
+		{
+			fctx: fctx,
+			sql:       "select a from abc, mo_list where mo_list.id = @mo and @abc in (1,2)",
+			qualifier: "",
+			keyvalues: [][]KeyValue{
+				[]KeyValue{
+					KeyValue{
+						Key:   "mo",
+						Value: "1",
+					},
+					KeyValue{
+						Key:   "abc",
+						Value: "1",
+					},
+				},
+				[]KeyValue{
+					KeyValue{
+						Key:   "mo",
+						Value: "1",
+					},
+					KeyValue{
+						Key:   "abc",
+						Value: "2",
+					},
+				},
+				[]KeyValue{
+					KeyValue{
+						Key:   "mo",
+						Value: "2",
+					},
+					KeyValue{
+						Key:   "abc",
+						Value: "1",
+					},
+				},
+				[]KeyValue{
+					KeyValue{
+						Key:   "mo",
+						Value: "2",
+					},
+					KeyValue{
+						Key:   "abc",
+						Value: "2",
+					},
+				},
+			},
+		},
+		{
+			fctx:      fctx,
+			sql:       "select a from abc, mo_list where mo_list.id = @mo and @abc in (select id from mo_list)",
+			qualifier: "",
+			keyvalues: [][]KeyValue{
+				[]KeyValue{
+					KeyValue{
+						Key:   "mo",
+						Value: "1",
+					},
+					KeyValue{
+						Key:   "abc",
+						Value: "1",
+					},
+				},
+				[]KeyValue{
+					KeyValue{
+						Key:   "mo",
+						Value: "1",
+					},
+					KeyValue{
+						Key:   "abc",
+						Value: "2",
+					},
+				},
+				[]KeyValue{
+					KeyValue{
+						Key:   "mo",
+						Value: "2",
+					},
+					KeyValue{
+						Key:   "abc",
+						Value: "1",
+					},
+				},
+				[]KeyValue{
+					KeyValue{
+						Key:   "mo",
+						Value: "2",
+					},
+					KeyValue{
+						Key:   "abc",
+						Value: "2",
+					},
+				},
+			},
+		},
 	} {
 		t.Run(test.sql, func(t *testing.T) {
 			stmt, err := sqlparser.Parse(test.sql)
