@@ -27,18 +27,21 @@ type HookStorage struct {
  	Read ReadFunc
 }
 
-func (hs *HookStorage) From(ctx *SessionContext, tableName TableAlias, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
-	kvs, err := parser.ToKeyValues(ctx, tableExpr, tableName, nil)
-	if err != nil {
-		return memcore.Query{}, nil, err
-	}
+func (hs *HookStorage) From(ctx *SessionContext, tableName TableAlias, tableExpr sqlparser.Expr, trace func(TableName)) (memcore.Query, error) {
+	ctx.OnIniting(func() error {
+		kvs, err := parser.ToKeyValues(ctx, tableExpr, tableName, nil)
+		if err != nil {
+			return   err
+		}
 
-	err = hs.EnsureTables(ctx, tableName, kvs)
-	if err != nil {
-		return memcore.Query{}, nil, err
-	}
+		err = hs.EnsureTables(ctx, tableName, kvs)
+		if err != nil {
+			return  err
+		}
+		return nil
+	})
 
-	return fromRun(ctx, hs.Storage, tableName, tableExpr)
+	return fromRun(ctx, hs.Storage, tableName, tableExpr, trace)
 }
 
 func (hs *HookStorage) EnsureTables(ctx *SessionContext, tableName TableAlias, iterator parser.KeyValueIterator) error {

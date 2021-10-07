@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"fmt"
-
 	"github.com/runner-mei/memsql/memcore"
 	"github.com/runner-mei/memsql/vm"
 	"github.com/xwb1989/sqlparser"
@@ -131,20 +129,20 @@ func (iter *subqueryStringIterator) Next(ctx vm.Context) (string, error) {
 		if iter.err != nil {
 			return "", iter.err
 		}
-		fmt.Println(sqlparser.String(iter.subquery))
+		// fmt.Println(sqlparser.String(iter.subquery))
 		q, err := iter.fctx.ExecuteSelect(iter.subquery)
 		if err != nil {
-		fmt.Println(sqlparser.String(iter.subquery), err)
+		// fmt.Println(sqlparser.String(iter.subquery), err)
 			iter.err = err
 			return "", err
 		}
 		records, err := q.Results(ctx)
 		if err != nil {
-		fmt.Println(sqlparser.String(iter.subquery), err)
+		// fmt.Println(sqlparser.String(iter.subquery), err)
 			iter.err = err
 			return "", err
 		}
-		fmt.Println(sqlparser.String(iter.subquery), "===",records)
+		// fmt.Println(sqlparser.String(iter.subquery), "===",records)
 
 		iter.records = records
 		iter.done = true

@@ -49,3 +49,16 @@ select cpu.f1, cpu.f2, managed_objects.f2 from fdw.managed_objects, cpu where cp
 "a3_1","b1","dev3"
 "a3_2","b2","dev3"
 "a3_3","b3","dev3"
+
+-- fooselect4.sql --
+select cpu.f1, cpu.f2, managed_objects.f2 from cpu, fdw.managed_objects where cpu.@mo = managed_objects.id
+-- fooselect4.row_sort.result --
+"a1_1","b1","dev1"
+"a1_2","b2","dev1"
+"a1_3","b3","dev1"
+"a2_1","b1","dev2"
+"a2_2","b2","dev2"
+"a2_3","b3","dev2"
+"a3_1","b1","dev3"
+"a3_2","b2","dev3"
+"a3_3","b3","dev3"

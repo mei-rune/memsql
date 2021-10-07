@@ -63,7 +63,7 @@ func (tn TableName) String() string {
 }
 
 type Storage interface {
-	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, []TableName, error)
+	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error), trace func(TableName)) (Query, error)
 	Set(name string, tags []KeyValue, t time.Time, table Table, err error) error
 	Exists(name string, tags []KeyValue, predateLimit time.Time) bool
 }
@@ -183,17 +183,30 @@ func NewStorage() Storage {
 	}
 }
 
-func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error)) (Query, []TableName, error) {
+func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error), trace func(TableName)) (Query, error) {
+	return Query{
+		Iterate: func() Iterator {
+			q, err := s.from(ctx, tablename, filter, trace)
+			if err != nil {
+				return func(ctx Context) (Record, error) { 
+					return Record{}, err
+				}
+			}
+			return q.Iterate()
+		},
+	}, nil
+}
+
+func (s *storage) from(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error), trace func(TableName)) (Query, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	byKey := s.measurements[tablename]
 	if len(byKey) == 0 {
-		return Query{}, nil, TableNotExists(tablename)
+		return Query{}, TableNotExists(tablename)
 	}
 
 	var list []measurement
-	var tableNames []TableName
 	for _, m := range byKey {
 		values := toGetValuer(m.tags)
 		ok, err := filter(values)
@@ -202,27 +215,29 @@ func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer)
 				continue
 			}
 
-			return Query{}, nil, TableNotExists(tablename, err)
+			return Query{}, TableNotExists(tablename, err)
 		}
 		if m.err != nil {
-			return Query{}, nil, m.err
+			return Query{},  m.err
 		}
 		if ok {
-			tableNames = append(tableNames, TableName{
-				Table: tablename,
-				Tags:  m.tags,
-			})
+			if trace != nil {
+				trace(TableName{
+					Table: tablename,
+					Tags:  m.tags,
+				})
+			}
 			list = append(list, m)
 		}
 	}
 	if len(list) == 0 {
-		return Query{}, nil, TableNotExists(tablename)
+		return Query{}, TableNotExists(tablename)
 	}
 	query := FromWithTags(list[0].data, list[0].tags)
 	for i := 1; i < len(list); i++ {
 		query = query.UnionAll(FromWithTags(list[i].data, list[i].tags))
 	}
-	return query, tableNames, nil
+	return query,  nil
 }
 
 func (s *storage) Set(name string, tags []KeyValue, t time.Time, data Table, err error) error {
