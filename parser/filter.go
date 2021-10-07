@@ -13,13 +13,18 @@ import (
 )
 
 type FilterContext interface {
-	GetQuery(name string) (memcore.Query, bool)
+	GetQuery(name string) (*memcore.ReferenceQuery, bool)
 	SetResultSet(stmt string, records []memcore.Record)
 	GetResultSet(stmt string) ([]memcore.Record, bool)
 	ExecuteSelect(sel sqlparser.SelectStatement) (memcore.Query, error)
 }
 
 func ToFilter(ctx FilterContext, expr sqlparser.Expr) (func(vm.Context) (bool, error), error) {
+	if expr == nil {
+		return func(vm.Context) (bool, error) {
+			return true, nil
+		}, nil
+	}
 	switch v := expr.(type) {
 	case *sqlparser.AndExpr:
 		leftFilter, err := ToFilter(ctx, v.Left)

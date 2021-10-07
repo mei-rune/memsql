@@ -9,14 +9,20 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-func ToKeyValues(fctx FilterContext, expr sqlparser.Expr, qualifier string, results KeyValueIterator) (KeyValueIterator, error) {
+type TableAlias = memcore.TableAlias
+
+
+func ToKeyValues(fctx FilterContext, expr sqlparser.Expr, alias TableAlias, results KeyValueIterator) (KeyValueIterator, error) {
+	if expr == nil {
+		return nil, nil
+	}
 	switch v := expr.(type) {
 	case *sqlparser.AndExpr:
-		tmp, err := ToKeyValues(fctx, v.Left, qualifier, results)
+		tmp, err := ToKeyValues(fctx, v.Left, alias, results)
 		if err != nil {
 			return nil, err
 		}
-		tmp, err = ToKeyValues(fctx, v.Right, qualifier, tmp)
+		tmp, err = ToKeyValues(fctx, v.Right, alias, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -38,7 +44,7 @@ func ToKeyValues(fctx FilterContext, expr sqlparser.Expr, qualifier string, resu
 	// 	}
 	// 	return vm.Not(f), nil
 	case *sqlparser.ParenExpr:
-		return ToKeyValues(fctx, v.Expr, qualifier, results)
+		return ToKeyValues(fctx, v.Expr, alias, results)
 	case *sqlparser.ComparisonExpr:
 		if v.Operator == sqlparser.InStr {
 			tableAs, iter, err := ToInKeyValue(fctx, v)
@@ -46,8 +52,11 @@ func ToKeyValues(fctx FilterContext, expr sqlparser.Expr, qualifier string, resu
 			if err != nil {
 				return nil, err
 			}
+			if iter == nil {
+				return results, nil
+			}
 			// fmt.Println("2", qualifier, tableAs)
-			if qualifier != tableAs {
+			if !alias.Equal(tableAs) {
 				return results, nil
 			}
 			// fmt.Println("3")
@@ -64,9 +73,12 @@ func ToKeyValues(fctx FilterContext, expr sqlparser.Expr, qualifier string, resu
 		if v.Operator != sqlparser.EqualStr {
 			return nil, fmt.Errorf("invalid key value expression %+v", expr)
 		}
-		iter, err := ToEqualValues(fctx, v, qualifier)
+		iter, err := ToEqualValues(fctx, v, alias)
 		if err != nil {
 			return nil, err
+		}
+		if iter == nil {
+			return results, nil
 		}
 		if results == nil {
 			return iter, nil
@@ -127,7 +139,7 @@ func ToKeyValues(fctx FilterContext, expr sqlparser.Expr, qualifier string, resu
 	return nil, fmt.Errorf("invalid key value expression %+v", expr)
 }
 
-func ToEqualValues(fctx FilterContext, expr *sqlparser.ComparisonExpr, qualifier string) (KeyValueIterator, error) {
+func ToEqualValues(fctx FilterContext, expr *sqlparser.ComparisonExpr, qualifier TableAlias) (KeyValueIterator, error) {
 	left, leftok := expr.Left.(*sqlparser.ColName)
 	right, rightok := expr.Right.(*sqlparser.ColName)
 
@@ -135,9 +147,13 @@ func ToEqualValues(fctx FilterContext, expr *sqlparser.ComparisonExpr, qualifier
 		leftQualifier := sqlparser.String(left.Qualifier)
 		rightQualifier := sqlparser.String(right.Qualifier)
 
-		if qualifier == leftQualifier {
-			if qualifier == rightQualifier {
+		if qualifier.Equal(leftQualifier) {
+			if qualifier.Equal(rightQualifier) {
 				return nil, fmt.Errorf("invalid ComparisonExpr, left and right qualifier is same")
+			}
+			leftName := sqlparser.String(left.Name)
+			if !strings.HasPrefix(leftName, "@") {
+				return nil, nil
 			}
 
 			query, ok := fctx.GetQuery(rightQualifier)
@@ -145,26 +161,33 @@ func ToEqualValues(fctx FilterContext, expr *sqlparser.ComparisonExpr, qualifier
 				return nil, fmt.Errorf("invalid key value expression %+v, %q is notfound", expr, rightQualifier)
 			}
 
+			query.IsCopy = true
 			return &keyValues{
-				name:       strings.TrimPrefix(sqlparser.String(left.Name), "@"),
+				name:       strings.TrimPrefix(leftName, "@"),
 				query: &queryIterator{
 					Qualifier: rightQualifier,
-					Query:     query,
+					Query:     query.Query,
 					field:     sqlparser.String(right.Name),
 				},
 			}, nil
 		}
-		if qualifier == rightQualifier {
+		if qualifier.Equal(rightQualifier) {
+			rightName := sqlparser.String(right.Name)
+			if !strings.HasPrefix(rightName, "@") {
+				return nil, nil
+			}
+
 			query, ok := fctx.GetQuery(leftQualifier)
 			if !ok {
 				return nil, fmt.Errorf("invalid key value expression %+v, %q is notfound", expr, rightQualifier)
 			}
 
+			query.IsCopy = true
 			return &keyValues{
-				name:  strings.TrimPrefix(sqlparser.String(right.Name), "@"),
+				name:  strings.TrimPrefix(rightName, "@"),
 				query: &queryIterator{
 					Qualifier: leftQualifier,
-					Query:     query,
+					Query:     query.Query,
 					field:     sqlparser.String(left.Name),
 				},
 			}, nil
@@ -175,13 +198,16 @@ func ToEqualValues(fctx FilterContext, expr *sqlparser.ComparisonExpr, qualifier
 
 	if leftok {
 		leftQualifier := sqlparser.String(left.Qualifier)
-		if qualifier != leftQualifier {
+		if !qualifier.Equal(leftQualifier) {
 			return nil, nil
 		}
 
 		_, key, value, err := ToKeyValue(fctx, left, expr.Right)
 		if err != nil {
 			return nil, err
+		}
+		if !strings.HasPrefix(key, "@") {
+			return nil, nil
 		}
 
 		key = strings.TrimPrefix(key, "@")
@@ -193,7 +219,7 @@ func ToEqualValues(fctx FilterContext, expr *sqlparser.ComparisonExpr, qualifier
 
 	if rightok {
 		rightQualifier := sqlparser.String(right.Qualifier)
-		if qualifier != rightQualifier {
+		if !qualifier.Equal( rightQualifier) {
 			return nil, nil
 		}
 
@@ -201,6 +227,10 @@ func ToEqualValues(fctx FilterContext, expr *sqlparser.ComparisonExpr, qualifier
 		if err != nil {
 			return nil, err
 		}
+		if !strings.HasPrefix(key, "@") {
+			return nil, nil
+		}
+
 		key = strings.TrimPrefix(key, "@")
 		return &simpleKv{
 			values:   []memcore.KeyValue{memcore.KeyValue{Key: key, Value: value}},
@@ -230,7 +260,12 @@ func ToInKeyValue(fctx FilterContext, expr *sqlparser.ComparisonExpr) (string, K
 			return "", nil, fmt.Errorf("invalid key values expression %+v, %+v", expr, err)
 		}
 
-		name := strings.TrimPrefix(left.Name.String(), "@")
+		leftName := left.Name.String()
+		if !strings.HasPrefix(leftName, "@") {
+			return "", nil, nil
+		}
+
+		name := strings.TrimPrefix(leftName, "@")
 		return sqlparser.String(left.Qualifier), &keyValues{name: name, query: value}, nil
 	}
 
@@ -241,7 +276,11 @@ func ToInKeyValue(fctx FilterContext, expr *sqlparser.ComparisonExpr) (string, K
 			return "", nil, fmt.Errorf("invalid key values expression %+v, %+v", expr, err)
 		}
 
-		name := strings.TrimPrefix(right.Name.String(), "@")
+		rightName := right.Name.String()
+		if !strings.HasPrefix(rightName, "@") {
+			return "", nil, nil
+		}
+		name := strings.TrimPrefix(rightName, "@")
 		return sqlparser.String(right.Qualifier), &keyValues{name: name, query: value}, nil
 	}
 	return "", nil, fmt.Errorf("invalid key values expression %+v", expr)

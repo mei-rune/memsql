@@ -21,17 +21,18 @@ type dbForeign struct {
 	Conn *sql.DB
 }
 
-func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *sqlparser.Where) (memcore.Query, error) {
-	sqlstr := "SELECT * FROM " + tableName
-	if tableAs != "" {
-		sqlstr = sqlstr + " AS " + tableAs
+func (f *dbForeign) From(ctx *SessionContext, tableName TableAlias, where *sqlparser.Where) (memcore.Query, error) {
+	sqlstr := "SELECT * FROM " + tableName.Name
+	if tableName.Alias != "" {
+		sqlstr = sqlstr + " AS " + tableName.Alias
 	}
 
-	debuger := ctx.Debuger.NewTable(tableName, tableAs, nil)
+	debuger := ctx.Debuger.NewTable(tableName.Name, tableName.Alias, nil)
 	if where != nil && where.Expr != nil {
 		sqlstr = sqlstr +" WHERE "+ sqlparser.String(where.Expr)
-		debuger.SetWhere(where.Expr)
-
+		if debuger != nil {
+			debuger.SetWhere(where.Expr)
+		}
 		if f.Drv == "sqlite3" {
 			sqlstr = strings.Replace(sqlstr, "true", "1", -1)
 			sqlstr = strings.Replace(sqlstr, "false", "0", -1)
@@ -64,8 +65,8 @@ func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *
 			var initFuncs = make([]func(*memcore.Value) interface{}, len(columnNames))
 			var columns = make([]memcore.Column, len(columnNames))
 			for idx := range columns {
-				columns[idx].TableName = tableName
-				columns[idx].TableAs = tableAs
+				columns[idx].TableName = tableName.Name
+				columns[idx].TableAs = tableName.Alias
 				columns[idx].Name = columnNames[idx]
 				initFuncs[idx] = func(value *memcore.Value) interface{} {
 					return scanValue{
@@ -115,11 +116,13 @@ func (f *dbForeign) From(ctx *SessionContext, tableName, tableAs string, where *
 		},
 	}
 
-	if tableAs != "" {
-		query = query.Map(memcore.RenameTableToAlias(tableAs))
+	if tableName.Alias != "" {
+		query = query.Map(memcore.RenameTableToAlias(tableName.Alias))
 	}
-
-	return debuger.Track(query), nil
+	if debuger != nil {
+		query = debuger.Track(query)
+	}
+	return query, nil
 }
 
 type scanValue struct {

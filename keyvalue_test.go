@@ -54,7 +54,7 @@ func TestKeyValues(t *testing.T) {
 	query, _, err := storage.From(ctx, "mo_list", func(ctx memcore.GetValuer) (bool, error){
 		return true, nil
 	})
-	fctx.addQuery("mo_list", "mo", query)
+	fctx.addQuery("mo_list", "mo", query.ToReference())
 
 	opts := cmp.Options{
 		cmpopts.EquateApproxTime(1 * time.Second),
@@ -391,7 +391,7 @@ func TestKeyValues(t *testing.T) {
 				return
 			}
 			sel, _ := stmt.(*sqlparser.Select)
-			iter, err := parser.ToKeyValues(test.fctx, sel.Where.Expr, test.qualifier, nil)
+			iter, err := parser.ToKeyValues(test.fctx, sel.Where.Expr, TableAlias{Alias: test.qualifier}, nil)
 			if err != nil {
 				t.Error(err)
 				return

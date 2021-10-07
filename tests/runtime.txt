@@ -1,10 +1,29 @@
 -- runtime_cpu --
+tags: {"mo":"1"}
+f1,f2,f3
+a1_1,b1,1
+a1_2,b2,2
+a1_3,b3,3
+
+-- runtime_cpu --
 tags: {"mo":"2"}
 f1,f2,f3
 a2_1,b1,1
 a2_2,b2,2
 a2_3,b3,3
 
+-- runtime_cpu --
+tags: {"mo":"3"}
+f1,f2,f3
+a3_1,b1,1
+a3_2,b2,2
+a3_3,b3,3
+
+-- db.managed_objects --
+id,f2
+1,dev1
+2,dev2
+3,dev3
 
 -- fooselect1.sql --
 select f1, f2 from cpu where @mo="2"
@@ -12,3 +31,21 @@ select f1, f2 from cpu where @mo="2"
 "a2_1","b1"
 "a2_2","b2"
 "a2_3","b3"
+
+-- fooselect2.sql --
+select f1, f2 from cpu where @mo="2" and f3=2
+-- fooselect2.result --
+"a2_2","b2"
+
+-- fooselect3.sql --
+select cpu.f1, cpu.f2, managed_objects.f2 from fdw.managed_objects, cpu where cpu.@mo = managed_objects.id
+-- fooselect3.result --
+"a1_1","b1","dev1"
+"a1_2","b2","dev1"
+"a1_3","b3","dev1"
+"a2_1","b1","dev2"
+"a2_2","b2","dev2"
+"a2_3","b3","dev2"
+"a3_1","b1","dev3"
+"a3_2","b2","dev3"
+"a3_3","b3","dev3"

@@ -27,21 +27,24 @@ type HookStorage struct {
  	Read ReadFunc
 }
 
-func (hs *HookStorage) From(ctx *SessionContext, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
-	kvs, err := parser.ToKeyValues(ctx, tableExpr, tableAs, nil)
+func (hs *HookStorage) From(ctx *SessionContext, tableName TableAlias, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
+	kvs, err := parser.ToKeyValues(ctx, tableExpr, tableName, nil)
 	if err != nil {
 		return memcore.Query{}, nil, err
 	}
 
-	err = hs.EnsureTables(ctx, tableName, tableAs, kvs)
+	err = hs.EnsureTables(ctx, tableName, kvs)
 	if err != nil {
 		return memcore.Query{}, nil, err
 	}
 
-	return fromRun(ctx, hs.Storage, tableName, tableAs, tableExpr)
+	return fromRun(ctx, hs.Storage, tableName, tableExpr)
 }
 
-func (hs *HookStorage) EnsureTables(ctx *SessionContext, tableName, tableAs string, iterator parser.KeyValueIterator) error {
+func (hs *HookStorage) EnsureTables(ctx *SessionContext, tableName TableAlias, iterator parser.KeyValueIterator) error {
+	if iterator == nil {
+		return nil
+	}
 	predateLimit := hs.GetPredateLimit(ctx)
 	for {
 		tags, err := iterator.Next(nil)
@@ -52,27 +55,30 @@ func (hs *HookStorage) EnsureTables(ctx *SessionContext, tableName, tableAs stri
 			return err
 		}
 
-		if hs.Storage.Exists(tableName, tags, predateLimit) {
-			ctx.Debuger.ReadSkip(tableName, tags)
+		if hs.Storage.Exists(tableName.Name, tags, predateLimit) {
+			ctx.Debuger.ReadSkip(tableName.Name, tags)
 			continue
 		}
 
-		t, value, err := hs.Read(ctx, tableName, tags)
+		t, value, err := hs.Read(ctx, tableName.Name, tags)
 		if err != nil {
-			ctx.Debuger.ReadError(tableName, tags, err)
-			hs.Storage.Set(tableName, tags, t, memcore.Table{}, err)
+			ctx.Debuger.ReadError(tableName.Name, tags, err)
+			hs.Storage.Set(tableName.Name, tags, t, memcore.Table{}, err)
 			return err
 		}
 
-		ctx.Debuger.ReadOk(tableName, tags, value)
+		ctx.Debuger.ReadOk(tableName.Name, tags, value)
 
 		switch v := value.(type) {
 		case map[string]interface{}:
-			return hs.saveRecordToTable(ctx, tableName, t, tags, v)
+			err = hs.saveRecordToTable(ctx, tableName.Name, t, tags, v)
 		case []map[string]interface{}:
-			return hs.saveRecordsToTable(ctx, tableName, t, tags, v)
+			err = hs.saveRecordsToTable(ctx, tableName.Name, t, tags, v)
 		default:
-			return errors.New("read '" + tableName + "(" + memcore.KeyValues(tags).ToKey() + ")' and return unknown type - " + reflect.TypeOf(value).Name())
+			err = errors.New("read '" + tableName.Name + "(" + memcore.KeyValues(tags).ToKey() + ")' and return unknown type - " + reflect.TypeOf(value).Name())
+		}
+		if err != nil {
+			return err
 		}
 	}
 }

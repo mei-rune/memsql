@@ -19,6 +19,7 @@ func wrap(err error, msg string) error {
 	return memcore.Wrap(err, msg)
 }
 
+type TableAlias = memcore.TableAlias
 type Value = memcore.Value
 type Column = memcore.Column
 type KeyValue = memcore.KeyValue
@@ -27,11 +28,11 @@ type Record = memcore.Record
 type RecordSet = memcore.RecordSet
 
 type Foreign interface {
-	From(ctx *SessionContext, tableName, tableAs string, where *sqlparser.Where) (memcore.Query, error)
+	From(ctx *SessionContext, tableAs TableAlias, where *sqlparser.Where) (memcore.Query, error)
 }
 
 type Storage interface {
-	From(ctx *SessionContext, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error)
+	From(ctx *SessionContext, tableName TableAlias, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error)
 	// Set(name string, tags []KeyValue, t time.Time, table Table, err error)
 	// Exists(name string, tags []KeyValue) bool
 }
@@ -44,28 +45,33 @@ type storageWrapper struct {
 	storage memcore.Storage
 }
 
-func (s storageWrapper) From(ctx *SessionContext, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
-	return fromRun(ctx, s.storage, tableName, tableAs, tableExpr)
+func (s storageWrapper) From(ctx *SessionContext, tableName TableAlias, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
+	return fromRun(ctx, s.storage, tableName, tableExpr)
 }
 
-func fromRun(ctx *SessionContext, storage memcore.Storage, tableName, tableAs string, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
+func fromRun(ctx *SessionContext, storage memcore.Storage, tableName TableAlias, tableExpr sqlparser.Expr) (memcore.Query, []memcore.TableName, error) {
 	var f = func(vm.Context) (bool, error) {
 		return true, nil
 	}
+
 	if tableExpr != nil {
-		ff, err := parser.ToFilter(ctx, tableExpr)
+		_, expr, err := parser.SplitBy(tableExpr, parser.ByTableTag(tableName))
+		if err != nil {
+			return memcore.Query{}, nil, errors.Wrap(err, "couldn't resolve where '"+sqlparser.String(expr)+"'")
+		}
+		ff, err := parser.ToFilter(ctx, expr)
 		if err != nil {
 			return memcore.Query{}, nil, errors.Wrap(err, "couldn't convert tableExpr '"+sqlparser.String(tableExpr)+"'")
 		}
 		f = ff
 	}
 
-	return storage.From(ctx, tableName, f)
+	return storage.From(ctx, tableName.Name, f)
 }
 
 type Context struct {
 	Ctx     context.Context
-	Debuger ExecuteDebuger
+	Debuger ExecuteTracer
 	Storage Storage
 	Foreign Foreign
 }
@@ -82,7 +88,7 @@ type SessionContext struct {
 type TableQuery struct {
 	Name  string
 	Alias string
-	Query memcore.Query
+	Query *memcore.ReferenceQuery
 }
 
 func (sc *SessionContext) SetResultSet(stmt string, records []memcore.Record) {
@@ -98,16 +104,16 @@ func (sc *SessionContext) ExecuteSelect(stmt sqlparser.SelectStatement) (memcore
 	return ExecuteSelectStatement(sc, stmt, false)
 }
 
-func (sc *SessionContext) GetQuery(name string) (memcore.Query, bool) {
+func (sc *SessionContext) GetQuery(name string) (*memcore.ReferenceQuery, bool) {
 	for idx := range sc.queries {
 		if sc.queries[idx].Name == name || sc.queries[idx].Alias == name {
 			return sc.queries[idx].Query, true
 		}
 	}
 
-	return memcore.Query{}, false
+	return nil, false
 }
-func (sc *SessionContext) addQuery(tableName, tableAlias string, query memcore.Query) {
+func (sc *SessionContext) addQuery(tableName, tableAlias string, query *memcore.ReferenceQuery) {
 	sc.queries = append(sc.queries, TableQuery{Name: tableName, Alias: tableAlias, Query: query})
 }
 
@@ -485,8 +491,9 @@ func ExecuteAliasedTableExpression(ec *SessionContext, expr *sqlparser.AliasedTa
 			return Datasource{}, memcore.Query{}, err
 		}
 
-		ec.addQuery(ds.Table, ds.As, query)
-		return ds, query, err
+		reference := query.ToReference()
+		ec.addQuery(ds.Table, ds.As, reference)
+		return ds, reference.Query, err
 	case *sqlparser.Subquery:
 		query, err := ExecuteSelectStatement(ec, subExpr.Select, hasJoin)
 		if err != nil {
@@ -495,11 +502,12 @@ func ExecuteAliasedTableExpression(ec *SessionContext, expr *sqlparser.AliasedTa
 		if !expr.As.IsEmpty() {
 			query = query.Map(memcore.RenameTableToAlias(expr.As.String()))
 		}
-		ec.addQuery("", expr.As.String(), query)
 
+		reference := query.ToReference()
+		ec.addQuery("", expr.As.String(), reference)
 		return Datasource{
 			As: expr.As.String(),
-		}, query, err
+		}, reference.Query, err
 	default:
 		return Datasource{}, memcore.Query{}, fmt.Errorf("invalid aliased table expression %+v of type %v", expr.Expr, reflect.TypeOf(expr.Expr))
 	}
@@ -507,8 +515,9 @@ func ExecuteAliasedTableExpression(ec *SessionContext, expr *sqlparser.AliasedTa
 
 func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, hasJoin bool) (memcore.Query, error) {
 	if ds.Qualifier == "fdw" {
+		tableAlias := TableAlias{Name: strings.TrimPrefix(ds.Table, "db."), Alias: ds.As}
 		if where == nil || !hasJoin {
-			return ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, where)
+			return ec.Foreign.From(ec, tableAlias, where)
 		}
 
 		whereExpr, err := parser.SplitByTableName(where.Expr, ds.Table, ds.As)
@@ -516,34 +525,23 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 			return memcore.Query{}, err
 		}
 
-		return ec.Foreign.From(ec, strings.TrimPrefix(ds.Table, "db."), ds.As, &sqlparser.Where{Expr: whereExpr})
+		return ec.Foreign.From(ec, tableAlias, &sqlparser.Where{Expr: whereExpr})
 	}
 
+	tableAlias := TableAlias{Name: ds.Table, Alias: ds.As}
 	var expr sqlparser.Expr
 	if where != nil {
 		expr = where.Expr
 	}
-	var tableExpr sqlparser.Expr
-	if expr != nil {
-		var err error
-		if hasJoin {
-			_, tableExpr, err = parser.SplitByColumnName(expr, parser.ByTableTag(ds.Table, ds.As))
-		} else {
-			_, tableExpr, err = parser.SplitByColumnName(expr, parser.ByTag())
-		}
-		if err != nil {
-			return memcore.Query{}, errors.Wrap(err, "couldn't resolve where '"+sqlparser.String(expr)+"'")
-		}
-	}
 
-	debuger := ec.Debuger.NewTable(ds.Table, ds.As, tableExpr)
-
-	query, tableNames, err := ec.Storage.From(ec, ds.Table, ds.As, tableExpr)
+	query, tableNames, err := ec.Storage.From(ec, tableAlias, expr)
 	if err != nil {
 		return memcore.Query{}, err
 	}
-	debuger.SetTableNames(tableNames)
-
+	debuger := ec.Debuger.NewTable(ds.Table, ds.As, expr)
+	if debuger != nil {
+		debuger.SetTableNames(tableNames)
+	}
 	whereExpr := expr
 	if hasJoin && expr != nil {
 		whereExpr, err = parser.SplitByTableName(expr, ds.Table, ds.As)
@@ -551,7 +549,9 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 			return memcore.Query{}, err
 		}
 	}
-	debuger.SetWhere(whereExpr)
+	if debuger != nil {
+		debuger.SetWhere(whereExpr)
+	}
 
 	query, err = ExecuteWhere(ec, query, whereExpr)
 	if err != nil {
@@ -562,7 +562,11 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 		query = query.Map(memcore.RenameTableToAlias(ds.As))
 	}
 
-	return debuger.Track(query), nil
+
+	if debuger != nil {
+		return debuger.Track(query), nil
+	}
+	return query, nil
 }
 
 func ExecuteWhere(ec *SessionContext, query memcore.Query, expr sqlparser.Expr) (memcore.Query, error) {

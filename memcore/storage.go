@@ -14,7 +14,6 @@ var ErrNotFound = vm.ErrNotFound
 
 var Wrap = errors.Wrap
 
-
 func TableNotExists(table string, err ...error) error {
 	if len(err) > 0 && err[0] != nil {
 		return errors.WithTitle(errors.ErrTableNotExists, "table '"+table+"' isnot exists: "+err[0].Error())
@@ -24,7 +23,7 @@ func TableNotExists(table string, err ...error) error {
 
 func ColumnNotFound(tableName, columnName string) error {
 	if tableName != "" {
-	return errors.WithTitle(ErrNotFound, "column '"+tableName +"."+columnName+"' isnot found")
+		return errors.WithTitle(ErrNotFound, "column '"+tableName+"."+columnName+"' isnot found")
 	}
 	return errors.WithTitle(ErrNotFound, "column '"+columnName+"' isnot found")
 }
@@ -41,13 +40,24 @@ type Context interface{}
 type GetValuer = vm.GetValuer
 type GetValueFunc = vm.GetValueFunc
 
+
+type TableAlias struct {
+	Name  string
+	Alias string
+}
+
+func (a TableAlias) Equal(name string) bool {
+	return a.Name == name || a.Alias == name
+}
+
 type TableName struct {
 	Tags  KeyValues
 	Table string
 }
+
 func (tn TableName) String() string {
 	if len(tn.Tags) > 0 {
-		return tn.Table + "("+ tn.Tags.ToKey() +")"
+		return tn.Table + "(" + tn.Tags.ToKey() + ")"
 	}
 	return tn.Table
 }
