@@ -73,5 +73,5 @@ func (c *avgAgg) Agg(value Value) (err error) {
 }
 
 func (c *avgAgg) Result() (Value, error) {
-	return divInt(c.sum, c.count)
+	return DivInt(c.sum, c.count)
 }

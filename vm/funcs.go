@@ -38,12 +38,12 @@ func Round(ctx Context, values []Value) (Value, error) {
 	// case ValueString:
 	//   	return ToDatetimeValue(value.Str)
 	case ValueInt64:
-		if decimaldigitValue.Int64 < 0 {
+		if decimaldigitValue.IntValue() < 0 {
 			return Null(), newArgumentError("round", "round argument decimaldigits invalid")
 		}
-		decimaldigits = int(decimaldigitValue.Int64)
+		decimaldigits = int(decimaldigitValue.IntValue())
 	case ValueUint64:
-		decimaldigits = int(decimaldigitValue.Uint64)
+		decimaldigits = int(decimaldigitValue.UintValue())
 	// case ValueFloat64:
 	//  	return UintToValue(uint64(value.Float64)), nil
 	// case ValueDatetime:
@@ -55,27 +55,7 @@ func Round(ctx Context, values []Value) (Value, error) {
 	}
 
 	xValue := values[0]
-	switch xValue.Type {
-	// case ValueInt64:
-	// case ValueUint64:
-	case ValueFloat64:
-		f64 := xValue.Float64
-		for i := 0; i < decimaldigits; i++ {
-			f64 = f64 * 10
-		}
-		f64 = float64(int64(f64 + 0.5))
-
-		for i := 0; i < decimaldigits; i++ {
-			f64 = f64 / 10
-		}
-		return FloatToValue(f64), nil
-	// case ValueDatetime:
-	//  return value, nil
-	// case ValueInterval:
-	//  return Null(), NewArithmeticError("convert", value.Type.String(), "datetime")
-	default:
-		return Null(), newConvertError(nil, xValue, "datetime")
-	}
+	return xValue.Round(decimaldigits)
 }
 
 func newArgumentError(name string, msg string) error {

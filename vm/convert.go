@@ -17,17 +17,17 @@ func ConvertToBool(readValue func(Context) (Value, error)) func(Context) (Value,
 		case ValueBool:
 			return value, nil
 		case ValueString:
-			if strings.ToLower(value.Str) == "true" {
+			if strings.ToLower(value.StrValue()) == "true" {
 				return BoolToValue(true), nil
 			}
 			return BoolToValue(false), nil
 		case ValueInt64:
-			if value.Int64 != 0 {
+			if value.IntValue() != 0 {
 				return BoolToValue(true), nil
 			}
 			return BoolToValue(false), nil
 		case ValueUint64:
-			if value.Uint64 != 0 {
+			if value.UintValue() != 0 {
 				return BoolToValue(true), nil
 			}
 			return BoolToValue(false), nil
@@ -58,7 +58,7 @@ func ConvertToInt(readValue func(Context) (Value, error)) func(Context) (Value, 
 			}
 			return IntToValue(0), nil
 		case ValueString:
-			i64, err := strconv.ParseInt(value.Str, 10, 64)
+			i64, err := strconv.ParseInt(value.StrValue(), 10, 64)
 			if err != nil {
 				return Null(), newConvertError(err, value, "int")
 			}
@@ -66,9 +66,9 @@ func ConvertToInt(readValue func(Context) (Value, error)) func(Context) (Value, 
 		case ValueInt64:
 			return value, nil
 		case ValueUint64:
-			return IntToValue(int64(value.Uint64)), nil
+			return IntToValue(int64(value.UintValue())), nil
 		case ValueFloat64:
-			return IntToValue(int64(value.Float64)), nil
+			return IntToValue(int64(value.FloatValue())), nil
 		// case ValueDatetime:
 		// 	return Null(), NewArithmeticError("convert", value.Type.String(), "int")
 		// case ValueInterval:
@@ -94,17 +94,17 @@ func ConvertToUint(readValue func(Context) (Value, error)) func(Context) (Value,
 			}
 			return UintToValue(0), nil
 		case ValueString:
-			u64, err := strconv.ParseUint(value.Str, 10, 64)
+			u64, err := strconv.ParseUint(value.StrValue(), 10, 64)
 			if err != nil {
 				return Null(), newConvertError(err, value, "uint")
 			}
 			return UintToValue(u64), nil
 		case ValueInt64:
-			return UintToValue(uint64(value.Int64)), nil
+			return UintToValue(uint64(value.IntValue())), nil
 		case ValueUint64:
 			return value, nil
 		case ValueFloat64:
-			return UintToValue(uint64(value.Float64)), nil
+			return UintToValue(uint64(value.FloatValue())), nil
 		// case ValueDatetime:
 		// 	return Null(), NewArithmeticError("convert", value.Type.String(), "uint")
 		// case ValueInterval:
@@ -130,7 +130,7 @@ func ConvertToDatetime(readValue func(Context) (Value, error)) func(Context) (Va
 		// 	}
 		// 	return UintToValue(0), nil
 		case ValueString:
-			return ToDatetimeValue(value.Str)
+			return ToDatetimeValue(value.StrValue())
 		// case ValueInt64:
 		//  	return UintToValue(uint64(value.Int64)), nil
 		// case ValueUint64:
