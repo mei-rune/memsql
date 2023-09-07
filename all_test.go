@@ -164,9 +164,10 @@ func (app *TestApp) Execute(t *testing.T, ctx *Context, sqlstmt string) (RecordS
 	if ctx.Ctx == nil {
 		ctx.Ctx = context.Background()
 	}
-	if ctx.Storage == nil {
 
+	if ctx.Storage == nil {
 		if app.runtimeRead != nil {
+			t.Log("=========")
 			ctx.Storage = NewHookStorage(app.s, app.runtimeRead)
 		} else {
 			ctx.Storage = WrapStorage(app.s)

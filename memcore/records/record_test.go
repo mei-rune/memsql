@@ -1,4 +1,4 @@
-package memcore
+package records
 
 import (
 	"reflect"

@@ -50,8 +50,82 @@ func (s storageWrapper) From(ctx *SessionContext, tableName TableAlias, tableExp
 	return fromRun(ctx, s.storage, tableName, tableExpr, trace)
 }
 
+
+
+// func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error), trace func(TableName)) (Query, error) {
+// 	return Query{
+// 		Iterate: func() Iterator {
+// 			q, err := s.from(ctx, tablename, filter, trace)
+// 			if err != nil {
+// 				return func(ctx Context) (Record, error) {
+// 					return Record{}, err
+// 				}
+// 			}
+// 			return q.Iterate()
+// 		},
+// 	}, nil
+// }
+
+// func (s *storage) from(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error), trace func(TableName)) (Query, error) {
+// 	s.mu.Lock()
+// 	defer s.mu.Unlock()
+
+// 	byKey := s.measurements[tablename]
+// 	if len(byKey) == 0 {
+// 		return Query{}, TableNotExists(tablename)
+// 	}
+
+// 	var list []measurement
+// 	for _, m := range byKey {
+// 		values := toGetValuer(m.tags)
+// 		ok, err := filter(values)
+// 		if err != nil {
+// 			if errors.Is(err, ErrNotFound) {
+// 				continue
+// 			}
+
+// 			return Query{}, TableNotExists(tablename, err)
+// 		}
+// 		if m.err != nil {
+// 			return Query{}, m.err
+// 		}
+// 		if ok {
+// 			if trace != nil {
+// 				trace(TableName{
+// 					Table: tablename,
+// 					Tags:  m.tags,
+// 				})
+// 			}
+// 			list = append(list, m)
+// 		}
+// 	}
+// 	if len(list) == 0 {
+// 		return Query{}, TableNotExists(tablename)
+// 	}
+// 	query := FromWithTags(list[0].data, list[0].tags)
+// 	for i := 1; i < len(list); i++ {
+// 		query = query.UnionAll(FromWithTags(list[i].data, list[i].tags))
+// 	}
+// 	return query, nil
+// }
+
+
+func toGetValuer(tags memcore.KeyValues) vm.GetValuer {
+	return vm.GetValueFunc(func(tableName, name string) (vm.Value, error) {
+		tagName := name
+		if strings.HasPrefix(tagName, "@") {
+			tagName = strings.TrimPrefix(tagName, "@")
+		}
+		value, ok := tags.Get(tagName)
+		if ok {
+			return vm.StringToValue(value), nil
+		}
+		return vm.Null(), memcore.TagNotFound(tableName, name)
+	})
+}
+
 func fromRun(ctx *SessionContext, storage memcore.Storage, tableName TableAlias, tableExpr sqlparser.Expr, trace func(name TableName)) (memcore.Query, error) {
-	var f = func(vm.Context) (bool, error) {
+	var f = func(name memcore.TableName) (bool, error) {
 		return true, nil
 	}
 
@@ -64,9 +138,12 @@ func fromRun(ctx *SessionContext, storage memcore.Storage, tableName TableAlias,
 		if err != nil {
 			return memcore.Query{},  errors.Wrap(err, "couldn't convert tableExpr '"+sqlparser.String(tableExpr)+"'")
 		}
-		f = ff
+		f = func(name memcore.TableName) (bool, error) {
+			return ff(toGetValuer(name.Tags))
+		}
 	}
-	return storage.From(ctx, tableName.Name, f, trace)
+
+	return memcore.FromStorage(storage, tableName.Name, f, trace)
 }
 
 type Context struct {
@@ -75,7 +152,6 @@ type Context struct {
 	Storage Storage
 	Foreign Foreign
 }
-
 
 type SessionContext struct {
 	*Context
@@ -479,9 +555,9 @@ func ParseJoinOn(ctx *SessionContext, on sqlparser.Expr) (
 		return "", nil, "", nil, fmt.Errorf("invalid On expression %+v", on)
 	}
 	return sqlparser.String(leftCol.Qualifier), func(r memcore.Record) (memcore.Value, error) {
-			return leftValue(memcore.ToRecordValuer(&r, false))
+			return leftValue(ToRecordValuer(&r, false))
 		}, sqlparser.String(rightCol.Qualifier), func(r memcore.Record) (memcore.Value, error) {
-			return rightValue(memcore.ToRecordValuer(&r, false))
+			return rightValue(ToRecordValuer(&r, false))
 		}, nil
 }
 
@@ -538,7 +614,7 @@ func ExecuteAliasedTableExpression(ec *SessionContext, expr *sqlparser.AliasedTa
 			return Datasource{}, memcore.Query{}, err
 		}
 		if !expr.As.IsEmpty() {
-			query = query.Map(memcore.RenameTableToAlias(expr.As.String()))
+			query = query.Map(RenameTableToAlias(expr.As.String()))
 		}
 
 		reference := query.ToReference()
@@ -600,7 +676,7 @@ func ExecuteTable(ec *SessionContext, ds Datasource, where *sqlparser.Where, has
 	}
 
 	if ds.As != "" {
-		query = query.Map(memcore.RenameTableToAlias(ds.As))
+		query = query.Map(RenameTableToAlias(ds.As))
 	}
 
 
@@ -620,7 +696,7 @@ func ExecuteWhere(ec *SessionContext, query memcore.Query, expr sqlparser.Expr) 
 		return memcore.Query{}, errors.Wrap(err, "couldn't convert where '"+sqlparser.String(expr)+"'")
 	}
 	query = query.Where(func(idx int, r memcore.Record) (bool, error) {
-		return f(memcore.ToRecordValuer(&r, true))
+		return f(ToRecordValuer(&r, true))
 	})
 
 	// type Where Expr
@@ -655,11 +731,11 @@ func ExecuteOrderBy(ec *SessionContext, query memcore.Query, orderBy sqlparser.O
 	switch orderBy[0].Direction {
 	case sqlparser.AscScr, "":
 		orderedQuery = query.OrderByAscending(func(r memcore.Record) (memcore.Value, error) {
-			return read(memcore.ToRecordValuer(&r, false))
+			return read(ToRecordValuer(&r, false))
 		})
 	case sqlparser.DescScr:
 		orderedQuery = query.OrderByDescending(func(r memcore.Record) (memcore.Value, error) {
-			return read(memcore.ToRecordValuer(&r, false))
+			return read(ToRecordValuer(&r, false))
 		})
 	default:
 		return memcore.Query{}, errors.New("invalid order by " + sqlparser.String(orderBy[0]))
@@ -673,11 +749,11 @@ func ExecuteOrderBy(ec *SessionContext, query memcore.Query, orderBy sqlparser.O
 		switch orderBy[idx].Direction {
 		case sqlparser.AscScr, "":
 			orderedQuery = orderedQuery.ThenByAscending(func(r memcore.Record) (memcore.Value, error) {
-				return read(memcore.ToRecordValuer(&r, false))
+				return read(ToRecordValuer(&r, false))
 			})
 		case sqlparser.DescScr:
 			orderedQuery = orderedQuery.ThenByDescending(func(r memcore.Record) (memcore.Value, error) {
-				return read(memcore.ToRecordValuer(&r, false))
+				return read(ToRecordValuer(&r, false))
 			})
 		default:
 			return memcore.Query{}, errors.New("invalid order by " + sqlparser.String(orderBy[0]))
@@ -827,7 +903,7 @@ func ExecuteSelectExprs(ec *SessionContext, query memcore.Query, selectExprs sql
 			return query, errors.New("agg function and nonagg function exist simultaneously")
 		}
 		selector := func(index int, r Record) (result Record, err error) {
-			valuer := memcore.ToRecordValuer(&r, true)
+			valuer := ToRecordValuer(&r, true)
 			// valuer = vm.WrapAlias(valuer, ec.alias)
 			for _, f := range selectFuncs {
 				result, err = f(valuer, result)
@@ -869,7 +945,7 @@ func toSelectAggOneFunc(idx int, as string, funcName string,
 	f func() vm.Aggregator,
 	readValue func(vm.Context) (Value, error)) (memcore.AggregatorFactoryFunc, error) {
 	return memcore.AggregatorFunc(f, func(ctx memcore.Context, r memcore.Record) (vm.Value, error) {
-		return readValue(memcore.ToRecordValuer(&r, false))
+		return readValue(ToRecordValuer(&r, false))
 	}), nil
 }
 

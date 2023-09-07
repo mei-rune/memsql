@@ -51,9 +51,13 @@ func TestKeyValues(t *testing.T) {
 		resultSets: map[string][]memcore.Record{},
 	}
 
-	query, err := storage.From(ctx, "mo_list", func(ctx memcore.GetValuer) (bool, error){
+	query, err := memcore.FromStorage(storage, "mo_list", func(ctx memcore.TableName) (bool, error){
 		return true, nil
 	}, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	fctx.addQuery("mo_list", "mo", query.ToReference())
 
 	opts := cmp.Options{

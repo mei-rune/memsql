@@ -21,6 +21,8 @@ func NewHookStorage(storage memcore.Storage, read ReadFunc) *HookStorage {
 	 }
 }
 
+var _ Storage = &HookStorage{}
+
 type HookStorage struct {
 	Storage memcore.Storage
 
@@ -41,7 +43,17 @@ func (hs *HookStorage) From(ctx *SessionContext, tableName TableAlias, tableExpr
 		return nil
 	})
 
-	return fromRun(ctx, hs.Storage, tableName, tableExpr, trace)
+	return memcore.Query{
+		Iterate: func() memcore.Iterator {
+			q, err := fromRun(ctx, hs.Storage, tableName, tableExpr, trace)
+			if err != nil {
+				return func(ctx memcore.Context) (Record, error) {
+					return memcore.Record{}, err
+				}
+			}
+			return q.Iterate()
+		},
+	}, nil
 }
 
 func (hs *HookStorage) EnsureTables(ctx *SessionContext, tableName TableAlias, iterator parser.KeyValueIterator) error {

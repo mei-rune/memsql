@@ -1,4 +1,4 @@
-package memcore
+package records
 
 import (
 	"sort"
@@ -11,8 +11,6 @@ import (
 )
 
 var ErrNotFound = vm.ErrNotFound
-
-var Wrap = errors.Wrap
 
 func TableNotExists(table string, err ...error) error {
 	if len(err) > 0 && err[0] != nil {
@@ -35,38 +33,10 @@ func TagNotFound(tableName, tagName string) error {
 	return errors.WithTitle(ErrNotFound, "tag '"+tableName+"."+tagName+"' isnot found")
 }
 
-type Context interface{}
+// type Context interface{}
 
-type GetValuer = vm.GetValuer
-type GetValueFunc = vm.GetValueFunc
-
-
-type TableAlias struct {
-	Name  string
-	Alias string
-}
-
-func (a TableAlias) Equal(name string) bool {
-	return a.Name == name || a.Alias == name
-}
-
-type TableName struct {
-	Tags  KeyValues
-	Table string
-}
-
-func (tn TableName) String() string {
-	if len(tn.Tags) > 0 {
-		return tn.Table + "(" + tn.Tags.ToKey() + ")"
-	}
-	return tn.Table
-}
-
-type Storage interface {
-	From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error), trace func(TableName)) (Query, error)
-	Set(name string, tags []KeyValue, t time.Time, table Table, err error) error
-	Exists(name string, tags []KeyValue, predateLimit time.Time) bool
-}
+// type GetValuer = vm.GetValuer
+// type GetValueFunc = vm.GetValueFunc
 
 type KeyValue struct {
 	Key   string
@@ -149,96 +119,134 @@ func (kvs KeyValues) ToKey() string {
 	return sb.String()
 }
 
-type measurement struct {
-	tags     KeyValues
-	dataTime time.Time
-	data     Table
+type Measurement struct {
+	Name TableName
+	Time time.Time
+	Data Table
 
-	errTime time.Time
-	err     error
+	ErrTime time.Time
+	Err     error
 }
 
-func toGetValuer(tags KeyValues) GetValuer {
-	return GetValueFunc(func(tableName, name string) (Value, error) {
-		tagName := name
-		if strings.HasPrefix(tagName, "@") {
-			tagName = strings.TrimPrefix(tagName, "@")
-		}
-		value, ok := tags.Get(tagName)
-		if ok {
-			return vm.StringToValue(value), nil
-		}
-		return vm.Null(), TagNotFound(tableName, name)
-	})
+// func toGetValuer(tags KeyValues) GetValuer {
+// 	return GetValueFunc(func(tableName, name string) (Value, error) {
+// 		tagName := name
+// 		if strings.HasPrefix(tagName, "@") {
+// 			tagName = strings.TrimPrefix(tagName, "@")
+// 		}
+// 		value, ok := tags.Get(tagName)
+// 		if ok {
+// 			return vm.StringToValue(value), nil
+// 		}
+// 		return vm.Null(), TagNotFound(tableName, name)
+// 	})
+// }
+
+type Storage interface {
+	From(tablename string, filter func(name TableName) (bool, error)) ([]Measurement, error)
+	Set(name string, tags []KeyValue, t time.Time, table Table, err error) error
+	Exists(name string, tags []KeyValue, predateLimit time.Time) bool
 }
 
 type storage struct {
 	mu           sync.Mutex
-	measurements map[string]map[string]measurement
+	measurements map[string]map[string]Measurement
 }
 
 func NewStorage() Storage {
 	return &storage{
-		measurements: map[string]map[string]measurement{},
+		measurements: map[string]map[string]Measurement{},
 	}
 }
 
-func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error), trace func(TableName)) (Query, error) {
-	return Query{
-		Iterate: func() Iterator {
-			q, err := s.from(ctx, tablename, filter, trace)
-			if err != nil {
-				return func(ctx Context) (Record, error) { 
-					return Record{}, err
-				}
-			}
-			return q.Iterate()
-		},
-	}, nil
-}
-
-func (s *storage) from(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error), trace func(TableName)) (Query, error) {
+func (s *storage) From(tablename string, filter func(name TableName) (bool, error)) ([]Measurement, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	byKey := s.measurements[tablename]
 	if len(byKey) == 0 {
-		return Query{}, TableNotExists(tablename)
+		return nil, TableNotExists(tablename)
 	}
 
-	var list []measurement
+	var list []Measurement
 	for _, m := range byKey {
-		values := toGetValuer(m.tags)
-		ok, err := filter(values)
+		ok, err := filter(m.Name)
 		if err != nil {
 			if errors.Is(err, ErrNotFound) {
 				continue
 			}
 
-			return Query{}, TableNotExists(tablename, err)
+			return nil, TableNotExists(tablename, err)
 		}
-		if m.err != nil {
-			return Query{},  m.err
+		if m.Err != nil {
+			return nil, m.Err
 		}
 		if ok {
-			if trace != nil {
-				trace(TableName{
-					Table: tablename,
-					Tags:  m.tags,
-				})
-			}
 			list = append(list, m)
 		}
 	}
 	if len(list) == 0 {
-		return Query{}, TableNotExists(tablename)
+		return nil, TableNotExists(tablename)
 	}
-	query := FromWithTags(list[0].data, list[0].tags)
-	for i := 1; i < len(list); i++ {
-		query = query.UnionAll(FromWithTags(list[i].data, list[i].tags))
-	}
-	return query,  nil
+	return list, nil
 }
+
+// func (s *storage) From(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error), trace func(TableName)) (Query, error) {
+// 	return Query{
+// 		Iterate: func() Iterator {
+// 			q, err := s.from(ctx, tablename, filter, trace)
+// 			if err != nil {
+// 				return func(ctx Context) (Record, error) {
+// 					return Record{}, err
+// 				}
+// 			}
+// 			return q.Iterate()
+// 		},
+// 	}, nil
+// }
+
+// func (s *storage) from(ctx Context, tablename string, filter func(ctx GetValuer) (bool, error), trace func(TableName)) (Query, error) {
+// 	s.mu.Lock()
+// 	defer s.mu.Unlock()
+
+// 	byKey := s.measurements[tablename]
+// 	if len(byKey) == 0 {
+// 		return Query{}, TableNotExists(tablename)
+// 	}
+
+// 	var list []measurement
+// 	for _, m := range byKey {
+// 		values := toGetValuer(m.tags)
+// 		ok, err := filter(values)
+// 		if err != nil {
+// 			if errors.Is(err, ErrNotFound) {
+// 				continue
+// 			}
+
+// 			return Query{}, TableNotExists(tablename, err)
+// 		}
+// 		if m.err != nil {
+// 			return Query{}, m.err
+// 		}
+// 		if ok {
+// 			if trace != nil {
+// 				trace(TableName{
+// 					Table: tablename,
+// 					Tags:  m.tags,
+// 				})
+// 			}
+// 			list = append(list, m)
+// 		}
+// 	}
+// 	if len(list) == 0 {
+// 		return Query{}, TableNotExists(tablename)
+// 	}
+// 	query := FromWithTags(list[0].data, list[0].tags)
+// 	for i := 1; i < len(list); i++ {
+// 		query = query.UnionAll(FromWithTags(list[i].data, list[i].tags))
+// 	}
+// 	return query, nil
+// }
 
 func (s *storage) Set(name string, tags []KeyValue, t time.Time, data Table, err error) error {
 	s.mu.Lock()
@@ -246,7 +254,7 @@ func (s *storage) Set(name string, tags []KeyValue, t time.Time, data Table, err
 
 	byKey := s.measurements[name]
 	if byKey == nil {
-		byKey = map[string]measurement{}
+		byKey = map[string]Measurement{}
 		s.measurements[name] = byKey
 	}
 
@@ -258,19 +266,19 @@ func (s *storage) Set(name string, tags []KeyValue, t time.Time, data Table, err
 	sort.Sort(copyed)
 	key := KeyValues(copyed).ToKey()
 
-	m := measurement{
-		tags:     copyed,
-		dataTime: t,
-		data:     data,
-		errTime:  t,
-		err:      err,
+	m := Measurement{
+		Name:    TableName{Table: name, Tags: copyed},
+		Time:    t,
+		Data:    data,
+		ErrTime: t,
+		Err:     err,
 	}
 
 	old, ok := byKey[key]
 	if ok {
 		if err != nil {
-			m.data = old.data
-			m.dataTime = old.dataTime
+			m.Data = old.Data
+			m.Time = old.Time
 		}
 	}
 	byKey[key] = m
@@ -291,14 +299,13 @@ func (s *storage) Exists(tablename string, tags []KeyValue, predateLimit time.Ti
 	if !ok {
 		return false
 	}
-
-	if predateLimit.After(old.dataTime) {
-		return false
+	if predateLimit.Before(old.Time) {
+		return true
 	}
-	if old.err != nil {
-		if predateLimit.After(old.errTime) {
-			return false
+	if old.Err != nil {
+		if predateLimit.Before(old.ErrTime) {
+			return true
 		}
 	}
-	return ok
+	return false
 }

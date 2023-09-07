@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/runner-mei/memsql/memcore"
+	"github.com/runner-mei/memsql/vm"
 	"github.com/xwb1989/sqlparser"
 )
 
@@ -117,7 +118,7 @@ func (f *dbForeign) From(ctx *SessionContext, tableName TableAlias, where *sqlpa
 	}
 
 	if tableName.Alias != "" {
-		query = query.Map(memcore.RenameTableToAlias(tableName.Alias))
+		query = query.Map(RenameTableToAlias(tableName.Alias))
 	}
 	if debuger != nil {
 		query = debuger.Track(query)
@@ -169,4 +170,46 @@ func (sv scanValue) Scan(value interface{}) error {
 		return fmt.Errorf("unsupported type %T", v)
 	}
 	return nil
+}
+
+func RenameTableToAlias(alias string) func(memcore.Context, memcore.Record) (memcore.Record, error) {
+	return func(ctx memcore.Context, r Record) (Record, error) {
+		columns := make([]Column, len(r.Columns))
+		copy(columns, r.Columns)
+		for idx := range columns {
+			columns[idx].TableAs = alias
+		}
+		return memcore.Record{
+			Tags:    r.Tags,
+			Columns: columns,
+			Values:  r.Values,
+		}, nil
+	}
+}
+
+type recordValuer Record
+
+func (r *recordValuer) GetValue(tableName, name string) (Value, error) {
+	value, ok := (*Record)(r).Get(name)
+	if ok {
+		return value, nil
+	}
+	return vm.Null(), memcore.ColumnNotFound(tableName, name)
+}
+
+type recordValuerByQualifierName Record
+
+func (r *recordValuerByQualifierName) GetValue(tableName, name string) (Value, error) {
+	value, ok := (*Record)(r).GetByQualifierName(tableName, name)
+	if ok {
+		return value, nil
+	}
+	return vm.Null(), memcore.ColumnNotFound(tableName, name)
+}
+
+func ToRecordValuer(r *memcore.Record, withQualifier bool) vm.GetValuer {
+	if withQualifier {
+		return (*recordValuerByQualifierName)(r)
+	}
+	return (*recordValuer)(r)
 }
