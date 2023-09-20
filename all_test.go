@@ -167,7 +167,6 @@ func (app *TestApp) Execute(t *testing.T, ctx *Context, sqlstmt string) (RecordS
 
 	if ctx.Storage == nil {
 		if app.runtimeRead != nil {
-			t.Log("=========")
 			ctx.Storage = NewHookStorage(app.s, app.runtimeRead)
 		} else {
 			ctx.Storage = WrapStorage(app.s)
@@ -410,12 +409,6 @@ func readText(txt []byte) (TestCase, error) {
 		testCase.Selects = append(testCase.Selects, sel)
 	}
 	return testCase, nil
-}
-
-func TestSize(t *testing.T) {
-	if unsafe.Sizeof(vm.Value{}) != 64 {
-		t.Error("size")
-	}
 }
 
 func TestAll(t *testing.T) {

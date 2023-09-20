@@ -13,6 +13,38 @@ type Table struct {
 	Records [][]Value
 }
 
+func (table *Table) ForEach(fn func(columns []Column, record []Value)) {
+	for _, values := range table.Records {
+		fn(table.Columns, values)
+	}
+}
+
+func (table *Table) Add(columns []Column, values []Value) {
+	if table.Columns == nil {
+		table.Columns = make([]Column, len(columns))
+		copy(table.Columns, columns)
+
+		copyedValues := make([]Value, len(values))
+		copy(copyedValues, values)
+
+		table.Records = append(table.Records, copyedValues)
+		return
+	}
+
+	record := make([]Value, len(table.Columns))
+	for idx, value := range values {
+		foundIndex := columnSearchByName(table.Columns, columns[idx].Name)
+		if foundIndex < 0 {
+			// 这里添加了一列，那么前几行的列值的数目会少于 Columns
+			table.Columns = append(table.Columns, Column{Name: columns[idx].Name})
+			record = append(record, value)
+		} else {
+			record[foundIndex] = value
+		}
+	}
+	table.Records = append(table.Records, record)
+}
+
 func (table *Table) Length() int {
 	return len(table.Records)
 }
@@ -43,6 +75,17 @@ func (tn TableName) String() string {
 		return tn.Table + "(" + tn.Tags.ToKey() + ")"
 	}
 	return tn.Table
+}
+
+func ToMap(columns []Column, record []Value) map[string]interface{} {
+	values := map[string]interface{} {}
+	for idx, v := range record {
+		if len(columns) <= idx {
+			break
+		}
+		values[columns[idx].Name] = v.ToInterface()
+	}
+	return values
 }
 
 func ToTable(values []map[string]interface{}) (Table, error) {

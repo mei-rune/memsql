@@ -121,6 +121,7 @@ func (kvs KeyValues) ToKey() string {
 
 type Measurement struct {
 	Name TableName
+	IsSingleValue bool
 	Time time.Time
 	Data Table
 
@@ -144,7 +145,7 @@ type Measurement struct {
 
 type Storage interface {
 	From(tablename string, filter func(name TableName) (bool, error)) ([]Measurement, error)
-	Set(name string, tags []KeyValue, t time.Time, table Table, err error) error
+	Set(name string, tags []KeyValue, isSingleValue bool, t time.Time, table Table, err error) error
 	Exists(name string, tags []KeyValue, predateLimit time.Time) bool
 }
 
@@ -248,7 +249,7 @@ func (s *storage) From(tablename string, filter func(name TableName) (bool, erro
 // 	return query, nil
 // }
 
-func (s *storage) Set(name string, tags []KeyValue, t time.Time, data Table, err error) error {
+func (s *storage) Set(name string, tags []KeyValue, isSingleValue bool, t time.Time, data Table, err error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -268,6 +269,7 @@ func (s *storage) Set(name string, tags []KeyValue, t time.Time, data Table, err
 
 	m := Measurement{
 		Name:    TableName{Table: name, Tags: copyed},
+		IsSingleValue: isSingleValue,
 		Time:    t,
 		Data:    data,
 		ErrTime: t,
